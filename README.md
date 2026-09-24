@@ -97,21 +97,24 @@ Un título por cada cero:
 
 | Desde | Título |
 |---|---|
-| 1 | Aspirante a Calvo |
-| 10 | Calvo Novato |
-| 100 | Calvo Profesional |
-| 1.000 | Calvo Veterano |
-| 10.000 | Maestro de la Calvicie |
-| 100.000 | Gran Calvo |
-| 1.000.000 | Dios Calvo |
+| 1 | Greñas Apestosas |
+| 10 | Pelambrera Lamentable |
+| 100 | Entradas Preocupantes |
+| 1.000 | Coronilla a la Intemperie |
+| 10.000 | Caballero de la Tonsura |
+| 100.000 | Lord Bola de Billar |
+| 1.000.000 | Su Calvísima Majestad |
 
-Con 0 puntos también eres Aspirante a Calvo.
+Con 0 puntos también eres Greñas Apestosas.
 
 **Anuncios globales** (se pueden desactivar):
-- Al subir de título: `🧑‍🦲 {jugador} asciende a {título}`
-- Al llegar al título más alto (Dios Calvo), en lugar del anterior:
-  `🧑‍🦲 {jugador} HA ALCANZADO LA CALVICIE SUPREMA`
-- Al bajar de título: `⚠️ A {jugador} le está saliendo pelo (ahora es {título})`
+- Al subir de título: `{jugador} asciende a {título}`
+- Al llegar al título más alto (Su Calvísima Majestad), en lugar del anterior:
+  `{jugador} HA ALCANZADO LA CALVICIE SUPREMA`
+- Al bajar de título: `A {jugador} le está saliendo pelo (ahora es {título})`
+
+Los mensajes van resaltados con color. **No uses emojis en los textos**: el
+chat de Rust no los dibuja y salen como `??`.
 
 **Estadísticas** por jugador: kills, muertes y kills de headshot (solo contra
 jugadores). Las kills cuentan aunque no den calvicie (sleeper o cooldown).
@@ -200,7 +203,7 @@ servidor.
 1. Ten un servidor dedicado de Rust con **Oxide (uMod)** instalado.
 2. Copia `src/IslaDeCalvos.cs` en la carpeta `oxide/plugins/` del servidor.
 3. Oxide lo compila y carga solo. En la consola deberías ver algo como
-   `Loaded plugin Isla de Calvos v1.0.0 by Igor Monasterio`.
+   `Loaded plugin Isla de Calvos v1.0.1 by Igor Monasterio`.
 4. Para recargarlo tras cambiar el fichero (normalmente se recarga solo):
    `oxide.reload IslaDeCalvos`
 
