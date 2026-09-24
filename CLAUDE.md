@@ -107,7 +107,14 @@ Lee `docs/ARCHITECTURE.md` antes de tocar código.
   algo no se puede verificar, se dice explícitamente.
 - **Cambiar valores ya desplegados**: los configs existentes no se
   sobrescriben. Para forzar un valor nuevo, subir `CurrentConfigVersion` y
-  migrar en `ValidateConfig` (ver la migración 130).
+  migrar en `ValidateConfig` (ver la migración 131).
+- **Cambiar un texto ya desplegado**: Oxide conserva el texto viejo si la
+  clave ya existe en `oxide/lang/*`. Para que el nuevo llegue solo, **cambiar
+  el nombre de la clave** (Oxide añade las nuevas y borra las que ya no
+  existen). Así se hizo con las claves `Calvario*` en la 1.3.1.
+- **Espacio en pantalla**: abajo, entre el cinturón y las barras, lo usa el
+  panel de RaidableBases; arriba en el centro, otro panel de RaidableBases.
+  El contador va arriba a la derecha.
 - **Contexto del servidor** (a 2026-09-24): 1-3 jugadores, x5 gather, loot x1
   (BetterLoot), StackSizeController x5, RaidableBases (NPCs `scientistnpc_heavy`,
   skinID 3710562502), Economics + GUIShop (monedas) y ServerRewards (RP,

@@ -9,7 +9,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Isla de Calvos", "Igor Monasterio", "1.3.0")]
+    [Info("Isla de Calvos", "Igor Monasterio", "1.3.1")]
     [Description("Baldness system for the Isla de Calvos Rust server: being bald is glory, hair is a curse.")]
     public class IslaDeCalvos : RustPlugin
     {
@@ -53,7 +53,7 @@ namespace Oxide.Plugins
         #region Configuration
 
         // Bump when a release must overwrite values already saved in existing config files.
-        private const int CurrentConfigVersion = 130;
+        private const int CurrentConfigVersion = 131;
 
         private class Configuration
         {
@@ -222,11 +222,11 @@ namespace Oxide.Plugins
             public bool ShowCounter = true;
 
             // Anchors are 0-1 screen fractions (0 0 = bottom left); offsets are pixels from those anchors.
-            [JsonProperty("Counter anchor min")] public string CounterAnchorMin = "1 0";
-            [JsonProperty("Counter anchor max")] public string CounterAnchorMax = "1 0";
-            // Between the belt's backpack button and the health/water/food bars.
-            [JsonProperty("Counter offset min")] public string CounterOffsetMin = "-414 44";
-            [JsonProperty("Counter offset max")] public string CounterOffsetMax = "-218 80";
+            [JsonProperty("Counter anchor min")] public string CounterAnchorMin = "1 1";
+            [JsonProperty("Counter anchor max")] public string CounterAnchorMax = "1 1";
+            // Top-right corner of the screen (the bottom area is used by RaidableBases' status panel).
+            [JsonProperty("Counter offset min")] public string CounterOffsetMin = "-212 -58";
+            [JsonProperty("Counter offset max")] public string CounterOffsetMax = "-16 -22";
 
             [JsonProperty("Seconds the +X / -X popup stays")]
             public float DeltaSeconds = 2.5f;
@@ -416,15 +416,16 @@ namespace Oxide.Plugins
 
             if (config.Ui == null) config.Ui = new UiConfig();
 
-            if (config.ConfigVersion < 130)
+            if (config.ConfigVersion < 131)
             {
-                // 1.3.0 moves the counter next to the status bars; old positions collided with pickup notices.
+                // 1.3.0 moved the counter next to the status bars (pickup notices covered it); 1.3.1 moves it to the
+                // top-right corner because RaidableBases' status panel uses that bottom area.
                 UiConfig uiDefaults = new UiConfig();
                 config.Ui.CounterAnchorMin = uiDefaults.CounterAnchorMin;
                 config.Ui.CounterAnchorMax = uiDefaults.CounterAnchorMax;
                 config.Ui.CounterOffsetMin = uiDefaults.CounterOffsetMin;
                 config.Ui.CounterOffsetMax = uiDefaults.CounterOffsetMax;
-                PrintWarning("Config updated to 1.3.0: baldness counter moved next to the status bars.");
+                PrintWarning("Config updated to 1.3.1: baldness counter moved to the top-right corner.");
             }
 
             config.ConfigVersion = CurrentConfigVersion;
@@ -596,37 +597,55 @@ namespace Oxide.Plugins
         {
             var messages = new Dictionary<string, string>
             {
-                ["MenuTitle"] = "EL CALVARIO",
-                ["MenuYou"] = "Tu calvicie: <color=#f0c040>{0}</color> — {1}",
-                ["MenuTabItems"] = "OBJETOS",
-                ["MenuTabRanking"] = "RANKING",
-                ["MenuClose"] = "X",
-                ["MenuUse"] = "USAR",
-                ["MenuYouHave"] = "Tienes: {0}",
-                ["MenuShieldOn"] = "Cinta puesta: tu próxima muerte no resta",
-                ["MenuBatteryOn"] = "Maquinilla en marcha: quedan {0} min",
-                ["MenuCarneTitle"] = "CARNÉ DE CALVO  ({0}/{1})   ·   Carnés completados: {2}",
-                ["MenuCarneHint"] = "Entrega una tarjeta de cada color: +{0} por tarjeta y +{1} al completar el carné.",
-                ["MenuCarneDeliver"] = "ENTREGAR",
-                ["MenuRankingEmpty"] = "Aún no hay nadie en el ranking. La isla está llena de pelo.",
-                ["MenuRankingLine"] = "{0}.  {1}",
-                ["MenuRankingYou"] = "Tu posición: <color=#f0c040>{0}º</color> de {1}  ·  {2}  ·  {3}",
-                ["MenuPrev"] = "< ANTERIOR",
-                ["MenuNext"] = "SIGUIENTE >",
-                ["MenuPage"] = "Página {0}/{1}",
-                ["ItemNameBleach"] = "Lejía",
-                ["ItemNameDuctTape"] = "Cinta americana",
-                ["ItemNameBattery"] = "Pila pequeña",
-                ["ItemNameDogTag"] = "Placa militar",
-                ["ItemNameBlueDogTags"] = "Placas azules",
-                ["ItemNameRedDogTags"] = "Placas rojas",
-                ["ItemNameGems"] = "Gemas",
-                ["ItemNameIdTag"] = "Tarjeta de identificación",
-                ["ItemDescBleach"] = "Te la echas en la cabeza. {0}%: +{1}. Si no: -{2}.",
-                ["ItemDescDuctTape"] = "Te tapas la calva: tu próxima muerte no resta calvicie.",
-                ["ItemDescBattery"] = "Maquinilla eléctrica: x{0} en todo lo que ganes durante {1} min.",
-                ["ItemDescTrophy"] = "Trofeo de caza: +{0}.",
-                ["ItemDescGems"] = "Joya de la corona de Su Calvísima Majestad: +{0}.",
+                ["CalvarioTitle"] = "EL CALVARIO",
+                ["CalvarioSubtitle"] = "Clínica de alopecia voluntaria  ·  Aquí el pelo entra, pero no sale",
+                ["CalvarioYou"] = "Tu calvicie: <color=#f5d3a8>{0}</color>  —  {1}",
+                ["CalvarioNext"] = "Hacia <color=#f5d3a8>{0}</color>: te faltan {1}",
+                ["CalvarioTop"] = "Cima capilar alcanzada. Ya no queda nada que arrancar.",
+                ["CalvarioTabItems"] = "OBJETOS MALDITOS",
+                ["CalvarioTabRanking"] = "SALÓN DE LA FAMA CALVA",
+                ["CalvarioClose"] = "X",
+                ["CalvarioUse"] = "¡A LA CALVA!",
+                ["CalvarioUseNone"] = "SIN EXISTENCIAS",
+                ["CalvarioHave"] = "En la mochila: {0}",
+                ["CalvarioShieldOn"] = "Cinta puesta. Tu calva sobrevive a la próxima muerte.",
+                ["CalvarioBatteryOn"] = "Maquinilla zumbando: quedan {0} min.",
+                ["CalvarioWisdom"] = "SABIDURÍA CALVA",
+                ["CalvarioProverb1"] = "Dios hizo pocas cabezas perfectas. Al resto les puso pelo.",
+                ["CalvarioProverb2"] = "El pelo es temporal. La calva es para siempre.",
+                ["CalvarioProverb3"] = "Más vale calvo conocido que peludo por conocer.",
+                ["CalvarioProverb4"] = "Cabeza que brilla, cabeza que manda.",
+                ["CalvarioProverb5"] = "No es una calva. Es un panel solar.",
+                ["CalvarioProverb6"] = "El peine es un arma. Úsalo contra el peludo.",
+                ["CalvarioProverb7"] = "La calva no se pierde: se conquista.",
+                ["CalvarioProverb8"] = "El champú anticaída es propaganda peluda.",
+                ["CalvarioCarneTitle"] = "CARNÉ DE CALVO  ·  Ministerio de Alopecia de la Isla   ({0}/{1})   ·   Carnés sellados: {2}",
+                ["CalvarioCarneHint"] = "Una tarjeta de cada color: +{0} por sello y +{1} al completar el carné. Las repetidas, para cambiarlas.",
+                ["CalvarioCarneStamp"] = "SELLADO",
+                ["CalvarioCarneDeliver"] = "SELLAR",
+                ["CalvarioCarneNone"] = "NADA QUE SELLAR",
+                ["CalvarioRankingEmpty"] = "Aún no hay nadie en el salón. La isla está llena de pelo.",
+                ["CalvarioRankingLine"] = "{0}.  {1}",
+                ["CalvarioRankingYou"] = "Tu puesto: <color=#f5d3a8>{0}º</color> de {1}. Te faltan <color=#f5d3a8>{2}</color> para adelantar a {3}.",
+                ["CalvarioRankingFirst"] = "Eres la cabeza más brillante de la isla. Que no se te suba (el pelo).",
+                ["CalvarioPrev"] = "< ANTERIOR",
+                ["CalvarioNextPage"] = "SIGUIENTE >",
+                ["CalvarioPage"] = "Página {0}/{1}",
+                ["CalvarioItemBleach"] = "Lejía",
+                ["CalvarioItemDuctTape"] = "Cinta americana",
+                ["CalvarioItemBattery"] = "Pila pequeña",
+                ["CalvarioItemDogTag"] = "Placa militar",
+                ["CalvarioItemBlueDogTags"] = "Placas azules",
+                ["CalvarioItemRedDogTags"] = "Placas rojas",
+                ["CalvarioItemGems"] = "Gemas",
+                ["CalvarioItemIdTag"] = "Tarjeta de identificación",
+                ["CalvarioDescBleach"] = "Champú de la casa. {0} %: te abrasa el cuero cabelludo (+{1}). Si no, mechón rebelde (-{2}).",
+                ["CalvarioDescDuctTape"] = "Parche para la calva: si mueres, el pelo ni se entera. Una vez.",
+                ["CalvarioDescBattery"] = "Para la maquinilla: x{0} a todo lo que ganes durante {1} min. Bzzzz.",
+                ["CalvarioDescDogTag"] = "Recuerdo de un científico con flequillo. +{0}.",
+                ["CalvarioDescBlueDogTags"] = "Arrancadas a un heavy con melena. +{0}.",
+                ["CalvarioDescRedDogTags"] = "Del piloto que perdió el tupé con el helicóptero. +{0}.",
+                ["CalvarioDescGems"] = "Joya de la corona de Su Calvísima Majestad. Brilla como tu cabeza. +{0}.",
                 ["ItemFound"] = "Has encontrado: <color=#f0c040>{0}</color>. Úsalo desde /calvos.",
                 ["ItemNone"] = "No llevas {0} encima.",
                 ["ItemShieldAlready"] = "Ya llevas la calva tapada con cinta. Muere primero.",
@@ -1565,6 +1584,11 @@ namespace Oxide.Plugins
             DrawCounter(player);
 
             UiConfig ui = config.Ui;
+            // Same width as the counter: below it when the counter is in the top half of the screen, above otherwise.
+            bool below = CounterIsOnTop();
+            string popupMin = below ? ShiftY(ui.CounterOffsetMin, -28) : ShiftY(ui.CounterOffsetMax, 2, ui.CounterOffsetMin);
+            string popupMax = below ? ShiftY(ui.CounterOffsetMin, -2, ui.CounterOffsetMax) : ShiftY(ui.CounterOffsetMax, 28);
+
             var container = new CuiElementContainer();
             container.Add(new CuiLabel
             {
@@ -1576,8 +1600,7 @@ namespace Oxide.Plugins
                     Color = delta > 0 ? "0.94 0.75 0.25 1" : "0.88 0.31 0.31 1",
                     FadeIn = 0.2f
                 },
-                // Right above the counter, same width.
-                RectTransform = { AnchorMin = ui.CounterAnchorMin, AnchorMax = ui.CounterAnchorMax, OffsetMin = ShiftY(ui.CounterOffsetMax, 2, ui.CounterOffsetMin), OffsetMax = ShiftY(ui.CounterOffsetMax, 28) },
+                RectTransform = { AnchorMin = ui.CounterAnchorMin, AnchorMax = ui.CounterAnchorMax, OffsetMin = popupMin, OffsetMax = popupMax },
                 FadeOut = 0.5f
             }, "Hud", UiDelta, UiDelta);
             CuiHelper.AddUi(player, container);
@@ -1654,6 +1677,12 @@ namespace Oxide.Plugins
             CuiHelper.DestroyUi(player, UiMenu);
         }
 
+        private bool CounterIsOnTop()
+        {
+            string[] anchor = config.Ui.CounterAnchorMin.Split(' ');
+            return anchor.Length == 2 && float.TryParse(anchor[1], NumberStyles.Float, CultureInfo.InvariantCulture, out float y) && y >= 0.5f;
+        }
+
         // "x y" offset with y moved by dy; x taken from xFrom (defaults to the same offset).
         private static string ShiftY(string offset, float dy, string xFrom = null)
         {
@@ -1706,13 +1735,13 @@ namespace Oxide.Plugins
         {
             switch (key)
             {
-                case "bleach": return Lang("ItemNameBleach");
-                case "ducttape": return Lang("ItemNameDuctTape");
-                case "battery": return Lang("ItemNameBattery");
-                case "dogtag": return Lang("ItemNameDogTag");
-                case "bluedogtags": return Lang("ItemNameBlueDogTags");
-                case "reddogtags": return Lang("ItemNameRedDogTags");
-                case "gems": return Lang("ItemNameGems");
+                case "bleach": return Lang("CalvarioItemBleach");
+                case "ducttape": return Lang("CalvarioItemDuctTape");
+                case "battery": return Lang("CalvarioItemBattery");
+                case "dogtag": return Lang("CalvarioItemDogTag");
+                case "bluedogtags": return Lang("CalvarioItemBlueDogTags");
+                case "reddogtags": return Lang("CalvarioItemRedDogTags");
+                case "gems": return Lang("CalvarioItemGems");
                 default: return key;
             }
         }
@@ -1722,11 +1751,14 @@ namespace Oxide.Plugins
             CursedItemsConfig c = config.CursedItems;
             switch (key)
             {
-                case "bleach": return Lang("ItemDescBleach", null, Mathf.RoundToInt(c.Bleach.WinChance * 100f), FormatBaldness(c.Bleach.WinAmount), FormatBaldness(c.Bleach.LoseAmount));
-                case "ducttape": return Lang("ItemDescDuctTape");
-                case "battery": return Lang("ItemDescBattery", null, c.Battery.Multiplier, c.Battery.Minutes);
-                case "gems": return Lang("ItemDescGems", null, FormatBaldness(c.Gems.Reward));
-                default: return Lang("ItemDescTrophy", null, FormatBaldness(((TrophyConfig)CursedItemConfig(key)).Reward));
+                case "bleach": return Lang("CalvarioDescBleach", null, Mathf.RoundToInt(c.Bleach.WinChance * 100f), FormatBaldness(c.Bleach.WinAmount), FormatBaldness(c.Bleach.LoseAmount));
+                case "ducttape": return Lang("CalvarioDescDuctTape");
+                case "battery": return Lang("CalvarioDescBattery", null, c.Battery.Multiplier, c.Battery.Minutes);
+                case "dogtag": return Lang("CalvarioDescDogTag", null, FormatBaldness(c.DogTag.Reward));
+                case "bluedogtags": return Lang("CalvarioDescBlueDogTags", null, FormatBaldness(c.BlueDogTags.Reward));
+                case "reddogtags": return Lang("CalvarioDescRedDogTags", null, FormatBaldness(c.RedDogTags.Reward));
+                case "gems": return Lang("CalvarioDescGems", null, FormatBaldness(c.Gems.Reward));
+                default: return string.Empty;
             }
         }
 
@@ -1838,7 +1870,7 @@ namespace Oxide.Plugins
             if (tags.Shortnames.Count > 0 && tier >= tags.MinTier && tier <= tags.MaxTier)
             {
                 string color = tags.Shortnames[random.Next(tags.Shortnames.Count)];
-                TryDrop(player, new ItemDropConfig { Shortname = color, DropChance = tags.DropChance }, Lang("ItemNameIdTag"));
+                TryDrop(player, new ItemDropConfig { Shortname = color, DropChance = tags.DropChance }, Lang("CalvarioItemIdTag"));
             }
         }
 
@@ -2009,6 +2041,20 @@ namespace Oxide.Plugins
         private static string[] MenuArgs(ConsoleSystem.Arg arg) =>
             arg.HasArgs() ? arg.FullString.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries) : new string[0];
 
+        // Barber-shop palette: leather browns, bald-head cream and barber-pole stripes.
+        private const string ColorWindow = "0.12 0.07 0.06 0.97";
+        private const string ColorCard = "0.2 0.12 0.1 1";
+        private const string ColorCardDark = "0.26 0.17 0.14 1";
+        private const string ColorScalp = "0.96 0.83 0.66 1";
+        private const string ColorText = "0.88 0.82 0.75 1";
+        private const string ColorMuted = "0.62 0.54 0.47 1";
+        private const string ColorPoleRed = "0.72 0.14 0.14 1";
+        private const string ColorPoleWhite = "0.93 0.9 0.85 1";
+        private const string ColorPoleBlue = "0.16 0.3 0.62 1";
+        private const string ColorGood = "0.35 0.5 0.25 1";
+        private const string ColorDisabled = "0.28 0.2 0.18 1";
+        private const int ProverbCount = 8;
+
         private void OpenMenu(BasePlayer player, MenuTab tab, int page)
         {
             PlayerData data = GetOrCreateData(player);
@@ -2025,16 +2071,26 @@ namespace Oxide.Plugins
 
             string window = ui.Add(new CuiPanel
             {
-                Image = { Color = "0.09 0.09 0.09 0.97" },
+                Image = { Color = ColorWindow },
                 RectTransform = { AnchorMin = "0.17 0.1", AnchorMax = "0.83 0.9" }
             }, UiMenu);
 
-            AddText(ui, window, Lang("MenuTitle", userId), 24, TextAnchor.MiddleLeft, "0.03 0.9", "0.4 0.98", "0.94 0.75 0.25 1");
-            AddText(ui, window, Lang("MenuYou", userId, FormatBaldness(data.Baldness), GetTitle(data.Baldness)), 15, TextAnchor.MiddleRight, "0.4 0.9", "0.93 0.98");
-            AddButton(ui, window, Lang("MenuClose", userId), "0.956 0.935", "0.99 0.985", "0.6 0.2 0.2 1", null, UiMenu, 18);
+            // Barber pole along the top edge.
+            string[] pole = { ColorPoleRed, ColorPoleWhite, ColorPoleBlue, ColorPoleWhite };
+            const int stripes = 32;
+            for (int i = 0; i < stripes; i++)
+            {
+                AddPanel(ui, window, pole[i % pole.Length], Anchor(i / (float)stripes, 0.988f), Anchor((i + 1) / (float)stripes, 1f));
+            }
 
-            AddButton(ui, window, Lang("MenuTabItems", userId), "0.03 0.83", "0.2 0.88", tab == MenuTab.Items ? "0.94 0.75 0.25 1" : "0.25 0.25 0.25 1", "calvos.tab items");
-            AddButton(ui, window, Lang("MenuTabRanking", userId), "0.21 0.83", "0.38 0.88", tab == MenuTab.Ranking ? "0.94 0.75 0.25 1" : "0.25 0.25 0.25 1", "calvos.tab ranking 0");
+            AddText(ui, window, Lang("CalvarioTitle", userId), 26, TextAnchor.MiddleLeft, "0.03 0.915", "0.45 0.975", ColorScalp);
+            AddText(ui, window, Lang("CalvarioSubtitle", userId), 11, TextAnchor.MiddleLeft, "0.03 0.88", "0.6 0.915", ColorMuted);
+            AddText(ui, window, Lang("CalvarioYou", userId, FormatBaldness(data.Baldness), GetTitle(data.Baldness)), 15, TextAnchor.MiddleRight, "0.45 0.93", "0.935 0.975");
+            DrawTitleProgress(ui, window, data.Baldness, userId);
+            AddButton(ui, window, Lang("CalvarioClose", userId), "0.956 0.935", "0.99 0.985", ColorPoleRed, null, UiMenu, 18);
+
+            AddButton(ui, window, Lang("CalvarioTabItems", userId), "0.03 0.81", "0.25 0.86", tab == MenuTab.Items ? ColorScalp : ColorCardDark, "calvos.tab items", null, 13, tab == MenuTab.Items ? "0.12 0.07 0.06 1" : ColorText);
+            AddButton(ui, window, Lang("CalvarioTabRanking", userId), "0.26 0.81", "0.48 0.86", tab == MenuTab.Ranking ? ColorScalp : ColorCardDark, "calvos.tab ranking 0", null, 13, tab == MenuTab.Ranking ? "0.12 0.07 0.06 1" : ColorText);
 
             if (tab == MenuTab.Items)
             {
@@ -2048,48 +2104,72 @@ namespace Oxide.Plugins
             CuiHelper.AddUi(player, ui);
         }
 
+        // Thin bar under the header: how far you are from the next title.
+        private void DrawTitleProgress(CuiElementContainer ui, string window, long baldness, string userId)
+        {
+            int tier = GetTierIndex(baldness);
+            if (tier >= config.Titles.Count - 1 && baldness >= config.Titles[config.Titles.Count - 1].MinBaldness)
+            {
+                AddText(ui, window, Lang("CalvarioTop", userId), 11, TextAnchor.MiddleRight, "0.45 0.88", "0.935 0.925", ColorScalp);
+                return;
+            }
+
+            TitleTier current = config.Titles[tier];
+            TitleTier next = baldness < current.MinBaldness ? current : config.Titles[tier + 1];
+            long from = baldness < current.MinBaldness ? 0 : current.MinBaldness;
+            float progress = next.MinBaldness > from ? Math.Max(0f, Math.Min(1f, (baldness - from) / (float)(next.MinBaldness - from))) : 1f;
+
+            AddText(ui, window, Lang("CalvarioNext", userId, next.Name, FormatBaldness(next.MinBaldness - baldness)), 11, TextAnchor.MiddleRight, "0.45 0.898", "0.935 0.925", ColorMuted);
+            AddPanel(ui, window, ColorCardDark, "0.62 0.884", "0.935 0.896");
+            if (progress > 0f)
+            {
+                AddPanel(ui, window, ColorScalp, "0.62 0.884", Anchor(0.62f + 0.315f * progress, 0.896f));
+            }
+        }
+
         private void DrawItemsTab(CuiElementContainer ui, string window, BasePlayer player, PlayerData data)
         {
             string userId = player.UserIDString;
 
-            // 7 item cards: 4 on the first row, 3 on the second.
-            for (int i = 0; i < CursedItemKeys.Length; i++)
+            // 7 item cards (4 + 3) and a proverb card in the eighth slot.
+            for (int i = 0; i <= CursedItemKeys.Length; i++)
             {
-                string key = CursedItemKeys[i];
-                ItemDropConfig item = CursedItemConfig(key);
                 int row = i / 4, col = i % 4;
                 float x0 = 0.03f + col * 0.2375f, x1 = x0 + 0.2275f;
-                float y1 = 0.8f - row * 0.245f, y0 = y1 - 0.235f;
-                string card = ui.Add(new CuiPanel
-                {
-                    Image = { Color = "0.16 0.16 0.16 1" },
-                    RectTransform = { AnchorMin = Anchor(x0, y0), AnchorMax = Anchor(x1, y1) }
-                }, window);
+                float y1 = 0.79f - row * 0.245f, y0 = y1 - 0.235f;
+                string card = AddPanel(ui, window, ColorCard, Anchor(x0, y0), Anchor(x1, y1));
 
+                if (i == CursedItemKeys.Length)
+                {
+                    AddText(ui, card, Lang("CalvarioWisdom", userId), 14, TextAnchor.UpperCenter, "0.05 0.7", "0.95 0.93", ColorScalp);
+                    AddText(ui, card, "\"" + Lang("CalvarioProverb" + (random.Next(ProverbCount) + 1), userId) + "\"", 14, TextAnchor.MiddleCenter, "0.07 0.1", "0.93 0.7", ColorText);
+                    break;
+                }
+
+                string key = CursedItemKeys[i];
+                ItemDropConfig item = CursedItemConfig(key);
                 int count = CountItem(player, item.Shortname);
-                AddIcon(ui, card, item.Shortname, "0.04 0.52", "0.3 0.95", count > 0 ? "1 1 1 1" : "1 1 1 0.35");
-                AddText(ui, card, CursedItemName(key), 14, TextAnchor.UpperLeft, "0.34 0.74", "0.98 0.95", "0.94 0.75 0.25 1");
-                AddText(ui, card, Lang("MenuYouHave", userId, count), 12, TextAnchor.UpperLeft, "0.34 0.54", "0.98 0.74");
+                AddPanel(ui, card, ColorCardDark, "0.04 0.52", "0.3 0.95");
+                AddIcon(ui, card, item.Shortname, "0.06 0.55", "0.28 0.92", count > 0 ? "1 1 1 1" : "1 1 1 0.35");
+                AddText(ui, card, CursedItemName(key), 14, TextAnchor.UpperLeft, "0.34 0.74", "0.98 0.95", ColorScalp);
+                AddText(ui, card, Lang("CalvarioHave", userId, count), 12, TextAnchor.UpperLeft, "0.34 0.54", "0.98 0.74", count > 0 ? ColorText : ColorMuted);
 
                 string status = null;
-                if (key == "ducttape" && data.HasDeathShield) status = Lang("MenuShieldOn", userId);
-                if (key == "battery" && IsBatteryActive(data.Id)) status = Lang("MenuBatteryOn", userId, BatteryMinutesLeft(data.Id));
-                AddText(ui, card, status ?? CursedItemDescription(key), 11, TextAnchor.UpperLeft, "0.05 0.24", "0.97 0.5", status != null ? "0.5 0.85 0.5 1" : "0.85 0.85 0.85 1");
+                if (key == "ducttape" && data.HasDeathShield) status = Lang("CalvarioShieldOn", userId);
+                if (key == "battery" && IsBatteryActive(data.Id)) status = Lang("CalvarioBatteryOn", userId, BatteryMinutesLeft(data.Id));
+                AddText(ui, card, status ?? CursedItemDescription(key), 11, TextAnchor.UpperLeft, "0.05 0.24", "0.97 0.5", status != null ? "0.6 0.85 0.5 1" : ColorText);
 
-                AddButton(ui, card, Lang("MenuUse", userId), "0.05 0.05", "0.95 0.21", count > 0 ? "0.3 0.55 0.25 1" : "0.25 0.25 0.25 1", count > 0 ? "calvos.use " + key : null);
+                AddButton(ui, card, Lang(count > 0 ? "CalvarioUse" : "CalvarioUseNone", userId), "0.05 0.05", "0.95 0.21",
+                    count > 0 ? ColorPoleRed : ColorDisabled, count > 0 ? "calvos.use " + key : null, null, 13, count > 0 ? "1 1 1 1" : ColorMuted);
             }
 
             // Carne de Calvo: one slot per ID tag color.
             IdTagsConfig tags = config.CursedItems.IdTags;
-            string carne = ui.Add(new CuiPanel
-            {
-                Image = { Color = "0.16 0.16 0.16 1" },
-                RectTransform = { AnchorMin = "0.03 0.03", AnchorMax = "0.97 0.3" }
-            }, window);
+            string carne = AddPanel(ui, window, ColorCard, "0.03 0.03", "0.97 0.295");
 
             int done = tags.Shortnames.Count(c => data.CarneColors.Contains(c));
-            AddText(ui, carne, Lang("MenuCarneTitle", userId, done, tags.Shortnames.Count, data.CarnesCompleted), 14, TextAnchor.MiddleLeft, "0.02 0.78", "0.8 0.97", "0.94 0.75 0.25 1");
-            AddText(ui, carne, Lang("MenuCarneHint", userId, FormatBaldness(tags.Reward), FormatBaldness(tags.CollectionBonus)), 11, TextAnchor.MiddleLeft, "0.02 0.62", "0.8 0.78", "0.85 0.85 0.85 1");
+            AddText(ui, carne, Lang("CalvarioCarneTitle", userId, done, tags.Shortnames.Count, data.CarnesCompleted), 14, TextAnchor.MiddleLeft, "0.02 0.78", "0.98 0.97", ColorScalp);
+            AddText(ui, carne, Lang("CalvarioCarneHint", userId, FormatBaldness(tags.Reward), FormatBaldness(tags.CollectionBonus)), 11, TextAnchor.MiddleLeft, "0.02 0.62", "0.98 0.78", ColorText);
 
             bool canDeliver = false;
             int slots = Math.Max(1, tags.Shortnames.Count);
@@ -2102,19 +2182,20 @@ namespace Oxide.Plugins
                 canDeliver |= !delivered && carried > 0;
 
                 float x0 = 0.02f + i * slotWidth, x1 = x0 + slotWidth - 0.006f;
-                string slot = ui.Add(new CuiPanel
+                string slot = AddPanel(ui, carne, delivered ? ColorGood : ColorCardDark, Anchor(x0, 0.08f), Anchor(x1, 0.58f));
+                AddIcon(ui, slot, color, "0.1 0.28", "0.9 0.95", delivered || carried > 0 ? "1 1 1 1" : "1 1 1 0.25");
+                if (delivered)
                 {
-                    Image = { Color = delivered ? "0.3 0.55 0.25 1" : "0.22 0.22 0.22 1" },
-                    RectTransform = { AnchorMin = Anchor(x0, 0.12f), AnchorMax = Anchor(x1, 0.58f) }
-                }, carne);
-                AddIcon(ui, slot, color, "0.1 0.25", "0.9 0.95", delivered || carried > 0 ? "1 1 1 1" : "1 1 1 0.25");
-                if (carried > 0)
+                    AddText(ui, slot, Lang("CalvarioCarneStamp", userId), 9, TextAnchor.LowerCenter, "0 0.02", "1 0.28", ColorScalp);
+                }
+                else if (carried > 0)
                 {
-                    AddText(ui, slot, "x" + carried, 11, TextAnchor.LowerCenter, "0 0", "1 0.25");
+                    AddText(ui, slot, "x" + carried, 11, TextAnchor.LowerCenter, "0 0.02", "1 0.28");
                 }
             }
 
-            AddButton(ui, carne, Lang("MenuCarneDeliver", userId), "0.86 0.2", "0.98 0.5", canDeliver ? "0.3 0.55 0.25 1" : "0.25 0.25 0.25 1", canDeliver ? "calvos.carne" : null);
+            AddButton(ui, carne, Lang(canDeliver ? "CalvarioCarneDeliver" : "CalvarioCarneNone", userId), "0.86 0.12", "0.98 0.52",
+                canDeliver ? ColorPoleRed : ColorDisabled, canDeliver ? "calvos.carne" : null, null, 12, canDeliver ? "1 1 1 1" : ColorMuted);
         }
 
         private void DrawRankingTab(CuiElementContainer ui, string window, PlayerData me, int page, string userId)
@@ -2126,10 +2207,11 @@ namespace Oxide.Plugins
 
             if (ranking.Count == 0)
             {
-                AddText(ui, window, Lang("MenuRankingEmpty", userId), 16, TextAnchor.MiddleCenter, "0.03 0.4", "0.97 0.6");
+                AddText(ui, window, Lang("CalvarioRankingEmpty", userId), 16, TextAnchor.MiddleCenter, "0.03 0.4", "0.97 0.6", ColorText);
                 return;
             }
 
+            string[] medals = { "0.96 0.8 0.3 1", "0.82 0.82 0.86 1", "0.8 0.55 0.35 1" };
             int pages = (ranking.Count + RankingPageSize - 1) / RankingPageSize;
             page = Math.Max(0, Math.Min(page, pages - 1));
 
@@ -2142,24 +2224,37 @@ namespace Oxide.Plugins
                 }
 
                 PlayerData entry = ranking[index];
-                float y1 = 0.8f - i * 0.06f, y0 = y1 - 0.055f;
-                string row = ui.Add(new CuiPanel
+                float y1 = 0.79f - i * 0.06f, y0 = y1 - 0.055f;
+                string rowColor = entry == me ? "0.96 0.83 0.66 0.25" : (i % 2 == 0 ? ColorCard : ColorCardDark);
+                string row = AddPanel(ui, window, rowColor, Anchor(0.03f, y0), Anchor(0.97f, y1));
+                if (index < medals.Length)
                 {
-                    Image = { Color = entry == me ? "0.94 0.75 0.25 0.25" : (i % 2 == 0 ? "0.16 0.16 0.16 1" : "0.13 0.13 0.13 1") },
-                    RectTransform = { AnchorMin = Anchor(0.03f, y0), AnchorMax = Anchor(0.97f, y1) }
-                }, window);
-                AddText(ui, row, Lang("MenuRankingLine", userId, index + 1, entry.Name), 14, TextAnchor.MiddleLeft, "0.02 0", "0.5 1");
-                AddText(ui, row, FormatBaldness(entry.Baldness), 14, TextAnchor.MiddleRight, "0.5 0", "0.68 1", "0.94 0.75 0.25 1");
-                AddText(ui, row, GetTitle(entry.Baldness), 13, TextAnchor.MiddleRight, "0.68 0", "0.98 1", "0.85 0.85 0.85 1");
+                    AddPanel(ui, row, medals[index], "0 0", "0.008 1");
+                }
+
+                string nameColor = index < medals.Length ? medals[index] : "1 1 1 1";
+                AddText(ui, row, Lang("CalvarioRankingLine", userId, index + 1, entry.Name), 14, TextAnchor.MiddleLeft, "0.02 0", "0.5 1", nameColor);
+                AddText(ui, row, FormatBaldness(entry.Baldness), 14, TextAnchor.MiddleRight, "0.5 0", "0.68 1", ColorScalp);
+                AddText(ui, row, GetTitle(entry.Baldness), 13, TextAnchor.MiddleRight, "0.68 0", "0.98 1", ColorText);
             }
 
-            int myPosition = ranking.IndexOf(me) + 1;
-            AddText(ui, window, Lang("MenuRankingYou", userId, myPosition, ranking.Count, FormatBaldness(me.Baldness), GetTitle(me.Baldness)), 14, TextAnchor.MiddleLeft, "0.03 0.1", "0.7 0.17");
+            int myIndex = ranking.IndexOf(me);
+            string footer = myIndex <= 0
+                ? Lang("CalvarioRankingFirst", userId)
+                : Lang("CalvarioRankingYou", userId, myIndex + 1, ranking.Count, FormatBaldness(ranking[myIndex - 1].Baldness - me.Baldness + 1), ranking[myIndex - 1].Name);
+            AddText(ui, window, footer, 14, TextAnchor.MiddleLeft, "0.03 0.1", "0.97 0.17", ColorText);
 
-            AddText(ui, window, Lang("MenuPage", userId, page + 1, pages), 13, TextAnchor.MiddleCenter, "0.42 0.03", "0.58 0.09");
-            AddButton(ui, window, Lang("MenuPrev", userId), "0.25 0.03", "0.4 0.09", page > 0 ? "0.25 0.25 0.25 1" : "0.15 0.15 0.15 1", page > 0 ? "calvos.tab ranking " + (page - 1) : null);
-            AddButton(ui, window, Lang("MenuNext", userId), "0.6 0.03", "0.75 0.09", page < pages - 1 ? "0.25 0.25 0.25 1" : "0.15 0.15 0.15 1", page < pages - 1 ? "calvos.tab ranking " + (page + 1) : null);
+            AddText(ui, window, Lang("CalvarioPage", userId, page + 1, pages), 13, TextAnchor.MiddleCenter, "0.42 0.03", "0.58 0.09", ColorMuted);
+            AddButton(ui, window, Lang("CalvarioPrev", userId), "0.25 0.03", "0.4 0.09", page > 0 ? ColorCardDark : ColorCard, page > 0 ? "calvos.tab ranking " + (page - 1) : null, null, 13, page > 0 ? ColorText : ColorMuted);
+            AddButton(ui, window, Lang("CalvarioNextPage", userId), "0.6 0.03", "0.75 0.09", page < pages - 1 ? ColorCardDark : ColorCard, page < pages - 1 ? "calvos.tab ranking " + (page + 1) : null, null, 13, page < pages - 1 ? ColorText : ColorMuted);
         }
+
+        private static string AddPanel(CuiElementContainer ui, string parent, string color, string min, string max) =>
+            ui.Add(new CuiPanel
+            {
+                Image = { Color = color },
+                RectTransform = { AnchorMin = min, AnchorMax = max }
+            }, parent);
 
         private static string Anchor(float x, float y) =>
             x.ToString("0.####", CultureInfo.InvariantCulture) + " " + y.ToString("0.####", CultureInfo.InvariantCulture);
@@ -2174,13 +2269,13 @@ namespace Oxide.Plugins
         }
 
         // command null = disabled button (does nothing). close = element to destroy on click.
-        private static void AddButton(CuiElementContainer ui, string parent, string text, string min, string max, string color, string command, string close = null, int fontSize = 13)
+        private static void AddButton(CuiElementContainer ui, string parent, string text, string min, string max, string color, string command, string close = null, int fontSize = 13, string textColor = "1 1 1 1")
         {
             ui.Add(new CuiButton
             {
                 Button = { Color = color, Command = command ?? string.Empty, Close = close },
                 RectTransform = { AnchorMin = min, AnchorMax = max },
-                Text = { Text = text, FontSize = fontSize, Align = TextAnchor.MiddleCenter, Color = "1 1 1 1" }
+                Text = { Text = text, FontSize = fontSize, Align = TextAnchor.MiddleCenter, Color = textColor }
             }, parent);
         }
 

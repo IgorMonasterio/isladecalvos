@@ -124,10 +124,10 @@ jugadores). Las kills cuentan aunque no den calvicie (sleeper o cooldown).
 
 ## En pantalla
 
-- **Contador de calvicie**, siempre visible abajo, en el hueco entre la
-  mochila del cinturón y las barras de vida/agua/comida: `CALVICIE 1.174` y
-  tu título debajo. Se actualiza con cada cambio.
-- Al ganar puntos sale encima un **`+18`** en amarillo durante 2,5 s; al
+- **Contador de calvicie**, siempre visible en la **esquina superior
+  derecha**: `CALVICIE 1.174` y tu título debajo. Se actualiza con cada
+  cambio. (Abajo chocaba con el panel de RaidableBases.)
+- Al ganar puntos sale debajo un **`+18`** en amarillo durante 2,5 s; al
   perderlos, un **`-117`** en rojo.
 - Los **eventos globales** salen además en un **cartel grande en el centro
   de la pantalla** durante 8 s (y en el chat, como siempre).
@@ -159,7 +159,12 @@ Objetos que **existen en el código de Rust pero no salen en ningún servidor
 normal**. Solo los reparte este plugin: van **directos a tu inventario** (o
 caen a tus pies si lo llevas lleno) con aviso en el chat. Se pueden cambiar o
 regalar como cualquier objeto, y se usan desde **`/calvos`**, pestaña
-**Objetos**.
+**Objetos malditos** (botón **¡A LA CALVA!**).
+
+La ventana va de **barbería calva**: rayas de poste de barbero, barra de
+progreso hacia tu siguiente título, un refrán calvo al azar y, en el **Salón
+de la fama calva**, oro/plata/bronce para el podio y cuánto te falta para
+adelantar al de arriba.
 
 | Objeto | Cómo se consigue | Qué hace al usarlo |
 |---|---|---|
@@ -172,7 +177,7 @@ regalar como cualquier objeto, y se usan desde **`/calvos`**, pestaña
 | **Gemas** (`kickgems`) | 1 % al matar un NPC de tier 12 o más | **+5.000** |
 | **Tarjetas de identificación** (11 colores) | 5 % al matar un NPC de tier 1-17, color al azar | Van al **Carné de Calvo** |
 
-**Carné de Calvo:** entrega una tarjeta de cada color (botón **ENTREGAR**):
+**Carné de Calvo:** entrega una tarjeta de cada color (botón **SELLAR**):
 **+100** por tarjeta y **+10.000** al completar los 11 colores, con anuncio en
 el cartel del centro. Después empieza un carné nuevo. Las tarjetas repetidas
 no se gastan: sirven para cambiarlas con otros.
@@ -188,7 +193,7 @@ lo avisa en la consola al arrancar.
 
 | Comando | Quién | Qué hace |
 |---|---|---|
-| `/calvos` | Todos | Abre **El Calvario**: pestaña **Objetos** (usar objetos y el Carné) y pestaña **Ranking** (todo el servidor, de 10 en 10, con tu posición). |
+| `/calvos` | Todos | Abre **El Calvario**: pestaña **Objetos malditos** (usar objetos y el Carné) y pestaña **Salón de la fama calva** (ranking de todo el servidor, de 10 en 10, con tu posición). Se cierra con la **X**. |
 | `/calvoadmin set <jugador> <valor>` | Admin | Fija la calvicie de un jugador (entero, 0 o más). |
 | `/calvoadmin reset <jugador>` | Admin | Pone la calvicie de un jugador a 0. |
 | `/calvoadmin evento <hora\|champu\|peludo\|alopecia>` | Admin | Lanza ese evento ya, sin esperar a la hora. Para probar. |
@@ -260,10 +265,10 @@ Bloque de pantalla (valores por defecto):
 ```json
 "On-screen UI": {
   "Show baldness counter": true,
-  "Counter anchor min": "1 0",
-  "Counter anchor max": "1 0",
-  "Counter offset min": "-414 44",
-  "Counter offset max": "-218 80",
+  "Counter anchor min": "1 1",
+  "Counter anchor max": "1 1",
+  "Counter offset min": "-212 -58",
+  "Counter offset max": "-16 -22",
   "Seconds the +X / -X popup stays": 2.5,
   "Show event banner in the middle of the screen": true,
   "Seconds the event banner stays": 8.0
@@ -285,8 +290,8 @@ nombre interno y su probabilidad):
 ```
 
 La config lleva además un `Config version (do not edit)`. Sirve para que una
-actualización pueda corregir valores ya guardados (la 1.3.0 mueve el contador
-a su sitio nuevo una sola vez). No lo toques.
+actualización pueda corregir valores ya guardados (la 1.3.1 mueve el contador
+a la esquina superior derecha una sola vez). No lo toques.
 
 Bloque de eventos globales (valores por defecto):
 
@@ -318,7 +323,7 @@ servidor.
 1. Ten un servidor dedicado de Rust con **Oxide (uMod)** instalado.
 2. Copia `src/IslaDeCalvos.cs` en la carpeta `oxide/plugins/` del servidor.
 3. Oxide lo compila y carga solo. En la consola deberías ver algo como
-   `Loaded plugin Isla de Calvos v1.3.0 by Igor Monasterio`.
+   `Loaded plugin Isla de Calvos v1.3.1 by Igor Monasterio`.
 4. Para recargarlo tras cambiar el fichero (normalmente se recarga solo):
    `oxide.reload IslaDeCalvos`
 
