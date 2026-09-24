@@ -412,7 +412,21 @@ namespace Oxide.Plugins
         private string Lang(string key, string userId = null, params object[] args)
         {
             string message = lang.GetMessage(key, this, userId);
-            return args.Length > 0 ? string.Format(message, args) : message;
+            if (args.Length == 0)
+            {
+                return message;
+            }
+
+            try
+            {
+                return string.Format(message, args);
+            }
+            catch (FormatException)
+            {
+                // A lang file edited with a wrong placeholder must not break the hook that is sending the message.
+                PrintWarning($"Lang message '{key}' has invalid placeholders; showing it unformatted.");
+                return message;
+            }
         }
 
         private void Reply(BasePlayer player, string key, params object[] args) =>
