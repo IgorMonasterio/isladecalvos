@@ -22,7 +22,7 @@ Todos los valores se pueden cambiar en la config. Estos son los de por defecto:
 | Matas a otro jugador (headshot o no) | **+1.000** |
 | Matas a un NPC | según su tier, de **+1** (T1) a **+1.000** (T20) |
 | Cada 30 min vivo y conectado | **+100** |
-| Mueres, sea como sea (PvP, headshot, NPC, caída, suicidio…) | **−1.000** |
+| Mueres, sea como sea (PvP, headshot, NPC, caída, suicidio…) | **−10 % de tu calvicie** (redondeado hacia arriba) |
 
 Siempre son números enteros.
 
@@ -122,13 +122,13 @@ chat de Rust no los dibuja y salen como `??`.
 **Estadísticas** por jugador: kills, muertes y kills de headshot (solo contra
 jugadores). Las kills cuentan aunque no den calvicie (sleeper o cooldown).
 
-## En pantalla (v1.2)
+## En pantalla
 
-- **Contador de calvicie**, siempre visible abajo a la derecha, encima de las
-  barras de vida/comida/agua: `CALVICIE 1.174` y tu título debajo. Se
-  actualiza con cada cambio.
-- Al ganar puntos sale al lado un **`+18`** en amarillo durante 2,5 s; al
-  perderlos, un **`-1.000`** en rojo.
+- **Contador de calvicie**, siempre visible abajo, en el hueco entre la
+  mochila del cinturón y las barras de vida/agua/comida: `CALVICIE 1.174` y
+  tu título debajo. Se actualiza con cada cambio.
+- Al ganar puntos sale encima un **`+18`** en amarillo durante 2,5 s; al
+  perderlos, un **`-117`** en rojo.
 - Los **eventos globales** salen además en un **cartel grande en el centro
   de la pantalla** durante 8 s (y en el chat, como siempre).
 - La posición del contador, los tiempos y activar o desactivar cada cosa se
@@ -145,7 +145,7 @@ terminar.
 | Evento | Qué hace | Duración |
 |---|---|---|
 | **Hora de la calvicie** | Todo lo que da calvicie da **el doble**: kills, NPCs, supervivencia y objetivos compartidos. | 30 min |
-| **Lluvia de champú** | Morir resta **el doble** (−2.000). | 20 min |
+| **Lluvia de champú** | Morir resta **el doble** (−20 %). | 20 min |
 | **Cazar al más peludo** | Se anuncia al jugador conectado con **menos calvicie**. Quien lo mate gana **+2.000** además de la kill normal. Si aguanta los 20 min, él gana **+1.000**. Si muere por otra cosa o se desconecta, se acaba sin premio. Hacen falta al menos 2 jugadores conectados. | 20 min |
 | **Brote de alopecia** | Heli, Bradley y Chinook dan **el triple**. | 60 min |
 
@@ -153,12 +153,42 @@ Si toca la cacería y solo hay un jugador conectado, se elige otro evento.
 Todo (intervalo, duraciones, multiplicadores, premios, activar o desactivar
 cada evento) se cambia en el bloque `Global events` de la config.
 
+## El Calvario: objetos calvos (v1.3)
+
+Objetos que **existen en el código de Rust pero no salen en ningún servidor
+normal**. Solo los reparte este plugin: van **directos a tu inventario** (o
+caen a tus pies si lo llevas lleno) con aviso en el chat. Se pueden cambiar o
+regalar como cualquier objeto, y se usan desde **`/calvos`**, pestaña
+**Objetos**.
+
+| Objeto | Cómo se consigue | Qué hace al usarlo |
+|---|---|---|
+| **Lejía** (`bleach`) | 5 % al romper un barril | Apuesta: 70 % **+500** / 30 % **−500** |
+| **Cinta americana** (`ducttape`) | 5 % al romper un barril | Tu próxima muerte **no resta** (máx. 1 activa) |
+| **Pila pequeña** (`battery.small`) | 3 % al romper un barril | **x2** en todo lo que ganes durante 10 min |
+| **Placa militar** (`dogtagneutral`) | 50 % al matar un NPC de tier 8-12 | **+200** |
+| **Placas azules** (`bluedogtags`) | 30 % al matar un NPC de tier 13-17 (heavies, RaidableBases…) | **+500** |
+| **Placas rojas** (`reddogtags`) | Siempre, a cada jugador que cobra el heli, la Bradley o el Chinook | **+1.500** |
+| **Gemas** (`kickgems`) | 1 % al matar un NPC de tier 12 o más | **+5.000** |
+| **Tarjetas de identificación** (11 colores) | 5 % al matar un NPC de tier 1-17, color al azar | Van al **Carné de Calvo** |
+
+**Carné de Calvo:** entrega una tarjeta de cada color (botón **ENTREGAR**):
+**+100** por tarjeta y **+10.000** al completar los 11 colores, con anuncio en
+el cartel del centro. Después empieza un carné nuevo. Las tarjetas repetidas
+no se gastan: sirven para cambiarlas con otros.
+
+Lo que dan los objetos cuenta como ganancia normal: la **Hora de la
+calvicie** lo duplica, y con la **pila** a la vez, x4. La lejía que sale mal y
+el premio del carné completo no se multiplican.
+
+Si un nombre interno no existe en la versión de Rust del servidor, el plugin
+lo avisa en la consola al arrancar.
+
 ## Comandos
 
 | Comando | Quién | Qué hace |
 |---|---|---|
-| `/calvo` | Todos | Tu calvicie y tu título. |
-| `/calvos` | Todos | Top 10 de la isla. |
+| `/calvos` | Todos | Abre **El Calvario**: pestaña **Objetos** (usar objetos y el Carné) y pestaña **Ranking** (todo el servidor, de 10 en 10, con tu posición). |
 | `/calvoadmin set <jugador> <valor>` | Admin | Fija la calvicie de un jugador (entero, 0 o más). |
 | `/calvoadmin reset <jugador>` | Admin | Pone la calvicie de un jugador a 0. |
 | `/calvoadmin evento <hora\|champu\|peludo\|alopecia>` | Admin | Lanza ese evento ya, sin esperar a la hora. Para probar. |
@@ -190,8 +220,7 @@ plugin. Después de editarla: `oxide.reload IslaDeCalvos`.
 | `Baldness gained per headshot kill (instead of the normal kill reward)` | 1000 | Calvicie por kill de headshot. |
 | `Baldness gained per survival interval` | 100 | Calvicie por sobrevivir. |
 | `Survival interval (minutes alive and connected)` | 30 | Cada cuántos minutos se gana. |
-| `Baldness lost on death` | 1000 | Calvicie perdida al morir. |
-| `Extra baldness lost when the death is a headshot` | 0 | Extra si la muerte es de headshot. |
+| `Baldness lost on death (% of current baldness)` | 10 | Porcentaje de tu calvicie que pierdes al morir. |
 | `Deaths caused by NPCs lower baldness` | true | Si morir a manos de un NPC resta calvicie. |
 | `Kill cooldown per victim (minutes)` | 30 | Anti-farmeo por víctima (0 = sin cooldown). |
 | `Announce when a player reaches the highest title` | true | Anuncio de calvicie suprema. |
@@ -233,13 +262,31 @@ Bloque de pantalla (valores por defecto):
   "Show baldness counter": true,
   "Counter anchor min": "1 0",
   "Counter anchor max": "1 0",
-  "Counter offset min": "-208 112",
-  "Counter offset max": "-16 146",
+  "Counter offset min": "-414 44",
+  "Counter offset max": "-218 80",
   "Seconds the +X / -X popup stays": 2.5,
   "Show event banner in the middle of the screen": true,
   "Seconds the event banner stays": 8.0
 }
 ```
+
+Bloque de objetos (valores por defecto, resumido; cada objeto tiene su
+nombre interno y su probabilidad):
+
+```json
+"Cursed items (El Calvario)": {
+  "Enabled": true,
+  "Bleach (gamble)": { "Item shortname": "bleach", "Drop chance (0-1)": 0.05, "Win chance (0-1)": 0.7, "Baldness on win": 500, "Baldness lost on fail": 500 },
+  "Duct tape (your next death costs nothing)": { "Item shortname": "ducttape", "Drop chance (0-1)": 0.05 },
+  "Small battery (personal gain multiplier)": { "Item shortname": "battery.small", "Drop chance (0-1)": 0.03, "Gain multiplier": 2, "Duration (minutes)": 10 },
+  "Dog tag": { "Item shortname": "dogtagneutral", "Drop chance (0-1)": 0.5, "Baldness when used": 200, "Drops from NPC tier (min)": 8, "Drops from NPC tier (max)": 12 },
+  "ID tags (Carne de Calvo collection)": { "Drop chance per NPC kill (0-1)": 0.05, "Baldness per delivered tag": 100, "Bonus for completing all colors": 10000 }
+}
+```
+
+La config lleva además un `Config version (do not edit)`. Sirve para que una
+actualización pueda corregir valores ya guardados (la 1.3.0 mueve el contador
+a su sitio nuevo una sola vez). No lo toques.
 
 Bloque de eventos globales (valores por defecto):
 
@@ -271,7 +318,7 @@ servidor.
 1. Ten un servidor dedicado de Rust con **Oxide (uMod)** instalado.
 2. Copia `src/IslaDeCalvos.cs` en la carpeta `oxide/plugins/` del servidor.
 3. Oxide lo compila y carga solo. En la consola deberías ver algo como
-   `Loaded plugin Isla de Calvos v1.0.1 by Igor Monasterio`.
+   `Loaded plugin Isla de Calvos v1.3.0 by Igor Monasterio`.
 4. Para recargarlo tras cambiar el fichero (normalmente se recarga solo):
    `oxide.reload IslaDeCalvos`
 

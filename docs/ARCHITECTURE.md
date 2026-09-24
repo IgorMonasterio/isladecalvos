@@ -147,6 +147,25 @@ Para añadir otro evento: decidir qué hook marca "participar" y cuál marca
 - **No se puede ver la UI desde el entorno cloud**: posiciones y tamaños hay
   que ajustarlos mirando el juego.
 
+## 4e. El Calvario (v1.3)
+
+- Objetos: `ItemManager.FindItemDefinition(nombre)` → `itemid`;
+  `ItemManager.CreateByItemID(id, 1)`; `player.inventory.GiveItem(item)` y,
+  si falla, `item.Drop(player.GetDropPosition(), player.GetInheritedDropVelocity())`;
+  `inventory.GetAmount(id)` / `inventory.Take(null, id, 1)`. Todo visto en el
+  código descompilado de Oxide.Docs y en Oxide.Rust.
+- Repartos: barriles en `OnEntityDeath` (un `LootContainer` cuyo prefab
+  contiene `barrel`), NPCs tras cobrar su tier, y placas rojas en
+  `PayEventReward` para cada jugador pagado que esté conectado.
+- Menú `/calvos`: CUI sobre `Overlay` con `CursorEnabled`. Los botones
+  llaman a comandos de consola del plugin (`calvos.tab`, `calvos.use`,
+  `calvos.carne`), que leen `arg.Player()` y `arg.FullString`. Cada acción
+  redibuja la ventana. Los iconos usan `CuiImageComponent.ItemId`.
+- Estado: `HasDeathShield`, `CarneColors` y `CarnesCompleted` en `PlayerData`
+  (se guardan); la pila vive en memoria (`batteryUntil`).
+- Todas las ganancias de objetos pasan por `GainBaldness`, así que eventos y
+  pila las multiplican.
+
 ## 5. Localización (lang)
 
 - Todos los textos del plugin pasan por `lang`: se registran en
