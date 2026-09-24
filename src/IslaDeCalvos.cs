@@ -73,11 +73,9 @@ namespace Oxide.Plugins
             [JsonProperty("Survival interval (minutes alive and connected)")]
             public int SurvivalIntervalMinutes = 30;
 
-            [JsonProperty("Baldness lost on death")]
-            public long DeathPenalty = 1000;
-
-            [JsonProperty("Extra baldness lost when the death is a headshot")]
-            public long HeadshotDeathExtraPenalty = 0;
+            // Percentage of the victim's current baldness (rounded up), whatever killed them.
+            [JsonProperty("Baldness lost on death (% of current baldness)")]
+            public int DeathPenaltyPercent = 10;
 
             [JsonProperty("Deaths caused by NPCs lower baldness")]
             public bool NpcDeathsLowerBaldness = true;
@@ -400,6 +398,7 @@ namespace Oxide.Plugins
             config.Titles = config.Titles.OrderBy(t => t.MinBaldness).ToList();
             config.SurvivalIntervalMinutes = Math.Max(1, config.SurvivalIntervalMinutes);
             config.KillCooldownMinutes = Math.Max(0, config.KillCooldownMinutes);
+            config.DeathPenaltyPercent = Math.Max(0, Math.Min(100, config.DeathPenaltyPercent));
             config.SharedRewardTeamRadius = Math.Max(0f, config.SharedRewardTeamRadius);
 
             if (config.GlobalEvents == null) config.GlobalEvents = new GlobalEventsConfig();
@@ -659,8 +658,8 @@ namespace Oxide.Plugins
                 ["DebugNoReward"] = "[debug] {0}: sin calvicie · {1}",
                 ["ReasonPlayerKill"] = "kill a {0}",
                 ["ReasonPlayerHeadshotKill"] = "kill de headshot a {0}",
-                ["ReasonDeath"] = "muerte",
-                ["ReasonHeadshotDeath"] = "muerte por headshot",
+                ["ReasonDeath"] = "muerte (-{0} %)",
+                ["ReasonHeadshotDeath"] = "muerte por headshot (-{0} %)",
                 ["ReasonSurvival"] = "supervivencia",
                 ["ReasonNpcKill"] = "NPC {0} (T{1})",
                 ["ReasonEventParticipant"] = "evento {0} (T{1}), le hizo daño",
@@ -889,13 +888,17 @@ namespace Oxide.Plugins
             }
             else
             {
-                long penalty = config.DeathPenalty + (headshot ? config.HeadshotDeathExtraPenalty : 0);
-                string reason = Lang(headshot ? "ReasonHeadshotDeath" : "ReasonDeath");
+                int percent = config.DeathPenaltyPercent;
+                string eventTag = string.Empty;
                 if (activeEvent == GlobalEvent.ShampooRain)
                 {
-                    penalty *= config.GlobalEvents.ShampooRain.Multiplier;
-                    reason += EventTag(GlobalEvent.ShampooRain, config.GlobalEvents.ShampooRain.Multiplier);
+                    percent *= config.GlobalEvents.ShampooRain.Multiplier;
+                    eventTag = EventTag(GlobalEvent.ShampooRain, config.GlobalEvents.ShampooRain.Multiplier);
                 }
+
+                percent = Math.Min(100, percent);
+                string reason = Lang(headshot ? "ReasonHeadshotDeath" : "ReasonDeath", null, percent) + eventTag;
+                long penalty = (long)Math.Ceiling(victimData.Baldness * percent / 100.0);
 
                 ChangeBaldness(victimData, -penalty, true, reason);
             }
