@@ -33,6 +33,21 @@ Decisiones de diseño de la v1.0 que no venían en la especificación inicial:
 - El reset por wipe solo pone a cero el %; las estadísticas se conservan.
 - Los cambios hechos con `/calvoadmin` no generan anuncios globales.
 
+Cambio de diseño de la v1.0 (el servidor tiene pocos jugadores, así que los
+NPCs tienen que dar calvicie):
+- NPCs por **tiers 1-20**: `NpcTiers` (por `ShortPrefabName`, nunca por la ruta
+  completa) y `TierRewards` (calvicie por tier). La calvicie admite decimales.
+- NPC no listado → no da nada, y se loguea una vez en consola.
+- `npc_bandit_guard` y `sentry.*` están en la config pero desactivados
+  (`DisabledNpcs`).
+- **Recompensas de evento** (sistema genérico, ver ARCHITECTURE 4b): heli,
+  Bradley y CH47 pagan su tier completo a todos los que les hicieron daño y a
+  sus compañeros de equipo conectados cerca (300 m), una vez por jugador. Se
+  añadirán más eventos de equipo reutilizando ese sistema.
+- Morir a manos de un NPC resta como cualquier muerte (configurable).
+- `/calvoadmin debug on|off` muestra en el chat cada cambio y su motivo.
+- Las estadísticas (kills, headshots) siguen siendo solo contra jugadores.
+
 ## Stack (fijo)
 
 - **uMod/Oxide + C#.** Nada de Carbon, ni APIs específicas de Carbon.
@@ -58,8 +73,12 @@ Lee `docs/ARCHITECTURE.md` antes de tocar código.
   explícitamente. Ante la duda, pregunta.
 - **No inventes APIs.** Los hooks y métodos de Oxide se verifican contra su
   código fuente (OxideMod/Oxide.Core, Oxide.CSharp, Oxide.Rust y su
-  `resources/Rust.opj`). Si algo de la API de Rust no se puede verificar, se
-  dice explícitamente.
+  `resources/Rust.opj`). La API de Rust se verifica en el `docs.json` de
+  OxideMod/Oxide.Docs, que trae el código descompilado del juego alrededor de
+  cada hook. Todos son repos públicos que se pueden clonar en solo lectura. Si
+  algo no se puede verificar, se dice explícitamente.
+- **Colecciones en la config**: siempre con
+  `ObjectCreationHandling = ObjectCreationHandling.Replace` (ver ARCHITECTURE §3).
 - **Flujo por PR**: cada cambio en una rama propia + Pull Request, con commits
   atómicos. Nunca se commitea ni se pushea directamente a `main`.
 - **Nunca metas secretos en el repo**: ni contraseñas de RCON, ni tokens, ni
