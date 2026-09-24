@@ -66,6 +66,7 @@ Hooks que usa la v1.0 y de dónde sale cada uno:
 | `OnPatrolHelicopterKill(PatrolHelicopter heli, HitInfo info)` | Cuando el daño supera la vida del heli. **El heli no muere ahí**: el juego le pone 10000 de vida y lo manda a estrellarse. Es el momento de "derribado". | Código descompilado (`PatrolHelicopter.Hurt`) |
 | `OnHelicopterAttack(CH47HelicopterAIController heli, HitInfo info)` | Ataque al Chinook, antes de `base.OnAttacked`. | Código descompilado (`CH47HelicopterAIController.OnAttacked`) |
 | `OnEntityKill(BaseNetworkable entity)` | Cualquier entidad destruida (también al despawnear). Solo lo usamos para limpiar memoria. | Código descompilado (`BaseNetworkable.Kill`) |
+| `OnPlayerDisconnected(BasePlayer player, string reason)` | Jugador desconectado. Termina la cacería si se va el objetivo. | Código descompilado (`ServerMgr`) + `RustHooks.cs` |
 
 ## 3. Configuración
 
@@ -114,6 +115,20 @@ para más eventos de equipo:
 
 Para añadir otro evento: decidir qué hook marca "participar" y cuál marca
 "completado", y llamar a esas funciones con su propio objetivo y recompensa.
+
+## 4c. Eventos globales (v1.1)
+
+- Un único evento activo (`activeEvent`), con un `timer.Every` que cada
+  `IntervalMinutes` intenta arrancar uno al azar y un `timer.Once` que lo
+  termina. Los timers de Oxide se destruyen solos al descargar el plugin, y el
+  evento en curso se pierde (no se guarda).
+- **Toda ganancia de calvicie por juego pasa por `GainBaldness`**: así la Hora
+  de la calvicie la multiplica en un solo sitio. Los cambios de admin y los
+  premios de la cacería van directos por `ChangeBaldness`.
+- La Lluvia de champú multiplica en `OnPlayerDeath`. El Brote de alopecia, en
+  `CompleteEventTarget` (recompensa compartida).
+- Para añadir un evento: nuevo valor en el enum `GlobalEvent`, su bloque en la
+  config, su `case` en `StartEvent`/`EndEvent` y sus textos en `lang`.
 
 ## 5. Localización (lang)
 
