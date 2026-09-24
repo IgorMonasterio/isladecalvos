@@ -9,7 +9,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Isla de Calvos", "Igor Monasterio", "1.2.0")]
+    [Info("Isla de Calvos", "Igor Monasterio", "1.3.0")]
     [Description("Baldness system for the Isla de Calvos Rust server: being bald is glory, hair is a curse.")]
     public class IslaDeCalvos : RustPlugin
     {
@@ -17,7 +17,7 @@ namespace Oxide.Plugins
 
         private const string PermAdmin = "isladecalvos.admin";
         private const long MinBaldness = 0;
-        private const int TopCount = 10;
+        private const int RankingPageSize = 10;
         private const float SurvivalTickSeconds = 60f;
 
         private Configuration config;
@@ -134,6 +134,81 @@ namespace Oxide.Plugins
 
             [JsonProperty("On-screen UI")]
             public UiConfig Ui = new UiConfig();
+
+            [JsonProperty("Cursed items (El Calvario)")]
+            public CursedItemsConfig CursedItems = new CursedItemsConfig();
+        }
+
+        private class ItemDropConfig
+        {
+            [JsonProperty("Item shortname")] public string Shortname;
+            [JsonProperty("Drop chance (0-1)")] public float DropChance;
+        }
+
+        private class BleachConfig : ItemDropConfig
+        {
+            [JsonProperty("Win chance (0-1)")] public float WinChance = 0.7f;
+            [JsonProperty("Baldness on win")] public long WinAmount = 500;
+            [JsonProperty("Baldness lost on fail")] public long LoseAmount = 500;
+        }
+
+        private class BatteryConfig : ItemDropConfig
+        {
+            [JsonProperty("Gain multiplier")] public int Multiplier = 2;
+            [JsonProperty("Duration (minutes)")] public int Minutes = 10;
+        }
+
+        private class TrophyConfig : ItemDropConfig
+        {
+            [JsonProperty("Baldness when used")] public long Reward;
+            [JsonProperty("Drops from NPC tier (min)")] public int MinTier;
+            [JsonProperty("Drops from NPC tier (max)")] public int MaxTier;
+        }
+
+        private class IdTagsConfig
+        {
+            [JsonProperty("Item shortnames (one per color)", ObjectCreationHandling = ObjectCreationHandling.Replace)]
+            public List<string> Shortnames = new List<string>
+            {
+                "blueidtag", "grayidtag", "greenidtag", "lavenderidtag", "mintidtag", "orangeidtag",
+                "pinkidtag", "purpleidtag", "redidtag", "whiteidtag", "yellowidtag"
+            };
+
+            [JsonProperty("Drop chance per NPC kill (0-1)")] public float DropChance = 0.05f;
+            [JsonProperty("Drops from NPC tier (min)")] public int MinTier = 1;
+            [JsonProperty("Drops from NPC tier (max)")] public int MaxTier = 17;
+            [JsonProperty("Baldness per delivered tag")] public long Reward = 100;
+            [JsonProperty("Bonus for completing all colors")] public long CollectionBonus = 10000;
+        }
+
+        // Items that exist in Rust's code but never spawn on normal servers; only this plugin hands them out.
+        private class CursedItemsConfig
+        {
+            [JsonProperty("Enabled")] public bool Enabled = true;
+
+            [JsonProperty("Bleach (gamble)")]
+            public BleachConfig Bleach = new BleachConfig { Shortname = "bleach", DropChance = 0.05f };
+
+            [JsonProperty("Duct tape (your next death costs nothing)")]
+            public ItemDropConfig DuctTape = new ItemDropConfig { Shortname = "ducttape", DropChance = 0.05f };
+
+            [JsonProperty("Small battery (personal gain multiplier)")]
+            public BatteryConfig Battery = new BatteryConfig { Shortname = "battery.small", DropChance = 0.03f };
+
+            [JsonProperty("Dog tag")]
+            public TrophyConfig DogTag = new TrophyConfig { Shortname = "dogtagneutral", Reward = 200, DropChance = 0.5f, MinTier = 8, MaxTier = 12 };
+
+            [JsonProperty("Blue dog tags")]
+            public TrophyConfig BlueDogTags = new TrophyConfig { Shortname = "bluedogtags", Reward = 500, DropChance = 0.3f, MinTier = 13, MaxTier = 17 };
+
+            [JsonProperty("Red dog tags (heli/Bradley/CH47, every paid player; tiers ignored)")]
+            public TrophyConfig RedDogTags = new TrophyConfig { Shortname = "reddogtags", Reward = 1500, DropChance = 1f, MinTier = 18, MaxTier = 20 };
+
+            [JsonProperty("Gems")]
+            public TrophyConfig Gems = new TrophyConfig { Shortname = "kickgems", Reward = 5000, DropChance = 0.01f, MinTier = 12, MaxTier = 20 };
+
+            [JsonProperty("ID tags (Carne de Calvo collection)")]
+            public IdTagsConfig IdTags = new IdTagsConfig();
         }
 
         private class UiConfig
@@ -333,6 +408,20 @@ namespace Oxide.Plugins
             events.HairiestHunt.MinPlayers = Math.Max(2, events.HairiestHunt.MinPlayers);
 
             if (config.Ui == null) config.Ui = new UiConfig();
+            if (config.CursedItems == null) config.CursedItems = new CursedItemsConfig();
+            CursedItemsConfig cursed = config.CursedItems;
+            CursedItemsConfig cursedDefaults = new CursedItemsConfig();
+            if (cursed.Bleach == null) cursed.Bleach = cursedDefaults.Bleach;
+            if (cursed.DuctTape == null) cursed.DuctTape = cursedDefaults.DuctTape;
+            if (cursed.Battery == null) cursed.Battery = cursedDefaults.Battery;
+            if (cursed.DogTag == null) cursed.DogTag = cursedDefaults.DogTag;
+            if (cursed.BlueDogTags == null) cursed.BlueDogTags = cursedDefaults.BlueDogTags;
+            if (cursed.RedDogTags == null) cursed.RedDogTags = cursedDefaults.RedDogTags;
+            if (cursed.Gems == null) cursed.Gems = cursedDefaults.Gems;
+            if (cursed.IdTags == null) cursed.IdTags = cursedDefaults.IdTags;
+            if (cursed.IdTags.Shortnames == null) cursed.IdTags.Shortnames = new List<string>();
+            cursed.IdTags.Shortnames = cursed.IdTags.Shortnames.Where(n => !string.IsNullOrEmpty(n)).Distinct().ToList();
+            cursed.Battery.Minutes = Math.Max(1, cursed.Battery.Minutes);
             config.Ui.DeltaSeconds = Math.Max(0.5f, config.Ui.DeltaSeconds);
             config.Ui.BannerSeconds = Math.Max(1f, config.Ui.BannerSeconds);
 
@@ -409,6 +498,14 @@ namespace Oxide.Plugins
             public int Deaths;
             public int HeadshotKills;
 
+            // El Calvario: duct tape shield, delivered ID tag colors and completed collections.
+            public bool HasDeathShield;
+
+            [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
+            public List<string> CarneColors = new List<string>();
+
+            public int CarnesCompleted;
+
             // Seconds alive and connected since the last survival reward (or since the last death).
             public float SurvivalSeconds;
         }
@@ -479,10 +576,52 @@ namespace Oxide.Plugins
         {
             var messages = new Dictionary<string, string>
             {
-                ["MyBaldness"] = "Tu calvicie: <color=#f0c040>{0}</color> — {1}",
-                ["TopHeader"] = "<color=#f0c040>Los {0} más calvos de la isla:</color>",
-                ["TopLine"] = "{0}. {1} — {2} ({3})",
-                ["TopEmpty"] = "Aún no hay nadie en el ranking. La isla está llena de pelo.",
+                ["MenuTitle"] = "EL CALVARIO",
+                ["MenuYou"] = "Tu calvicie: <color=#f0c040>{0}</color> — {1}",
+                ["MenuTabItems"] = "OBJETOS",
+                ["MenuTabRanking"] = "RANKING",
+                ["MenuClose"] = "CERRAR",
+                ["MenuUse"] = "USAR",
+                ["MenuYouHave"] = "Tienes: {0}",
+                ["MenuShieldOn"] = "Cinta puesta: tu próxima muerte no resta",
+                ["MenuBatteryOn"] = "Maquinilla en marcha: quedan {0} min",
+                ["MenuCarneTitle"] = "CARNÉ DE CALVO  ({0}/{1})   ·   Carnés completados: {2}",
+                ["MenuCarneHint"] = "Entrega una tarjeta de cada color: +{0} por tarjeta y +{1} al completar el carné.",
+                ["MenuCarneDeliver"] = "ENTREGAR",
+                ["MenuRankingEmpty"] = "Aún no hay nadie en el ranking. La isla está llena de pelo.",
+                ["MenuRankingLine"] = "{0}.  {1}",
+                ["MenuRankingYou"] = "Tu posición: <color=#f0c040>{0}º</color> de {1}  ·  {2}  ·  {3}",
+                ["MenuPrev"] = "< ANTERIOR",
+                ["MenuNext"] = "SIGUIENTE >",
+                ["MenuPage"] = "Página {0}/{1}",
+                ["ItemNameBleach"] = "Lejía",
+                ["ItemNameDuctTape"] = "Cinta americana",
+                ["ItemNameBattery"] = "Pila pequeña",
+                ["ItemNameDogTag"] = "Placa militar",
+                ["ItemNameBlueDogTags"] = "Placas azules",
+                ["ItemNameRedDogTags"] = "Placas rojas",
+                ["ItemNameGems"] = "Gemas",
+                ["ItemNameIdTag"] = "Tarjeta de identificación",
+                ["ItemDescBleach"] = "Te la echas en la cabeza. {0}%: +{1}. Si no: -{2}.",
+                ["ItemDescDuctTape"] = "Te tapas la calva: tu próxima muerte no resta calvicie.",
+                ["ItemDescBattery"] = "Maquinilla eléctrica: x{0} en todo lo que ganes durante {1} min.",
+                ["ItemDescTrophy"] = "Trofeo de caza: +{0}.",
+                ["ItemDescGems"] = "Joya de la corona de Su Calvísima Majestad: +{0}.",
+                ["ItemFound"] = "Has encontrado: <color=#f0c040>{0}</color>. Úsalo desde /calvos.",
+                ["ItemNone"] = "No llevas {0} encima.",
+                ["ItemShieldAlready"] = "Ya llevas la calva tapada con cinta. Muere primero.",
+                ["ItemBatteryAlready"] = "La maquinilla ya está en marcha (quedan {0} min).",
+                ["ItemBleachWin"] = "La lejía te ha abrasado el cuero cabelludo. Gloria: +{0}.",
+                ["ItemBleachFail"] = "La lejía te ha dejado un mechón rebelde. Vergüenza: -{0}.",
+                ["ItemShieldOn"] = "Te has tapado la calva con cinta americana. Tu próxima muerte no restará.",
+                ["ItemShieldUsed"] = "La cinta americana ha protegido tu calva: esta muerte no resta.",
+                ["ItemBatteryOn"] = "Maquinilla en marcha: x{0} durante {1} min.",
+                ["ItemBatteryOff"] = "Se le ha acabado la pila a la maquinilla.",
+                ["CarneNothing"] = "No llevas ninguna tarjeta de un color que te falte.",
+                ["CarneDelivered"] = "Has entregado {0} tarjeta(s): +{1}.",
+                ["CarneCompleted"] = "<color=#f0c040>{0}</color> ha completado el CARNÉ DE CALVO y gana +{1}.",
+                ["ReasonItemUse"] = "objeto: {0}",
+                ["ReasonCarne"] = "carné de calvo",
                 ["SupremeBaldness"] = "<color=#f0c040>{0} HA ALCANZADO LA CALVICIE SUPREMA</color>",
                 ["TitleUp"] = "<color=#f0c040>{0}</color> asciende a <color=#f0c040>{1}</color>",
                 ["TitleDrop"] = "<color=#e05050>A {0} le está saliendo pelo</color> (ahora es {1})",
@@ -535,6 +674,7 @@ namespace Oxide.Plugins
                 ["AdminEventBusy"] = "Ya hay un evento en marcha: {0}. Páralo antes con /calvoadmin evento parar.",
                 ["AdminEventCannotStart"] = "No se puede lanzar {0} ahora (¿pocos jugadores conectados o desactivado en la config?).",
                 ["AdminEventNone"] = "No hay ningún evento en marcha.",
+                ["BatteryTag"] = " [pila x{0}]",
                 ["HudCounter"] = "<size=11><color=#b8b8b8>CALVICIE</color></size>  <color=#f0c040>{0}</color>\n<size=10><color=#d8d8d8>{1}</color></size>"
             };
 
@@ -611,6 +751,8 @@ namespace Oxide.Plugins
             {
                 timer.Every(config.GlobalEvents.IntervalMinutes * 60f, () => StartRandomEvent());
             }
+
+            ValidateCursedItemNames();
         }
 
         private void OnServerSave() => SaveData();
@@ -714,7 +856,13 @@ namespace Oxide.Plugins
             victimData.SurvivalSeconds = 0f;
             dataDirty = true;
 
-            if (!config.NpcDeathsLowerBaldness && IsKilledByNpc(info, killer))
+            if (victimData.HasDeathShield)
+            {
+                victimData.HasDeathShield = false;
+                Reply(victim, "ItemShieldUsed");
+                DebugNoReward(victimData, Lang("ItemShieldUsed"));
+            }
+            else if (!config.NpcDeathsLowerBaldness && IsKilledByNpc(info, killer))
             {
                 DebugNoReward(victimData, Lang("NoRewardNpcDeath"));
             }
@@ -791,6 +939,13 @@ namespace Oxide.Plugins
                 return;
             }
 
+            BaseEntity asBaseEntity = entity;
+            if (asBaseEntity is LootContainer && prefab.IndexOf("barrel", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                RollBarrelDrops(killer);
+                return;
+            }
+
             if (!npcTiers.ContainsKey(prefab) && !IsPossibleNpc(entity))
             {
                 return;
@@ -804,6 +959,7 @@ namespace Oxide.Plugins
             }
 
             GainBaldness(killerData, reward, Lang("ReasonNpcKill", null, prefab, tier));
+            RollNpcDrops(killer, tier);
         }
 
         #endregion
@@ -941,6 +1097,21 @@ namespace Oxide.Plugins
         private void PayEventReward(RewardEvent rewardEvent)
         {
             var paid = new HashSet<ulong>();
+            PayEventRewardTo(rewardEvent, paid);
+
+            // Red dog tags for every paid player who is online to receive them.
+            foreach (ulong id in paid)
+            {
+                BasePlayer player = BasePlayer.FindByID(id);
+                if (player != null && player.IsConnected)
+                {
+                    TryDrop(player, config.CursedItems.RedDogTags);
+                }
+            }
+        }
+
+        private void PayEventRewardTo(RewardEvent rewardEvent, HashSet<ulong> paid)
+        {
 
             foreach (ulong id in rewardEvent.State.Participants)
             {
@@ -993,40 +1164,13 @@ namespace Oxide.Plugins
 
         #region Commands
 
-        [ChatCommand("calvo")]
-        private void CmdCalvo(BasePlayer player, string command, string[] args)
-        {
-            if (!IsRealPlayer(player))
-            {
-                return;
-            }
-
-            PlayerData data = GetOrCreateData(player);
-            Reply(player, "MyBaldness", FormatBaldness(data.Baldness), GetTitle(data.Baldness));
-        }
-
         [ChatCommand("calvos")]
         private void CmdCalvos(BasePlayer player, string command, string[] args)
         {
-            List<PlayerData> top = storedData.Players.Values
-                .OrderByDescending(d => d.Baldness)
-                .ThenByDescending(d => d.Kills)
-                .Take(TopCount)
-                .ToList();
-
-            if (top.Count == 0)
+            if (IsRealPlayer(player))
             {
-                Reply(player, "TopEmpty");
-                return;
+                OpenMenu(player, MenuTab.Items, 0);
             }
-
-            var lines = new List<string> { Lang("TopHeader", player.UserIDString, TopCount) };
-            for (int i = 0; i < top.Count; i++)
-            {
-                lines.Add(Lang("TopLine", player.UserIDString, i + 1, top[i].Name, FormatBaldness(top[i].Baldness), GetTitle(top[i].Baldness)));
-            }
-
-            SendChat(player, string.Join("\n", lines));
         }
 
         [ChatCommand("calvoadmin")]
@@ -1327,6 +1471,12 @@ namespace Oxide.Plugins
                 reason += EventTag(GlobalEvent.BaldHour, config.GlobalEvents.BaldHour.Multiplier);
             }
 
+            if (IsBatteryActive(data.Id))
+            {
+                amount *= config.CursedItems.Battery.Multiplier;
+                reason += Lang("BatteryTag", null, config.CursedItems.Battery.Multiplier);
+            }
+
             ChangeBaldness(data, amount, true, reason);
         }
 
@@ -1477,6 +1627,7 @@ namespace Oxide.Plugins
             CuiHelper.DestroyUi(player, UiCounter);
             CuiHelper.DestroyUi(player, UiDelta);
             CuiHelper.DestroyUi(player, UiBanner);
+            CuiHelper.DestroyUi(player, UiMenu);
         }
 
         // "x y" offset with x moved by dx; y taken from yFrom (defaults to the same offset).
@@ -1492,6 +1643,543 @@ namespace Oxide.Plugins
 
             return (x + dx).ToString(CultureInfo.InvariantCulture) + " " + b[1];
         }
+
+        #endregion
+
+        #region El Calvario (cursed items + ranking menu)
+
+        private const string UiMenu = "IslaDeCalvos.Menu";
+
+        private enum MenuTab
+        {
+            Items,
+            Ranking
+        }
+
+        // Item keys used by the menu buttons and the config.
+        private static readonly string[] CursedItemKeys = { "bleach", "ducttape", "battery", "dogtag", "bluedogtags", "reddogtags", "gems" };
+
+        private readonly Dictionary<ulong, DateTime> batteryUntil = new Dictionary<ulong, DateTime>();
+        private readonly HashSet<string> warnedMissingItems = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        private ItemDropConfig CursedItemConfig(string key)
+        {
+            CursedItemsConfig c = config.CursedItems;
+            switch (key)
+            {
+                case "bleach": return c.Bleach;
+                case "ducttape": return c.DuctTape;
+                case "battery": return c.Battery;
+                case "dogtag": return c.DogTag;
+                case "bluedogtags": return c.BlueDogTags;
+                case "reddogtags": return c.RedDogTags;
+                case "gems": return c.Gems;
+                default: return null;
+            }
+        }
+
+        private string CursedItemName(string key)
+        {
+            switch (key)
+            {
+                case "bleach": return Lang("ItemNameBleach");
+                case "ducttape": return Lang("ItemNameDuctTape");
+                case "battery": return Lang("ItemNameBattery");
+                case "dogtag": return Lang("ItemNameDogTag");
+                case "bluedogtags": return Lang("ItemNameBlueDogTags");
+                case "reddogtags": return Lang("ItemNameRedDogTags");
+                case "gems": return Lang("ItemNameGems");
+                default: return key;
+            }
+        }
+
+        private string CursedItemDescription(string key)
+        {
+            CursedItemsConfig c = config.CursedItems;
+            switch (key)
+            {
+                case "bleach": return Lang("ItemDescBleach", null, Mathf.RoundToInt(c.Bleach.WinChance * 100f), FormatBaldness(c.Bleach.WinAmount), FormatBaldness(c.Bleach.LoseAmount));
+                case "ducttape": return Lang("ItemDescDuctTape");
+                case "battery": return Lang("ItemDescBattery", null, c.Battery.Multiplier, c.Battery.Minutes);
+                case "gems": return Lang("ItemDescGems", null, FormatBaldness(c.Gems.Reward));
+                default: return Lang("ItemDescTrophy", null, FormatBaldness(((TrophyConfig)CursedItemConfig(key)).Reward));
+            }
+        }
+
+        private ItemDefinition FindItemDefinition(string shortname)
+        {
+            if (string.IsNullOrEmpty(shortname))
+            {
+                return null;
+            }
+
+            ItemDefinition definition = ItemManager.FindItemDefinition(shortname);
+            if (definition == null && warnedMissingItems.Add(shortname))
+            {
+                PrintWarning($"Item '{shortname}' does not exist in this Rust version; fix its shortname in the config.");
+            }
+
+            return definition;
+        }
+
+        private void ValidateCursedItemNames()
+        {
+            foreach (string key in CursedItemKeys)
+            {
+                FindItemDefinition(CursedItemConfig(key).Shortname);
+            }
+
+            foreach (string shortname in config.CursedItems.IdTags.Shortnames)
+            {
+                FindItemDefinition(shortname);
+            }
+        }
+
+        private int CountItem(BasePlayer player, string shortname)
+        {
+            ItemDefinition definition = FindItemDefinition(shortname);
+            return definition == null || player.inventory == null ? 0 : player.inventory.GetAmount(definition.itemid);
+        }
+
+        // Gives one item straight to the inventory, or drops it at the player's feet if it is full.
+        private bool GiveItem(BasePlayer player, string shortname)
+        {
+            ItemDefinition definition = FindItemDefinition(shortname);
+            if (definition == null || player == null || player.inventory == null)
+            {
+                return false;
+            }
+
+            global::Item item = ItemManager.CreateByItemID(definition.itemid, 1);
+            if (item == null)
+            {
+                return false;
+            }
+
+            if (!player.inventory.GiveItem(item))
+            {
+                item.Drop(player.GetDropPosition(), player.GetInheritedDropVelocity());
+            }
+
+            return true;
+        }
+
+        private bool TakeItem(BasePlayer player, string shortname)
+        {
+            ItemDefinition definition = FindItemDefinition(shortname);
+            if (definition == null || player.inventory.GetAmount(definition.itemid) < 1)
+            {
+                return false;
+            }
+
+            player.inventory.Take(null, definition.itemid, 1);
+            return true;
+        }
+
+        private void TryDrop(BasePlayer player, ItemDropConfig item, string displayName = null)
+        {
+            if (!config.CursedItems.Enabled || item == null || item.DropChance <= 0f || random.NextDouble() >= item.DropChance)
+            {
+                return;
+            }
+
+            if (GiveItem(player, item.Shortname))
+            {
+                Reply(player, "ItemFound", displayName ?? CursedItemName(KeyOf(item)));
+            }
+        }
+
+        private string KeyOf(ItemDropConfig item) => CursedItemKeys.FirstOrDefault(k => CursedItemConfig(k) == item) ?? item.Shortname;
+
+        private void RollBarrelDrops(BasePlayer player)
+        {
+            CursedItemsConfig c = config.CursedItems;
+            TryDrop(player, c.Bleach);
+            TryDrop(player, c.DuctTape);
+            TryDrop(player, c.Battery);
+        }
+
+        private void RollNpcDrops(BasePlayer player, int tier)
+        {
+            CursedItemsConfig c = config.CursedItems;
+            foreach (TrophyConfig trophy in new[] { c.DogTag, c.BlueDogTags, c.Gems })
+            {
+                if (tier >= trophy.MinTier && tier <= trophy.MaxTier)
+                {
+                    TryDrop(player, trophy);
+                }
+            }
+
+            IdTagsConfig tags = c.IdTags;
+            if (tags.Shortnames.Count > 0 && tier >= tags.MinTier && tier <= tags.MaxTier)
+            {
+                string color = tags.Shortnames[random.Next(tags.Shortnames.Count)];
+                TryDrop(player, new ItemDropConfig { Shortname = color, DropChance = tags.DropChance }, Lang("ItemNameIdTag"));
+            }
+        }
+
+        private bool IsBatteryActive(ulong playerId) =>
+            batteryUntil.TryGetValue(playerId, out DateTime until) && until > DateTime.UtcNow;
+
+        private int BatteryMinutesLeft(ulong playerId) =>
+            IsBatteryActive(playerId) ? (int)Math.Ceiling((batteryUntil[playerId] - DateTime.UtcNow).TotalMinutes) : 0;
+
+        private void UseCursedItem(BasePlayer player, string key)
+        {
+            ItemDropConfig item = CursedItemConfig(key);
+            if (item == null || !config.CursedItems.Enabled)
+            {
+                return;
+            }
+
+            PlayerData data = GetOrCreateData(player);
+            string name = CursedItemName(key);
+            if (CountItem(player, item.Shortname) < 1)
+            {
+                Reply(player, "ItemNone", name);
+                return;
+            }
+
+            // Refuse before consuming anything.
+            if (key == "ducttape" && data.HasDeathShield)
+            {
+                Reply(player, "ItemShieldAlready");
+                return;
+            }
+
+            if (key == "battery" && IsBatteryActive(data.Id))
+            {
+                Reply(player, "ItemBatteryAlready", BatteryMinutesLeft(data.Id));
+                return;
+            }
+
+            if (!TakeItem(player, item.Shortname))
+            {
+                return;
+            }
+
+            string reason = Lang("ReasonItemUse", null, name);
+            switch (key)
+            {
+                case "bleach":
+                    BleachConfig bleach = config.CursedItems.Bleach;
+                    if (random.NextDouble() < bleach.WinChance)
+                    {
+                        Reply(player, "ItemBleachWin", FormatBaldness(bleach.WinAmount));
+                        GainBaldness(data, bleach.WinAmount, reason);
+                    }
+                    else
+                    {
+                        Reply(player, "ItemBleachFail", FormatBaldness(bleach.LoseAmount));
+                        ChangeBaldness(data, -bleach.LoseAmount, true, reason);
+                    }
+
+                    break;
+                case "ducttape":
+                    data.HasDeathShield = true;
+                    dataDirty = true;
+                    Reply(player, "ItemShieldOn");
+                    break;
+                case "battery":
+                    BatteryConfig battery = config.CursedItems.Battery;
+                    ulong id = data.Id;
+                    batteryUntil[id] = DateTime.UtcNow.AddMinutes(battery.Minutes);
+                    Reply(player, "ItemBatteryOn", battery.Multiplier, battery.Minutes);
+                    timer.Once(battery.Minutes * 60f, () =>
+                    {
+                        if (!IsBatteryActive(id))
+                        {
+                            batteryUntil.Remove(id);
+                            BasePlayer owner = BasePlayer.FindByID(id);
+                            if (owner != null && owner.IsConnected)
+                            {
+                                Reply(owner, "ItemBatteryOff");
+                            }
+                        }
+                    });
+                    break;
+                default:
+                    GainBaldness(data, ((TrophyConfig)item).Reward, reason);
+                    break;
+            }
+        }
+
+        // Delivers one tag of every color the player carries and has not delivered yet.
+        private void DeliverIdTags(BasePlayer player)
+        {
+            IdTagsConfig tags = config.CursedItems.IdTags;
+            PlayerData data = GetOrCreateData(player);
+            int delivered = 0;
+            foreach (string color in tags.Shortnames)
+            {
+                if (!data.CarneColors.Contains(color) && TakeItem(player, color))
+                {
+                    data.CarneColors.Add(color);
+                    delivered++;
+                }
+            }
+
+            if (delivered == 0)
+            {
+                Reply(player, "CarneNothing");
+                return;
+            }
+
+            dataDirty = true;
+            Reply(player, "CarneDelivered", delivered, FormatBaldness(delivered * tags.Reward));
+            GainBaldness(data, delivered * tags.Reward, Lang("ReasonCarne"));
+
+            if (tags.Shortnames.All(c => data.CarneColors.Contains(c)))
+            {
+                data.CarneColors.Clear();
+                data.CarnesCompleted++;
+                BroadcastEvent("CarneCompleted", data.Name, FormatBaldness(tags.CollectionBonus));
+                ChangeBaldness(data, tags.CollectionBonus, true, Lang("ReasonCarne"));
+            }
+        }
+
+        #region Menu UI
+
+        [ConsoleCommand("calvos.tab")]
+        private void CcmdTab(ConsoleSystem.Arg arg)
+        {
+            BasePlayer player = arg.Player();
+            if (!IsRealPlayer(player))
+            {
+                return;
+            }
+
+            string[] parts = MenuArgs(arg);
+            MenuTab tab = parts.Length > 0 && parts[0] == "ranking" ? MenuTab.Ranking : MenuTab.Items;
+            int page = parts.Length > 1 && int.TryParse(parts[1], out int p) ? p : 0;
+            OpenMenu(player, tab, page);
+        }
+
+        [ConsoleCommand("calvos.use")]
+        private void CcmdUse(ConsoleSystem.Arg arg)
+        {
+            BasePlayer player = arg.Player();
+            string[] parts = MenuArgs(arg);
+            if (!IsRealPlayer(player) || parts.Length == 0)
+            {
+                return;
+            }
+
+            UseCursedItem(player, parts[0]);
+            OpenMenu(player, MenuTab.Items, 0);
+        }
+
+        [ConsoleCommand("calvos.carne")]
+        private void CcmdCarne(ConsoleSystem.Arg arg)
+        {
+            BasePlayer player = arg.Player();
+            if (!IsRealPlayer(player))
+            {
+                return;
+            }
+
+            DeliverIdTags(player);
+            OpenMenu(player, MenuTab.Items, 0);
+        }
+
+        private static string[] MenuArgs(ConsoleSystem.Arg arg) =>
+            arg.HasArgs() ? arg.FullString.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries) : new string[0];
+
+        private void OpenMenu(BasePlayer player, MenuTab tab, int page)
+        {
+            PlayerData data = GetOrCreateData(player);
+            string userId = player.UserIDString;
+            var ui = new CuiElementContainer();
+
+            // Full-screen dim layer that grabs the mouse; the window sits on top of it.
+            ui.Add(new CuiPanel
+            {
+                Image = { Color = "0 0 0 0.6" },
+                RectTransform = { AnchorMin = "0 0", AnchorMax = "1 1" },
+                CursorEnabled = true
+            }, "Overlay", UiMenu, UiMenu);
+
+            string window = ui.Add(new CuiPanel
+            {
+                Image = { Color = "0.09 0.09 0.09 0.97" },
+                RectTransform = { AnchorMin = "0.17 0.1", AnchorMax = "0.83 0.9" }
+            }, UiMenu);
+
+            AddText(ui, window, Lang("MenuTitle", userId), 24, TextAnchor.MiddleLeft, "0.03 0.9", "0.4 0.98", "0.94 0.75 0.25 1");
+            AddText(ui, window, Lang("MenuYou", userId, FormatBaldness(data.Baldness), GetTitle(data.Baldness)), 15, TextAnchor.MiddleRight, "0.4 0.9", "0.86 0.98");
+            AddButton(ui, window, Lang("MenuClose", userId), "0.88 0.915", "0.98 0.965", "0.6 0.2 0.2 1", null, UiMenu);
+
+            AddButton(ui, window, Lang("MenuTabItems", userId), "0.03 0.83", "0.2 0.88", tab == MenuTab.Items ? "0.94 0.75 0.25 1" : "0.25 0.25 0.25 1", "calvos.tab items");
+            AddButton(ui, window, Lang("MenuTabRanking", userId), "0.21 0.83", "0.38 0.88", tab == MenuTab.Ranking ? "0.94 0.75 0.25 1" : "0.25 0.25 0.25 1", "calvos.tab ranking 0");
+
+            if (tab == MenuTab.Items)
+            {
+                DrawItemsTab(ui, window, player, data);
+            }
+            else
+            {
+                DrawRankingTab(ui, window, data, page, userId);
+            }
+
+            CuiHelper.AddUi(player, ui);
+        }
+
+        private void DrawItemsTab(CuiElementContainer ui, string window, BasePlayer player, PlayerData data)
+        {
+            string userId = player.UserIDString;
+
+            // 7 item cards: 4 on the first row, 3 on the second.
+            for (int i = 0; i < CursedItemKeys.Length; i++)
+            {
+                string key = CursedItemKeys[i];
+                ItemDropConfig item = CursedItemConfig(key);
+                int row = i / 4, col = i % 4;
+                float x0 = 0.03f + col * 0.2375f, x1 = x0 + 0.2275f;
+                float y1 = 0.8f - row * 0.245f, y0 = y1 - 0.235f;
+                string card = ui.Add(new CuiPanel
+                {
+                    Image = { Color = "0.16 0.16 0.16 1" },
+                    RectTransform = { AnchorMin = Anchor(x0, y0), AnchorMax = Anchor(x1, y1) }
+                }, window);
+
+                int count = CountItem(player, item.Shortname);
+                AddIcon(ui, card, item.Shortname, "0.04 0.52", "0.3 0.95", count > 0 ? "1 1 1 1" : "1 1 1 0.35");
+                AddText(ui, card, CursedItemName(key), 14, TextAnchor.UpperLeft, "0.34 0.74", "0.98 0.95", "0.94 0.75 0.25 1");
+                AddText(ui, card, Lang("MenuYouHave", userId, count), 12, TextAnchor.UpperLeft, "0.34 0.54", "0.98 0.74");
+
+                string status = null;
+                if (key == "ducttape" && data.HasDeathShield) status = Lang("MenuShieldOn", userId);
+                if (key == "battery" && IsBatteryActive(data.Id)) status = Lang("MenuBatteryOn", userId, BatteryMinutesLeft(data.Id));
+                AddText(ui, card, status ?? CursedItemDescription(key), 11, TextAnchor.UpperLeft, "0.05 0.24", "0.97 0.5", status != null ? "0.5 0.85 0.5 1" : "0.85 0.85 0.85 1");
+
+                AddButton(ui, card, Lang("MenuUse", userId), "0.05 0.05", "0.95 0.21", count > 0 ? "0.3 0.55 0.25 1" : "0.25 0.25 0.25 1", count > 0 ? "calvos.use " + key : null);
+            }
+
+            // Carne de Calvo: one slot per ID tag color.
+            IdTagsConfig tags = config.CursedItems.IdTags;
+            string carne = ui.Add(new CuiPanel
+            {
+                Image = { Color = "0.16 0.16 0.16 1" },
+                RectTransform = { AnchorMin = "0.03 0.03", AnchorMax = "0.97 0.3" }
+            }, window);
+
+            int done = tags.Shortnames.Count(c => data.CarneColors.Contains(c));
+            AddText(ui, carne, Lang("MenuCarneTitle", userId, done, tags.Shortnames.Count, data.CarnesCompleted), 14, TextAnchor.MiddleLeft, "0.02 0.78", "0.8 0.97", "0.94 0.75 0.25 1");
+            AddText(ui, carne, Lang("MenuCarneHint", userId, FormatBaldness(tags.Reward), FormatBaldness(tags.CollectionBonus)), 11, TextAnchor.MiddleLeft, "0.02 0.62", "0.8 0.78", "0.85 0.85 0.85 1");
+
+            bool canDeliver = false;
+            int slots = Math.Max(1, tags.Shortnames.Count);
+            float slotWidth = 0.82f / slots;
+            for (int i = 0; i < tags.Shortnames.Count; i++)
+            {
+                string color = tags.Shortnames[i];
+                bool delivered = data.CarneColors.Contains(color);
+                int carried = CountItem(player, color);
+                canDeliver |= !delivered && carried > 0;
+
+                float x0 = 0.02f + i * slotWidth, x1 = x0 + slotWidth - 0.006f;
+                string slot = ui.Add(new CuiPanel
+                {
+                    Image = { Color = delivered ? "0.3 0.55 0.25 1" : "0.22 0.22 0.22 1" },
+                    RectTransform = { AnchorMin = Anchor(x0, 0.12f), AnchorMax = Anchor(x1, 0.58f) }
+                }, carne);
+                AddIcon(ui, slot, color, "0.1 0.25", "0.9 0.95", delivered || carried > 0 ? "1 1 1 1" : "1 1 1 0.25");
+                if (carried > 0)
+                {
+                    AddText(ui, slot, "x" + carried, 11, TextAnchor.LowerCenter, "0 0", "1 0.25");
+                }
+            }
+
+            AddButton(ui, carne, Lang("MenuCarneDeliver", userId), "0.86 0.2", "0.98 0.5", canDeliver ? "0.3 0.55 0.25 1" : "0.25 0.25 0.25 1", canDeliver ? "calvos.carne" : null);
+        }
+
+        private void DrawRankingTab(CuiElementContainer ui, string window, PlayerData me, int page, string userId)
+        {
+            List<PlayerData> ranking = storedData.Players.Values
+                .OrderByDescending(d => d.Baldness)
+                .ThenByDescending(d => d.Kills)
+                .ToList();
+
+            if (ranking.Count == 0)
+            {
+                AddText(ui, window, Lang("MenuRankingEmpty", userId), 16, TextAnchor.MiddleCenter, "0.03 0.4", "0.97 0.6");
+                return;
+            }
+
+            int pages = (ranking.Count + RankingPageSize - 1) / RankingPageSize;
+            page = Math.Max(0, Math.Min(page, pages - 1));
+
+            for (int i = 0; i < RankingPageSize; i++)
+            {
+                int index = page * RankingPageSize + i;
+                if (index >= ranking.Count)
+                {
+                    break;
+                }
+
+                PlayerData entry = ranking[index];
+                float y1 = 0.8f - i * 0.06f, y0 = y1 - 0.055f;
+                string row = ui.Add(new CuiPanel
+                {
+                    Image = { Color = entry == me ? "0.94 0.75 0.25 0.25" : (i % 2 == 0 ? "0.16 0.16 0.16 1" : "0.13 0.13 0.13 1") },
+                    RectTransform = { AnchorMin = Anchor(0.03f, y0), AnchorMax = Anchor(0.97f, y1) }
+                }, window);
+                AddText(ui, row, Lang("MenuRankingLine", userId, index + 1, entry.Name), 14, TextAnchor.MiddleLeft, "0.02 0", "0.5 1");
+                AddText(ui, row, FormatBaldness(entry.Baldness), 14, TextAnchor.MiddleRight, "0.5 0", "0.68 1", "0.94 0.75 0.25 1");
+                AddText(ui, row, GetTitle(entry.Baldness), 13, TextAnchor.MiddleRight, "0.68 0", "0.98 1", "0.85 0.85 0.85 1");
+            }
+
+            int myPosition = ranking.IndexOf(me) + 1;
+            AddText(ui, window, Lang("MenuRankingYou", userId, myPosition, ranking.Count, FormatBaldness(me.Baldness), GetTitle(me.Baldness)), 14, TextAnchor.MiddleLeft, "0.03 0.1", "0.7 0.17");
+
+            AddText(ui, window, Lang("MenuPage", userId, page + 1, pages), 13, TextAnchor.MiddleCenter, "0.42 0.03", "0.58 0.09");
+            AddButton(ui, window, Lang("MenuPrev", userId), "0.25 0.03", "0.4 0.09", page > 0 ? "0.25 0.25 0.25 1" : "0.15 0.15 0.15 1", page > 0 ? "calvos.tab ranking " + (page - 1) : null);
+            AddButton(ui, window, Lang("MenuNext", userId), "0.6 0.03", "0.75 0.09", page < pages - 1 ? "0.25 0.25 0.25 1" : "0.15 0.15 0.15 1", page < pages - 1 ? "calvos.tab ranking " + (page + 1) : null);
+        }
+
+        private static string Anchor(float x, float y) =>
+            x.ToString("0.####", CultureInfo.InvariantCulture) + " " + y.ToString("0.####", CultureInfo.InvariantCulture);
+
+        private static void AddText(CuiElementContainer ui, string parent, string text, int size, TextAnchor align, string min, string max, string color = "1 1 1 1")
+        {
+            ui.Add(new CuiLabel
+            {
+                Text = { Text = text, FontSize = size, Align = align, Color = color },
+                RectTransform = { AnchorMin = min, AnchorMax = max }
+            }, parent);
+        }
+
+        // command null = disabled button (does nothing). close = element to destroy on click.
+        private static void AddButton(CuiElementContainer ui, string parent, string text, string min, string max, string color, string command, string close = null)
+        {
+            ui.Add(new CuiButton
+            {
+                Button = { Color = color, Command = command ?? string.Empty, Close = close },
+                RectTransform = { AnchorMin = min, AnchorMax = max },
+                Text = { Text = text, FontSize = 13, Align = TextAnchor.MiddleCenter, Color = "1 1 1 1" }
+            }, parent);
+        }
+
+        private void AddIcon(CuiElementContainer ui, string parent, string shortname, string min, string max, string color)
+        {
+            ItemDefinition definition = FindItemDefinition(shortname);
+            if (definition == null)
+            {
+                return;
+            }
+
+            ui.Add(new CuiElement
+            {
+                Parent = parent,
+                Components =
+                {
+                    new CuiImageComponent { ItemId = definition.itemid, Color = color },
+                    new CuiRectTransformComponent { AnchorMin = min, AnchorMax = max }
+                }
+            });
+        }
+
+        #endregion
 
         #endregion
 
