@@ -31,8 +31,8 @@ Todos los valores se pueden cambiar en la config. Estos son los de por defecto:
 - **Los NPCs no cuentan** (activable en la config).
 - Suicidio = muerte normal, sin premio.
 
-Si derribas a alguien y se desangra, la muerte te cuenta a ti. El
-headshot se mira en el golpe que lo mató o, si se desangró, en el que lo
+Si derribas a alguien y se desangra o se rinde, la muerte te cuenta a ti. El
+headshot se mira en el golpe que lo mató o, en esos casos, en el que lo
 derribó.
 
 **Títulos**, según el % de calvicie:

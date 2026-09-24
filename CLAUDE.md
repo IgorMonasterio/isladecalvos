@@ -23,13 +23,13 @@ alcance cerrado:
 - **v1.2** — objetos malditos/lore: minoxidil, peluca, champú… (issue #4). Alcance por definir.
 - **v1.3** — peluquería/NPC (issue #5). Alcance por definir.
 
-Decisiones de diseño de la v1.0 que no están escritas en el código:
+Decisiones de diseño de la v1.0 que no venían en la especificación inicial:
 - Toda muerte resta calvicie (PvP, NPC, entorno, suicidio), también la de un
   sleeper.
 - Matar a un sleeper o a un desconectado cuenta en las estadísticas, pero no
   da calvicie. El cooldown por víctima solo frena la calvicie, no las
   estadísticas.
-- Una muerte por desangrado tras un derribo se atribuye a quien derribó.
+- Una muerte por desangrado o rendición tras un derribo se atribuye a quien derribó.
 - El reset por wipe solo pone a cero el %; las estadísticas se conservan.
 - Los cambios hechos con `/calvoadmin` no generan anuncios globales.
 

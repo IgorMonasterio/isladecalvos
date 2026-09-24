@@ -347,11 +347,11 @@ namespace Oxide.Plugins
             BasePlayer killer = info?.InitiatorPlayer;
             bool headshot = info != null && info.isHeadshot;
 
-            // A downed player who bleeds out usually dies without an attacker: credit whoever downed them.
+            // A downed player who bleeds out (no attacker) or gives up (self-inflicted) is credited to whoever downed them.
             if (woundRecords.TryGetValue(victimId, out WoundRecord wound))
             {
                 woundRecords.Remove(victimId);
-                if (killer == null && wound.Attacker != null)
+                if ((killer == null || killer == victim) && wound.Attacker != null)
                 {
                     killer = wound.Attacker;
                     headshot = wound.Headshot;
