@@ -53,8 +53,9 @@ NPCs tienen que dar calvicie):
 - Las estadísticas (kills, headshots) siguen siendo solo contra jugadores.
 
 Cambio de escala (de % a puntos enteros sin límite):
-- PvP: kill +800, headshot +1000. **Toda muerte −1000**, sin extra por
-  headshot, sea cual sea la causa.
+- PvP: **toda kill +1000** (headshot o no). **Toda muerte −1000**, sin extra
+  por headshot, sea cual sea la causa.
+- Supervivencia: +100 cada 30 min vivo y conectado.
 - Títulos por cada cero: 1, 10, 100 … 1.000.000.
 - Se anuncia cada subida de título. Al llegar al más alto sale el mensaje de
   calvicie suprema en su lugar. Las bajadas también se anuncian.

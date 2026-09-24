@@ -19,10 +19,9 @@ Todos los valores se pueden cambiar en la config. Estos son los de por defecto:
 
 | Qué pasa | Calvicie |
 |---|---|
-| Matas a otro jugador | **+800** |
-| Lo matas de headshot | **+1.000** (en lugar de +800) |
+| Matas a otro jugador (headshot o no) | **+1.000** |
 | Matas a un NPC | según su tier, de **+1** (T1) a **+1.000** (T20) |
-| Cada 30 min vivo y conectado | **+1** |
+| Cada 30 min vivo y conectado | **+100** |
 | Mueres, sea como sea (PvP, headshot, NPC, caída, suicidio…) | **−1.000** |
 
 Siempre son números enteros.
@@ -148,9 +147,9 @@ plugin. Después de editarla: `oxide.reload IslaDeCalvos`.
 
 | Opción | Por defecto | Qué hace |
 |---|---|---|
-| `Baldness gained per player kill` | 800 | Calvicie por kill. |
+| `Baldness gained per player kill` | 1000 | Calvicie por kill. |
 | `Baldness gained per headshot kill (instead of the normal kill reward)` | 1000 | Calvicie por kill de headshot. |
-| `Baldness gained per survival interval` | 1 | Calvicie por sobrevivir. |
+| `Baldness gained per survival interval` | 100 | Calvicie por sobrevivir. |
 | `Survival interval (minutes alive and connected)` | 30 | Cada cuántos minutos se gana. |
 | `Baldness lost on death` | 1000 | Calvicie perdida al morir. |
 | `Extra baldness lost when the death is a headshot` | 0 | Extra si la muerte es de headshot. |
