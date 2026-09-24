@@ -113,7 +113,10 @@ Con 0 puntos también eres Greñas Apestosas.
   `{jugador} HA ALCANZADO LA CALVICIE SUPREMA`
 - Al bajar de título: `A {jugador} le está saliendo pelo (ahora es {título})`
 
-Los mensajes van resaltados con color. **No uses emojis en los textos**: el
+Los mensajes van resaltados con color y llevan como **icono** el avatar de la
+cuenta de Steam de la isla. Para cambiar el icono, cambia el avatar de esa
+cuenta en Steam o pon otro SteamID64 en la config. Si acabas de cambiar el
+avatar, los clientes pueden tardar en verlo (Steam lo cachea). **No uses emojis en los textos**: el
 chat de Rust no los dibuja y salen como `??`.
 
 **Estadísticas** por jugador: kills, muertes y kills de headshot (solo contra
@@ -168,6 +171,7 @@ plugin. Después de editarla: `oxide.reload IslaDeCalvos`.
 | `DisabledNpcs` | bandit guard y sentries | NPCs que están en `NpcTiers` pero no dan nada. |
 | `SharedRewardTargets` | heli, Bradley, CH47 | Objetivos con recompensa compartida. Tienen que estar también en `NpcTiers`. |
 | `Shared reward: teammate radius from the target (meters)` | 300 | Distancia máxima de los compañeros de equipo al objetivo. |
+| `Chat icon: SteamID64 whose avatar is shown next to plugin messages (0 = default Rust icon)` | 76561198635630459 | Cuenta de Steam cuyo **avatar** sale como icono de los mensajes del plugin (la cuenta del calvo oxidado). 0 = icono de Rust. |
 
 Ejemplo del bloque de NPCs:
 

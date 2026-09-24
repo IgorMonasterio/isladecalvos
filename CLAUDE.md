@@ -101,6 +101,11 @@ Lee `docs/ARCHITECTURE.md` antes de tocar código.
   propietarias de Rust/Oxide.
 - **Nada de emojis en textos para jugadores**: el chat de Rust no los dibuja
   (salen como `??`, comprobado en el servidor). Para resaltar, usar `<color>`.
+- **Mensajes al chat siempre por `Broadcast`/`SendChat`** del plugin (nunca
+  `PrintToChat`/`SendReply` directos): así llevan como icono el avatar de la
+  cuenta de Steam de la isla (`ChatIconSteamId`, 76561198635630459). Es el
+  SteamID que se pasa a `chat.add` (verificado en Oxide.Rust `Server.Broadcast`
+  / `Player.Message`).
 - **Idioma**: documentación y conversación en español; código, identificadores
   y comentarios en inglés. Los textos para jugadores van por `lang`, en español
   por defecto (registrado en `es` y `en`, ver ARCHITECTURE).
