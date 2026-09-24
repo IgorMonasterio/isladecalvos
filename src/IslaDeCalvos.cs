@@ -15,8 +15,7 @@ namespace Oxide.Plugins
         #region Fields
 
         private const string PermAdmin = "isladecalvos.admin";
-        private const double MinBaldness = 0;
-        private const double MaxBaldness = 100;
+        private const long MinBaldness = 0;
         private const int TopCount = 10;
         private const float SurvivalTickSeconds = 60f;
 
@@ -26,7 +25,7 @@ namespace Oxide.Plugins
 
         // Runtime lookups built from the config (case-insensitive ShortPrefabName keys).
         private Dictionary<string, int> npcTiers;
-        private Dictionary<int, double> tierRewards;
+        private Dictionary<int, long> tierRewards;
         private HashSet<string> disabledNpcs;
         private HashSet<string> sharedRewardTargets;
 
@@ -55,22 +54,22 @@ namespace Oxide.Plugins
         private class Configuration
         {
             [JsonProperty("Baldness gained per player kill")]
-            public double KillReward = 3;
+            public long KillReward = 800;
 
             [JsonProperty("Baldness gained per headshot kill (instead of the normal kill reward)")]
-            public double HeadshotKillReward = 7;
+            public long HeadshotKillReward = 1000;
 
             [JsonProperty("Baldness gained per survival interval")]
-            public double SurvivalReward = 1;
+            public long SurvivalReward = 1;
 
             [JsonProperty("Survival interval (minutes alive and connected)")]
             public int SurvivalIntervalMinutes = 30;
 
             [JsonProperty("Baldness lost on death")]
-            public double DeathPenalty = 5;
+            public long DeathPenalty = 1000;
 
             [JsonProperty("Extra baldness lost when the death is a headshot")]
-            public double HeadshotDeathExtraPenalty = 3;
+            public long HeadshotDeathExtraPenalty = 0;
 
             [JsonProperty("Deaths caused by NPCs lower baldness")]
             public bool NpcDeathsLowerBaldness = true;
@@ -78,8 +77,11 @@ namespace Oxide.Plugins
             [JsonProperty("Kill cooldown per victim (minutes)")]
             public int KillCooldownMinutes = 30;
 
-            [JsonProperty("Announce when a player reaches 100% baldness")]
+            [JsonProperty("Announce when a player reaches the highest title")]
             public bool AnnounceSupremeBaldness = true;
+
+            [JsonProperty("Announce when a player rises to a higher title")]
+            public bool AnnounceTitleUp = true;
 
             [JsonProperty("Announce when a player drops to a lower title")]
             public bool AnnounceTitleDrop = true;
@@ -92,20 +94,20 @@ namespace Oxide.Plugins
             [JsonProperty("Titles (minimum baldness -> title)", ObjectCreationHandling = ObjectCreationHandling.Replace)]
             public List<TitleTier> Titles = new List<TitleTier>
             {
-                new TitleTier { MinBaldness = 0, Name = "Aspirante a Calvo" },
-                new TitleTier { MinBaldness = 15, Name = "Calvo Novato" },
-                new TitleTier { MinBaldness = 30, Name = "Calvo Profesional" },
-                new TitleTier { MinBaldness = 50, Name = "Calvo Veterano" },
-                new TitleTier { MinBaldness = 70, Name = "Maestro de la Calvicie" },
-                new TitleTier { MinBaldness = 90, Name = "Gran Calvo" },
-                new TitleTier { MinBaldness = 100, Name = "Dios Calvo" }
+                new TitleTier { MinBaldness = 1, Name = "Aspirante a Calvo" },
+                new TitleTier { MinBaldness = 10, Name = "Calvo Novato" },
+                new TitleTier { MinBaldness = 100, Name = "Calvo Profesional" },
+                new TitleTier { MinBaldness = 1000, Name = "Calvo Veterano" },
+                new TitleTier { MinBaldness = 10000, Name = "Maestro de la Calvicie" },
+                new TitleTier { MinBaldness = 100000, Name = "Gran Calvo" },
+                new TitleTier { MinBaldness = 1000000, Name = "Dios Calvo" }
             };
 
             [JsonProperty("NpcTiers", ObjectCreationHandling = ObjectCreationHandling.Replace)]
             public Dictionary<string, int> NpcTiers = DefaultNpcTiers();
 
             [JsonProperty("TierRewards", ObjectCreationHandling = ObjectCreationHandling.Replace)]
-            public Dictionary<string, double> TierRewards = DefaultTierRewards();
+            public Dictionary<string, long> TierRewards = DefaultTierRewards();
 
             [JsonProperty("DisabledNpcs", ObjectCreationHandling = ObjectCreationHandling.Replace)]
             public List<string> DisabledNpcs = new List<string>
@@ -127,7 +129,7 @@ namespace Oxide.Plugins
         private class TitleTier
         {
             [JsonProperty("Minimum baldness")]
-            public int MinBaldness;
+            public long MinBaldness;
 
             [JsonProperty("Title")]
             public string Name;
@@ -173,16 +175,16 @@ namespace Oxide.Plugins
             return tiers;
         }
 
-        // Geometric curve from +0.1 (tier 1) to +15 (tier 20), about x1.3 per tier.
-        private static Dictionary<string, double> DefaultTierRewards()
+        // Geometric curve from 1 (tier 1) to 1000 (tier 20), about x1.44 per tier, rounded to strictly increasing integers.
+        private static Dictionary<string, long> DefaultTierRewards()
         {
-            double[] rewards =
+            long[] rewards =
             {
-                0.1, 0.13, 0.17, 0.22, 0.29, 0.37, 0.49, 0.63, 0.82, 1.07,
-                1.4, 1.82, 2.37, 3.08, 4.01, 5.22, 6.8, 8.85, 11.52, 15
+                1, 2, 3, 4, 5, 6, 9, 13, 18, 26,
+                38, 55, 78, 113, 162, 234, 336, 483, 695, 1000
             };
 
-            var result = new Dictionary<string, double>();
+            var result = new Dictionary<string, long>();
             for (int i = 0; i < rewards.Length; i++)
             {
                 result[(i + 1).ToString(CultureInfo.InvariantCulture)] = rewards[i];
@@ -242,7 +244,7 @@ namespace Oxide.Plugins
 
             if (config.TierRewards == null)
             {
-                config.TierRewards = new Dictionary<string, double>();
+                config.TierRewards = new Dictionary<string, long>();
             }
 
             if (config.DisabledNpcs == null)
@@ -264,8 +266,8 @@ namespace Oxide.Plugins
                 }
             }
 
-            tierRewards = new Dictionary<int, double>();
-            foreach (KeyValuePair<string, double> entry in config.TierRewards)
+            tierRewards = new Dictionary<int, long>();
+            foreach (KeyValuePair<string, long> entry in config.TierRewards)
             {
                 if (int.TryParse(entry.Key, NumberStyles.Integer, CultureInfo.InvariantCulture, out int tier))
                 {
@@ -299,7 +301,7 @@ namespace Oxide.Plugins
         private class PlayerData
         {
             public string Name = string.Empty;
-            public double Baldness;
+            public long Baldness;
             public int Kills;
             public int Deaths;
             public int HeadshotKills;
@@ -369,22 +371,23 @@ namespace Oxide.Plugins
         {
             var messages = new Dictionary<string, string>
             {
-                ["MyBaldness"] = "Tu calvicie: <color=#f0c040>{0}%</color> — {1}",
+                ["MyBaldness"] = "Tu calvicie: <color=#f0c040>{0}</color> — {1}",
                 ["TopHeader"] = "🧑‍🦲 Los {0} más calvos de la isla:",
-                ["TopLine"] = "{0}. {1} — {2}% ({3})",
+                ["TopLine"] = "{0}. {1} — {2} ({3})",
                 ["TopEmpty"] = "Aún no hay nadie en el ranking. La isla está llena de pelo.",
                 ["SupremeBaldness"] = "🧑‍🦲 {0} HA ALCANZADO LA CALVICIE SUPREMA",
+                ["TitleUp"] = "🧑‍🦲 {0} asciende a {1}",
                 ["TitleDrop"] = "⚠️ A {0} le está saliendo pelo (ahora es {1})",
                 ["NoPermission"] = "No tienes permiso para usar este comando.",
                 ["AdminUsage"] = "Uso: /calvoadmin set <jugador> <valor> | /calvoadmin reset <jugador> | /calvoadmin debug on|off",
-                ["AdminInvalidValue"] = "El valor tiene que ser un número entre {0} y {1}.",
+                ["AdminInvalidValue"] = "El valor tiene que ser un número entero igual o mayor que {0}.",
                 ["PlayerNotFound"] = "No se ha encontrado ningún jugador con '{0}'.",
                 ["PlayerAmbiguous"] = "Hay {0} jugadores que coinciden con '{1}'. Sé más concreto o usa el SteamID.",
-                ["AdminSet"] = "Calvicie de {0} fijada en {1}%.",
-                ["AdminReset"] = "Calvicie de {0} reseteada a {1}%.",
+                ["AdminSet"] = "Calvicie de {0} fijada en {1}.",
+                ["AdminReset"] = "Calvicie de {0} reseteada a {1}.",
                 ["DebugOn"] = "Debug activado: verás en el chat cada cambio de calvicie y su motivo.",
                 ["DebugOff"] = "Debug desactivado.",
-                ["DebugChange"] = "[debug] {0}: {1}% → {2}% ({3}{4}) · {5}",
+                ["DebugChange"] = "[debug] {0}: {1} → {2} ({3}{4}) · {5}",
                 ["DebugNoReward"] = "[debug] {0}: sin calvicie · {1}",
                 ["ReasonPlayerKill"] = "kill a {0}",
                 ["ReasonPlayerHeadshotKill"] = "kill de headshot a {0}",
@@ -434,7 +437,10 @@ namespace Oxide.Plugins
 
         private void Broadcast(string key, params object[] args) => PrintToChat(Lang(key, null, args));
 
-        private static string FormatBaldness(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
+        // Spanish-style thousands separator (1.000.000), built by hand so it does not depend on the server's cultures.
+        private static readonly NumberFormatInfo BaldnessFormat = new NumberFormatInfo { NumberGroupSeparator = ".", NumberGroupSizes = new[] { 3 } };
+
+        private static string FormatBaldness(long value) => value.ToString("#,0", BaldnessFormat);
 
         #endregion
 
@@ -559,7 +565,7 @@ namespace Oxide.Plugins
             }
             else
             {
-                double penalty = config.DeathPenalty + (headshot ? config.HeadshotDeathExtraPenalty : 0);
+                long penalty = config.DeathPenalty + (headshot ? config.HeadshotDeathExtraPenalty : 0);
                 ChangeBaldness(victimData, -penalty, true, Lang(headshot ? "ReasonHeadshotDeath" : "ReasonDeath"));
             }
 
@@ -624,7 +630,7 @@ namespace Oxide.Plugins
             }
 
             PlayerData killerData = GetOrCreateData(killer);
-            if (!TryGetNpcReward(prefab, out int tier, out double reward, out string whyNot))
+            if (!TryGetNpcReward(prefab, out int tier, out long reward, out string whyNot))
             {
                 DebugNoReward(killerData, whyNot);
                 return;
@@ -654,7 +660,7 @@ namespace Oxide.Plugins
         {
             public string Label;
             public int Tier;
-            public double Amount;
+            public long Amount;
             public Vector3 Position;
             public EventState State;
         }
@@ -736,7 +742,7 @@ namespace Oxide.Plugins
 
             activeEvents.Remove(target);
             string prefab = target.ShortPrefabName;
-            if (!TryGetNpcReward(prefab, out int tier, out double reward, out string whyNot))
+            if (!TryGetNpcReward(prefab, out int tier, out long reward, out string whyNot))
             {
                 foreach (ulong id in state.Participants)
                 {
@@ -872,12 +878,12 @@ namespace Oxide.Plugins
                 return;
             }
 
-            double value;
+            long value;
             if (action == "set")
             {
-                if (args.Length < 3 || !TryParseBaldness(args[2], out value) || value < MinBaldness || value > MaxBaldness)
+                if (args.Length < 3 || !long.TryParse(args[2].Replace(".", string.Empty), NumberStyles.Integer, CultureInfo.InvariantCulture, out value) || value < MinBaldness)
                 {
-                    Reply(player, "AdminInvalidValue", FormatBaldness(MinBaldness), FormatBaldness(MaxBaldness));
+                    Reply(player, "AdminInvalidValue", FormatBaldness(MinBaldness));
                     return;
                 }
             }
@@ -909,7 +915,7 @@ namespace Oxide.Plugins
             // Admin changes are silent: no global announcements.
             ChangeBaldness(target, value - target.Baldness, false, Lang("ReasonAdmin"));
             Reply(player, action == "set" ? "AdminSet" : "AdminReset", target.Name, FormatBaldness(target.Baldness));
-            Puts($"{player.displayName} ({player.UserIDString}) {action} baldness of {target.Name} ({matches[0].Key}) to {FormatBaldness(target.Baldness)}%.");
+            Puts($"{player.displayName} ({player.UserIDString}) {action} baldness of {target.Name} ({matches[0].Key}) to {target.Baldness}.");
         }
 
         private void ToggleDebug(BasePlayer player, string mode)
@@ -965,7 +971,7 @@ namespace Oxide.Plugins
             return initiator is BaseNpc || npcTiers.ContainsKey(initiator.ShortPrefabName);
         }
 
-        private bool TryGetNpcReward(string prefab, out int tier, out double reward, out string whyNot)
+        private bool TryGetNpcReward(string prefab, out int tier, out long reward, out string whyNot)
         {
             tier = 0;
             reward = 0;
@@ -1046,10 +1052,10 @@ namespace Oxide.Plugins
             }
         }
 
-        private void ChangeBaldness(PlayerData data, double delta, bool announce, string reason)
+        private void ChangeBaldness(PlayerData data, long delta, bool announce, string reason)
         {
-            double oldValue = data.Baldness;
-            double newValue = Math.Round(Math.Max(MinBaldness, Math.Min(MaxBaldness, oldValue + delta)), 2);
+            long oldValue = data.Baldness;
+            long newValue = Math.Max(MinBaldness, oldValue + delta);
 
             SendDebug("DebugChange", data.Name, FormatBaldness(oldValue), FormatBaldness(newValue),
                 delta >= 0 ? "+" : string.Empty, FormatBaldness(delta), reason);
@@ -1067,12 +1073,21 @@ namespace Oxide.Plugins
                 return;
             }
 
-            if (config.AnnounceSupremeBaldness && newValue >= MaxBaldness && oldValue < MaxBaldness)
+            int oldTier = GetTierIndex(oldValue);
+            int newTier = GetTierIndex(newValue);
+            if (newTier > oldTier)
             {
-                Broadcast("SupremeBaldness", data.Name);
+                // Reaching the highest title gets its own announcement instead of the generic one.
+                if (newTier == config.Titles.Count - 1 && config.AnnounceSupremeBaldness)
+                {
+                    Broadcast("SupremeBaldness", data.Name);
+                }
+                else if (config.AnnounceTitleUp)
+                {
+                    Broadcast("TitleUp", data.Name, GetTitle(newValue));
+                }
             }
-
-            if (config.AnnounceTitleDrop && GetTierIndex(newValue) < GetTierIndex(oldValue))
+            else if (newTier < oldTier && config.AnnounceTitleDrop)
             {
                 Broadcast("TitleDrop", data.Name, GetTitle(newValue));
             }
@@ -1097,10 +1112,7 @@ namespace Oxide.Plugins
             }
         }
 
-        private static bool TryParseBaldness(string text, out double value) =>
-            double.TryParse(text.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out value);
-
-        private int GetTierIndex(double baldness)
+        private int GetTierIndex(long baldness)
         {
             int index = 0;
             for (int i = 0; i < config.Titles.Count; i++)
@@ -1114,7 +1126,7 @@ namespace Oxide.Plugins
             return index;
         }
 
-        private string GetTitle(double baldness) => config.Titles[GetTierIndex(baldness)].Name;
+        private string GetTitle(long baldness) => config.Titles[GetTierIndex(baldness)].Name;
 
         private List<KeyValuePair<ulong, PlayerData>> FindStoredPlayers(string query)
         {
