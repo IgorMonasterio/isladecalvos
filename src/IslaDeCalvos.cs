@@ -73,7 +73,9 @@ namespace Oxide.Plugins
             [JsonProperty("Reset baldness on map wipe (stats are kept)")]
             public bool ResetBaldnessOnWipe = false;
 
-            [JsonProperty("Titles (minimum baldness -> title)")]
+            // Replace, not merge: Oxide reads configs with default Newtonsoft settings, which would append
+            // the file's titles to these defaults and make the list grow on every reload.
+            [JsonProperty("Titles (minimum baldness -> title)", ObjectCreationHandling = ObjectCreationHandling.Replace)]
             public List<TitleTier> Titles = new List<TitleTier>
             {
                 new TitleTier { MinBaldness = 0, Name = "Aspirante a Calvo" },
@@ -145,6 +147,7 @@ namespace Oxide.Plugins
 
         private class StoredData
         {
+            [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
             public Dictionary<ulong, PlayerData> Players = new Dictionary<ulong, PlayerData>();
         }
 
