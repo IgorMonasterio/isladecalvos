@@ -56,7 +56,10 @@ Cambio de escala (de % a puntos enteros sin límite):
 - PvP: **toda kill +1000** (headshot o no). **Toda muerte −1000**, sin extra
   por headshot, sea cual sea la causa.
 - Supervivencia: +100 cada 30 min vivo y conectado.
-- Títulos por cada cero: 1, 10, 100 … 1.000.000.
+- Títulos por cada cero, de mucho pelo a nada, con humor calvo británico:
+  Greñas Sucias (1), Pelambrera Lamentable (10), Entradas Incipientes
+  (100), Coronilla a la Intemperie (1.000), Caballero de la Tonsura (10.000),
+  Lord Bola de Billar (100.000), Su Calvísima Majestad (1.000.000).
 - Se anuncia cada subida de título. Al llegar al más alto sale el mensaje de
   calvicie suprema en su lugar. Las bajadas también se anuncian.
 
@@ -96,6 +99,13 @@ Lee `docs/ARCHITECTURE.md` antes de tocar código.
 - **Nunca metas secretos en el repo**: ni contraseñas de RCON, ni tokens, ni
   IPs/puertos privados del servidor, ni ficheros `.env`. Tampoco DLL
   propietarias de Rust/Oxide.
+- **Nada de emojis en textos para jugadores**: el chat de Rust no los dibuja
+  (salen como `??`, comprobado en el servidor). Para resaltar, usar `<color>`.
+- **Mensajes al chat siempre por `Broadcast`/`SendChat`** del plugin (nunca
+  `PrintToChat`/`SendReply` directos): así llevan como icono el avatar de la
+  cuenta de Steam de la isla (`ChatIconSteamId`, 76561198635630459). Es el
+  SteamID que se pasa a `chat.add` (verificado en Oxide.Rust `Server.Broadcast`
+  / `Player.Message`).
 - **Idioma**: documentación y conversación en español; código, identificadores
   y comentarios en inglés. Los textos para jugadores van por `lang`, en español
   por defecto (registrado en `es` y `en`, ver ARCHITECTURE).

@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Isla de Calvos", "Igor Monasterio", "1.0.0")]
+    [Info("Isla de Calvos", "Igor Monasterio", "1.0.1")]
     [Description("Baldness system for the Isla de Calvos Rust server: being bald is glory, hair is a curse.")]
     public class IslaDeCalvos : RustPlugin
     {
@@ -94,13 +94,13 @@ namespace Oxide.Plugins
             [JsonProperty("Titles (minimum baldness -> title)", ObjectCreationHandling = ObjectCreationHandling.Replace)]
             public List<TitleTier> Titles = new List<TitleTier>
             {
-                new TitleTier { MinBaldness = 1, Name = "Aspirante a Calvo" },
-                new TitleTier { MinBaldness = 10, Name = "Calvo Novato" },
-                new TitleTier { MinBaldness = 100, Name = "Calvo Profesional" },
-                new TitleTier { MinBaldness = 1000, Name = "Calvo Veterano" },
-                new TitleTier { MinBaldness = 10000, Name = "Maestro de la Calvicie" },
-                new TitleTier { MinBaldness = 100000, Name = "Gran Calvo" },
-                new TitleTier { MinBaldness = 1000000, Name = "Dios Calvo" }
+                new TitleTier { MinBaldness = 1, Name = "Greñas Sucias" },
+                new TitleTier { MinBaldness = 10, Name = "Pelambrera Lamentable" },
+                new TitleTier { MinBaldness = 100, Name = "Entradas Incipientes" },
+                new TitleTier { MinBaldness = 1000, Name = "Coronilla a la Intemperie" },
+                new TitleTier { MinBaldness = 10000, Name = "Caballero de la Tonsura" },
+                new TitleTier { MinBaldness = 100000, Name = "Lord Bola de Billar" },
+                new TitleTier { MinBaldness = 1000000, Name = "Su Calvísima Majestad" }
             };
 
             [JsonProperty("NpcTiers", ObjectCreationHandling = ObjectCreationHandling.Replace)]
@@ -124,6 +124,9 @@ namespace Oxide.Plugins
 
             [JsonProperty("Shared reward: teammate radius from the target (meters)")]
             public float SharedRewardTeamRadius = 300f;
+
+            [JsonProperty("Chat icon: SteamID64 whose avatar is shown next to plugin messages (0 = default Rust icon)")]
+            public ulong ChatIconSteamId = 76561198635630459UL;
         }
 
         private class TitleTier
@@ -372,12 +375,12 @@ namespace Oxide.Plugins
             var messages = new Dictionary<string, string>
             {
                 ["MyBaldness"] = "Tu calvicie: <color=#f0c040>{0}</color> — {1}",
-                ["TopHeader"] = "🧑‍🦲 Los {0} más calvos de la isla:",
+                ["TopHeader"] = "<color=#f0c040>Los {0} más calvos de la isla:</color>",
                 ["TopLine"] = "{0}. {1} — {2} ({3})",
                 ["TopEmpty"] = "Aún no hay nadie en el ranking. La isla está llena de pelo.",
-                ["SupremeBaldness"] = "🧑‍🦲 {0} HA ALCANZADO LA CALVICIE SUPREMA",
-                ["TitleUp"] = "🧑‍🦲 {0} asciende a {1}",
-                ["TitleDrop"] = "⚠️ A {0} le está saliendo pelo (ahora es {1})",
+                ["SupremeBaldness"] = "<color=#f0c040>{0} HA ALCANZADO LA CALVICIE SUPREMA</color>",
+                ["TitleUp"] = "<color=#f0c040>{0}</color> asciende a <color=#f0c040>{1}</color>",
+                ["TitleDrop"] = "<color=#e05050>A {0} le está saliendo pelo</color> (ahora es {1})",
                 ["NoPermission"] = "No tienes permiso para usar este comando.",
                 ["AdminUsage"] = "Uso: /calvoadmin set <jugador> <valor> | /calvoadmin reset <jugador> | /calvoadmin debug on|off",
                 ["AdminInvalidValue"] = "El valor tiene que ser un número entero igual o mayor que {0}.",
@@ -433,9 +436,12 @@ namespace Oxide.Plugins
         }
 
         private void Reply(BasePlayer player, string key, params object[] args) =>
-            SendReply(player, Lang(key, player.UserIDString, args));
+            SendChat(player, Lang(key, player.UserIDString, args));
 
-        private void Broadcast(string key, params object[] args) => PrintToChat(Lang(key, null, args));
+        // Oxide.Rust's chat helpers pass this SteamID to "chat.add", and the client draws that account's avatar.
+        private void Broadcast(string key, params object[] args) => Server.Broadcast(Lang(key, null, args), config.ChatIconSteamId);
+
+        private void SendChat(BasePlayer player, string message) => Player.Message(player, message, config.ChatIconSteamId);
 
         // Spanish-style thousands separator (1.000.000), built by hand so it does not depend on the server's cultures.
         private static readonly NumberFormatInfo BaldnessFormat = new NumberFormatInfo { NumberGroupSeparator = ".", NumberGroupSizes = new[] { 3 } };
@@ -853,7 +859,7 @@ namespace Oxide.Plugins
                 lines.Add(Lang("TopLine", player.UserIDString, i + 1, top[i].Name, FormatBaldness(top[i].Baldness), GetTitle(top[i].Baldness)));
             }
 
-            SendReply(player, string.Join("\n", lines));
+            SendChat(player, string.Join("\n", lines));
         }
 
         [ChatCommand("calvoadmin")]
@@ -1107,7 +1113,7 @@ namespace Oxide.Plugins
                 BasePlayer admin = BasePlayer.FindByID(adminId);
                 if (admin != null && admin.IsConnected)
                 {
-                    SendReply(admin, Lang(key, admin.UserIDString, args));
+                    SendChat(admin, Lang(key, admin.UserIDString, args));
                 }
             }
         }

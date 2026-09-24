@@ -97,21 +97,27 @@ Un título por cada cero:
 
 | Desde | Título |
 |---|---|
-| 1 | Aspirante a Calvo |
-| 10 | Calvo Novato |
-| 100 | Calvo Profesional |
-| 1.000 | Calvo Veterano |
-| 10.000 | Maestro de la Calvicie |
-| 100.000 | Gran Calvo |
-| 1.000.000 | Dios Calvo |
+| 1 | Greñas Sucias |
+| 10 | Pelambrera Lamentable |
+| 100 | Entradas Incipientes |
+| 1.000 | Coronilla a la Intemperie |
+| 10.000 | Caballero de la Tonsura |
+| 100.000 | Lord Bola de Billar |
+| 1.000.000 | Su Calvísima Majestad |
 
-Con 0 puntos también eres Aspirante a Calvo.
+Con 0 puntos también eres Greñas Sucias.
 
 **Anuncios globales** (se pueden desactivar):
-- Al subir de título: `🧑‍🦲 {jugador} asciende a {título}`
-- Al llegar al título más alto (Dios Calvo), en lugar del anterior:
-  `🧑‍🦲 {jugador} HA ALCANZADO LA CALVICIE SUPREMA`
-- Al bajar de título: `⚠️ A {jugador} le está saliendo pelo (ahora es {título})`
+- Al subir de título: `{jugador} asciende a {título}`
+- Al llegar al título más alto (Su Calvísima Majestad), en lugar del anterior:
+  `{jugador} HA ALCANZADO LA CALVICIE SUPREMA`
+- Al bajar de título: `A {jugador} le está saliendo pelo (ahora es {título})`
+
+Los mensajes van resaltados con color y llevan como **icono** el avatar de la
+cuenta de Steam de la isla. Para cambiar el icono, cambia el avatar de esa
+cuenta en Steam o pon otro SteamID64 en la config. Si acabas de cambiar el
+avatar, los clientes pueden tardar en verlo (Steam lo cachea). **No uses emojis en los textos**: el
+chat de Rust no los dibuja y salen como `??`.
 
 **Estadísticas** por jugador: kills, muertes y kills de headshot (solo contra
 jugadores). Las kills cuentan aunque no den calvicie (sleeper o cooldown).
@@ -165,6 +171,7 @@ plugin. Después de editarla: `oxide.reload IslaDeCalvos`.
 | `DisabledNpcs` | bandit guard y sentries | NPCs que están en `NpcTiers` pero no dan nada. |
 | `SharedRewardTargets` | heli, Bradley, CH47 | Objetivos con recompensa compartida. Tienen que estar también en `NpcTiers`. |
 | `Shared reward: teammate radius from the target (meters)` | 300 | Distancia máxima de los compañeros de equipo al objetivo. |
+| `Chat icon: SteamID64 whose avatar is shown next to plugin messages (0 = default Rust icon)` | 76561198635630459 | Cuenta de Steam cuyo **avatar** sale como icono de los mensajes del plugin (la cuenta del calvo oxidado). 0 = icono de Rust. |
 
 Ejemplo del bloque de NPCs:
 
@@ -200,7 +207,7 @@ servidor.
 1. Ten un servidor dedicado de Rust con **Oxide (uMod)** instalado.
 2. Copia `src/IslaDeCalvos.cs` en la carpeta `oxide/plugins/` del servidor.
 3. Oxide lo compila y carga solo. En la consola deberías ver algo como
-   `Loaded plugin Isla de Calvos v1.0.0 by Igor Monasterio`.
+   `Loaded plugin Isla de Calvos v1.0.1 by Igor Monasterio`.
 4. Para recargarlo tras cambiar el fichero (normalmente se recarga solo):
    `oxide.reload IslaDeCalvos`
 
