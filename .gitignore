@@ -1,0 +1,51 @@
+# Build output
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+out/
+publish/
+
+# Visual Studio / Rider / VS Code
+.vs/
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.user
+*.suo
+*.userprefs
+*.sln.docstates
+*.rsuser
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+project.lock.json
+project.fragment.lock.json
+
+# Test results / coverage
+TestResults/
+[Tt]est[Rr]esult*/
+coverage*/
+*.coverage
+*.trx
+
+# Local game/framework references (proprietary DLLs — never commit)
+lib/
+References/
+*.dll
+*.pdb
+
+# Local server data, secrets and environment files
+oxide/
+*.env
+.env*
+secrets*
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
