@@ -12,9 +12,9 @@ lo que pasa en la isla acaba teniendo que ver con el pelo o la calvicie.
   límite por arriba**, nunca por debajo de 0. Lo glorioso (matar, sobrevivir)
   la sube; morir hace que crezca el pelo (la baja).
 - Es humor: **no hay cambio visual del pelo**. Todo son puntos, títulos y mensajes.
-- Idea futura, **no implementar hasta que Igor lo decida**: la calvicie dará
-  monedas por hora en la tienda de economía del servidor (issue de economía).
-  Ni los números ni el nombre de la escala están decididos.
+- La calvicie da **RP de Server Rewards** cada 30 min según el título
+  (plugin 1.4.0, issue #8). No da monedas directas (Economics): 1 RP = 10
+  monedas y el canje lo gestiona el servidor.
 
 ## Estado y hoja de ruta
 
@@ -35,8 +35,10 @@ alcance cerrado:
   tarjetas de color), repartidos por el plugin y usados desde `/calvos`;
   Carné de Calvo. `/calvos` es **el único comando de jugador**: ventana con
   pestañas Objetos y Ranking (`/calvo` desapareció).
-- **Economía (#8)** — irá con **Server Rewards** (RP, `AddPoints`). Hay una
-  propuesta de RP por título pendiente de que Igor la confirme: no implementar.
+- **Plugin 1.4.0 — Economía (#8)**: RP de **Server Rewards** (`AddPoints`)
+  por título, confirmado por Igor. Cada 30 min vivo, conectado y no AFK
+  (que se haya movido): Coronilla 1, Caballero 3, Lord 10, Majestad 30. Sin
+  Server Rewards cargado no se paga nada. Ver ARCHITECTURE §4f.
 - **v1.3** — peluquería/NPC (issue #5). Alcance por definir.
 
 Decisiones de diseño de la v1.0 que no venían en la especificación inicial:
@@ -83,7 +85,9 @@ Cambio de escala (de % a puntos enteros sin límite):
 - Oxide compila el `.cs` en el servidor; no hay proyecto .NET ni DLL que publicar.
 - **Un plugin = un fichero** (verificado en el código de Oxide.CSharp). Nada
   de carpetas o ficheros extra que Oxide no vaya a cargar.
-- Cero dependencias de otros plugins salvo decisión explícita de Igor.
+- Cero dependencias de otros plugins salvo decisión explícita de Igor. La
+  única decidida es **Server Rewards**, y es blanda (`[PluginReference]`):
+  si no está cargado, el plugin funciona igual pero no paga RP.
 
 ## Estructura
 
