@@ -30,7 +30,13 @@ alcance cerrado:
   derecha con popup `+X`/`-X`, y los eventos globales en un cartel grande en
   el centro. (Nota: la numeración del plugin ya no coincide con la de los
   issues de la hoja de ruta.)
-- **Siguiente** — objetos malditos/lore: minoxidil, peluca, champú… (issue #4). Alcance por definir.
+- **Plugin 1.3.0** — **El Calvario** (issue #4): objetos que existen en Rust
+  pero no salen en servidores normales (lejía, cinta, pila, placas, gemas,
+  tarjetas de color), repartidos por el plugin y usados desde `/calvos`;
+  Carné de Calvo. `/calvos` es **el único comando de jugador**: ventana con
+  pestañas Objetos y Ranking (`/calvo` desapareció).
+- **Economía (#8)** — irá con **Server Rewards** (RP, `AddPoints`). Hay una
+  propuesta de RP por título pendiente de que Igor la confirme: no implementar.
 - **v1.3** — peluquería/NPC (issue #5). Alcance por definir.
 
 Decisiones de diseño de la v1.0 que no venían en la especificación inicial:
@@ -59,8 +65,9 @@ NPCs tienen que dar calvicie):
 - Las estadísticas (kills, headshots) siguen siendo solo contra jugadores.
 
 Cambio de escala (de % a puntos enteros sin límite):
-- PvP: **toda kill +1000** (headshot o no). **Toda muerte −1000**, sin extra
-  por headshot, sea cual sea la causa.
+- PvP: **toda kill +1000** (headshot o no). **Toda muerte −10 % de la
+  calvicie actual** (redondeado hacia arriba), sea cual sea la causa;
+  Lluvia de champú −20 %.
 - Supervivencia: +100 cada 30 min vivo y conectado.
 - Títulos por cada cero, de mucho pelo a nada, con humor calvo británico:
   Greñas Sucias (1), Pelambrera Lamentable (10), Entradas Incipientes
@@ -98,6 +105,15 @@ Lee `docs/ARCHITECTURE.md` antes de tocar código.
   OxideMod/Oxide.Docs, que trae el código descompilado del juego alrededor de
   cada hook. Todos son repos públicos que se pueden clonar en solo lectura. Si
   algo no se puede verificar, se dice explícitamente.
+- **Cambiar valores ya desplegados**: los configs existentes no se
+  sobrescriben. Para forzar un valor nuevo, subir `CurrentConfigVersion` y
+  migrar en `ValidateConfig` (ver la migración 130).
+- **Contexto del servidor** (a 2026-09-24): 1-3 jugadores, x5 gather, loot x1
+  (BetterLoot), StackSizeController x5, RaidableBases (NPCs `scientistnpc_heavy`,
+  skinID 3710562502), Economics + GUIShop (monedas) y ServerRewards (RP,
+  1 RP = 10 monedas). No hay otros plugins que den recompensas por kills.
+- **Objetos del juego**: el tipo `Item` se escribe `global::Item`, porque
+  `RustPlugin` tiene un campo llamado `Item`.
 - **Colecciones en la config**: siempre con
   `ObjectCreationHandling = ObjectCreationHandling.Replace` (ver ARCHITECTURE §3).
 - **Flujo por PR**: cada cambio en una rama propia + Pull Request, con commits
