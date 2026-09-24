@@ -20,22 +20,80 @@ Todos los valores se pueden cambiar en la config. Estos son los de por defecto:
 |---|---|
 | Matas a otro jugador | **+3** |
 | Lo matas de headshot | **+7** (en lugar de +3) |
+| Matas a un NPC | según su tier, de **+0.1** (T1) a **+15** (T20) |
 | Cada 30 min vivo y conectado | **+1** |
-| Mueres (por lo que sea, suicidio incluido) | **−5** |
+| Mueres (por lo que sea: PvP, NPC, entorno, suicidio) | **−5** |
 | Mueres de headshot | **−3** extra (−8 en total) |
+
+La calvicie admite decimales (p. ej. `12.37%`).
 
 **Anti-farmeo:**
 - Matar a un jugador **dormido (sleeper) o desconectado** no da calvicie.
 - **Cooldown por víctima**: matar al mismo jugador solo da calvicie una vez
   cada 30 min.
-- **Los NPCs no cuentan** (activable en la config).
 - Suicidio = muerte normal, sin premio.
 
 Si derribas a alguien y se desangra o se rinde, la muerte te cuenta a ti. El
 headshot se mira en el golpe que lo mató o, en esos casos, en el que lo
 derribó.
 
-**Títulos**, según el % de calvicie:
+### NPCs por tiers
+
+Cada NPC tiene un **tier del 1 (fácil) al 20 (difícil)** según su
+`ShortPrefabName`, y cada tier da una calvicie fija (config `NpcTiers` y
+`TierRewards`). Recompensas por defecto: curva creciente de ×1.3 por tier.
+
+| Tier | Calvicie | NPCs |
+|---|---|---|
+| 1 | +0.1 | chicken |
+| 2 | +0.13 | zombie |
+| 3 | +0.17 | snake.entity, boar, stag |
+| 4 | +0.22 | beeswarm, scientistnpc_ptboat, scientistnpc_rhib |
+| 5 | +0.29 | beemasterswarm, wolf2, frankensteinpet |
+| 6 | +0.37 | npc_tunneldweller, npc_tunneldwellerspawned |
+| 7 | +0.49 | scientistnpc_junkpile_pistol, npc_underwaterdweller, simpleshark |
+| 8 | +0.63 | scientistnpc_full_pistol, scientistnpc_full_shotgun, scientistnpc_full_mp5, scientistnpc_full_lr300, scientistnpc_full_any |
+| 9 | +0.82 | scientistnpc_roam, scientistnpc_roamtethered, scientistnpc_patrol, scientistnpc_patrol_arctic, scientistnpc_arena |
+| 10 | +1.07 | scientistnpc_outbreak, scientistnpc_excavator, scientistnpc_ch47_gunner, scientistnpc_bradley, panther, tiger, scarecrow, scarecrow_dungeon, scarecrow_dungeonnoroam |
+| 11 | +1.4 | bear, scientist2, scientist2.shotgun, npc_bandit_guard ⛔ |
+| 12 | +1.82 | scientistnpc_oilrig, scientistnpc_cargo, scientistnpc_cargo_turret_any, scientistnpc_cargo_turret_lr300 |
+| 13 | +2.37 | polarbear, crocodile, gingerbread_dungeon |
+| 14 | +3.08 | scientistnpc_heavy, scientistnpc_peacekeeper, scientistnpc_roam_nvg_variant, gingerbread_meleedungeon |
+| 15 | +4.01 | scientistnpc_bradley_heavy |
+| 16 | +5.22 | sentry.scientist.static ⛔, sentry.scientist.barge ⛔, sentry.scientist.barge.static ⛔, sentry.bandit.static ⛔ |
+| 17 | +6.8 | scientist2.heavy |
+| 18 | +8.85 | bradleyapc 👥 |
+| 19 | +11.52 | ch47scientists.entity 👥 |
+| 20 | +15 | patrolhelicopter 👥 |
+
+⛔ = en la config pero **desactivado por defecto** (`DisabledNpcs`).
+👥 = **recompensa compartida** (ver abajo).
+
+- Solo cobra quien da el golpe final (salvo en los objetivos compartidos).
+- Un NPC que no esté en `NpcTiers` **no da nada**, y la primera vez que alguien
+  mata uno sale en la consola del servidor:
+  `Unlisted NPC killed: '<shortprefabname>'. Add it to NpcTiers…`. Así sabes qué
+  añadir. Ojo: también puede salir algo que no sea un NPC (p. ej. un vehículo
+  sin dueño); ignóralo.
+- Morir a manos de un NPC resta como cualquier muerte (desactivable con
+  `Deaths caused by NPCs lower baldness`).
+
+### Recompensa compartida (helicóptero, Bradley, Chinook)
+
+Para los objetivos de `SharedRewardTargets` (por defecto `patrolhelicopter`,
+`bradleyapc` y `ch47scientists.entity`), cuando el objetivo cae cobran **la
+recompensa completa de su tier**:
+
+1. **Todos los jugadores que le hicieron daño** durante el combate (aunque ya
+   estén muertos o desconectados), y
+2. **sus compañeros de equipo** (equipo de Rust) que estén **conectados y a
+   menos de 300 m** del objetivo al caer (configurable).
+
+Cada jugador cobra **una sola vez** por objetivo.
+
+### Títulos
+
+Según el % de calvicie:
 
 | Desde | Título |
 |---|---|
@@ -51,9 +109,8 @@ derribó.
 - Al llegar al 100 %: `🧑‍🦲 {jugador} HA ALCANZADO LA CALVICIE SUPREMA`
 - Al bajar de título: `⚠️ A {jugador} le está saliendo pelo (ahora es {título})`
 
-**Estadísticas** por jugador: kills, muertes y kills de headshot. Las kills
-cuentan aunque no den calvicie (sleeper o cooldown); las de NPC solo si están
-activadas en la config.
+**Estadísticas** por jugador: kills, muertes y kills de headshot (solo contra
+jugadores). Las kills cuentan aunque no den calvicie (sleeper o cooldown).
 
 ## Comandos
 
@@ -61,8 +118,9 @@ activadas en la config.
 |---|---|---|
 | `/calvo` | Todos | Tu % de calvicie y tu título. |
 | `/calvos` | Todos | Top 10 de la isla. |
-| `/calvoadmin set <jugador> <valor>` | Admin | Fija la calvicie de un jugador (0-100). |
+| `/calvoadmin set <jugador> <valor>` | Admin | Fija la calvicie de un jugador (0-100, admite decimales). |
 | `/calvoadmin reset <jugador>` | Admin | Pone la calvicie de un jugador a 0. |
+| `/calvoadmin debug on\|off` | Admin | Muestra en tu chat cada cambio de calvicie (de cualquier jugador) con su motivo: NPC, tier, valor… También avisa cuando algo **no** da calvicie y por qué. Para probar. Se apaga al recargar el plugin. |
 
 `<jugador>` puede ser el SteamID o el nombre (o parte del nombre). Funciona
 también con jugadores desconectados que ya tengan datos. Los cambios de admin
@@ -91,12 +149,37 @@ plugin. Después de editarla: `oxide.reload IslaDeCalvos`.
 | `Survival interval (minutes alive and connected)` | 30 | Cada cuántos minutos se gana. |
 | `Baldness lost on death` | 5 | Calvicie perdida al morir. |
 | `Extra baldness lost when the death is a headshot` | 3 | Extra si la muerte es de headshot. |
+| `Deaths caused by NPCs lower baldness` | true | Si morir a manos de un NPC resta calvicie. |
 | `Kill cooldown per victim (minutes)` | 30 | Anti-farmeo por víctima (0 = sin cooldown). |
-| `Count kills of NPC players (scientists, etc.)` | false | Si matar NPCs da calvicie. |
 | `Announce when a player reaches 100% baldness` | true | Anuncio de calvicie suprema. |
 | `Announce when a player drops to a lower title` | true | Anuncio de bajada de título. |
 | `Reset baldness on map wipe (stats are kept)` | false | Si el wipe pone a todos a 0 %. |
 | `Titles (minimum baldness -> title)` | ver tabla | Lista de títulos y desde qué % se consiguen. |
+| `NpcTiers` | ver tabla | `"<shortprefabname>": <tier>` para cada NPC que da calvicie. |
+| `TierRewards` | curva +0.1 … +15 | `"<tier>": <calvicie>` para los tiers 1-20. Admite decimales. |
+| `DisabledNpcs` | bandit guard y sentries | NPCs que están en `NpcTiers` pero no dan nada. |
+| `SharedRewardTargets` | heli, Bradley, CH47 | Objetivos con recompensa compartida. Tienen que estar también en `NpcTiers`. |
+| `Shared reward: teammate radius from the target (meters)` | 300 | Distancia máxima de los compañeros de equipo al objetivo. |
+
+Ejemplo del bloque de NPCs:
+
+```json
+"NpcTiers": {
+  "chicken": 1,
+  "scientistnpc_roam": 9,
+  "patrolhelicopter": 20
+},
+"TierRewards": {
+  "1": 0.1,
+  "9": 0.82,
+  "20": 15.0
+},
+"DisabledNpcs": [ "npc_bandit_guard" ],
+"SharedRewardTargets": [ "patrolhelicopter", "bradleyapc", "ch47scientists.entity" ]
+```
+
+Si quitas una entrada de una lista o de un diccionario, se queda quitada: el
+plugin no vuelve a meter los valores por defecto.
 
 Los textos de los mensajes se editan en `oxide/lang/es/IslaDeCalvos.json` y
 `oxide/lang/en/IslaDeCalvos.json`. Los dos están en español por defecto: la
