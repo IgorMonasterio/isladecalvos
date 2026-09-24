@@ -119,6 +119,28 @@ cuenta en Steam o pon otro SteamID64 en la config. Si acabas de cambiar el
 avatar, los clientes pueden tardar en verlo (Steam lo cachea). **No uses emojis en los textos**: el
 chat de Rust no los dibuja y salen como `??`.
 
+### RP de Server Rewards por título (plugin 1.4.0)
+
+Ser calvo da de comer. Cada **30 minutos vivo, conectado y despierto**, el
+plugin paga **RP de Server Rewards** según tu título:
+
+| Título | RP cada 30 min |
+|---|---|
+| Por debajo de Coronilla (< 1.000) | 0 |
+| Coronilla a la Intemperie | 1 |
+| Caballero de la Tonsura | 3 |
+| Lord Bola de Billar | 10 |
+| Su Calvísima Majestad | 30 |
+
+- Solo cobra quien se haya **movido** durante esos 30 minutos (anti-AFK). Se
+  mira cada minuto; basta con moverse 1 m entre dos comprobaciones.
+- Cuenta el título que tengas **en el momento del pago**. Morir no reinicia
+  el reloj de los RP, pero los minutos muerto o dormido no cuentan.
+- El jugador ve en el chat `+X RP por lucir calva de {título}`.
+- Los RP no se multiplican con eventos ni con la pila, y no tocan la calvicie.
+- Si **Server Rewards** no está cargado, no se paga nada y se avisa una vez
+  en la consola. La calvicie sigue funcionando igual.
+
 **Estadísticas** por jugador: kills, muertes y kills de headshot (solo contra
 jugadores). Las kills cuentan aunque no den calvicie (sleeper o cooldown).
 
@@ -289,6 +311,25 @@ nombre interno y su probabilidad):
 }
 ```
 
+Bloque de RP (valores por defecto). Las claves son la calvicie mínima, igual
+que los títulos:
+
+```json
+"Server Rewards (RP by title)": {
+  "Enabled": true,
+  "Interval (minutes alive and connected)": 30,
+  "Only pay players who moved during the interval (not AFK)": true,
+  "Minimum movement between checks to count as active (meters)": 1.0,
+  "Tell the player in chat when RP is paid": true,
+  "RP per interval by title (minimum baldness -> RP)": {
+    "1000": 1,
+    "10000": 3,
+    "100000": 10,
+    "1000000": 30
+  }
+}
+```
+
 La config lleva además un `Config version (do not edit)`. Sirve para que una
 actualización pueda corregir valores ya guardados (la 1.3.1 mueve el contador
 a la esquina superior derecha una sola vez). No lo toques.
@@ -323,7 +364,7 @@ servidor.
 1. Ten un servidor dedicado de Rust con **Oxide (uMod)** instalado.
 2. Copia `src/IslaDeCalvos.cs` en la carpeta `oxide/plugins/` del servidor.
 3. Oxide lo compila y carga solo. En la consola deberías ver algo como
-   `Loaded plugin Isla de Calvos v1.3.2 by Igor Monasterio`.
+   `Loaded plugin Isla de Calvos v1.4.0 by Igor Monasterio`.
 4. Para recargarlo tras cambiar el fichero (normalmente se recarga solo):
    `oxide.reload IslaDeCalvos`
 
