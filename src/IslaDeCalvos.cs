@@ -4,11 +4,12 @@ using System.Globalization;
 using System.Linq;
 using Newtonsoft.Json;
 using Oxide.Core;
+using Oxide.Game.Rust.Cui;
 using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Isla de Calvos", "Igor Monasterio", "1.1.0")]
+    [Info("Isla de Calvos", "Igor Monasterio", "1.2.0")]
     [Description("Baldness system for the Isla de Calvos Rust server: being bald is glory, hair is a curse.")]
     public class IslaDeCalvos : RustPlugin
     {
@@ -130,6 +131,30 @@ namespace Oxide.Plugins
 
             [JsonProperty("Global events")]
             public GlobalEventsConfig GlobalEvents = new GlobalEventsConfig();
+
+            [JsonProperty("On-screen UI")]
+            public UiConfig Ui = new UiConfig();
+        }
+
+        private class UiConfig
+        {
+            [JsonProperty("Show baldness counter")]
+            public bool ShowCounter = true;
+
+            // Anchors are 0-1 screen fractions (0 0 = bottom left); offsets are pixels from those anchors.
+            [JsonProperty("Counter anchor min")] public string CounterAnchorMin = "1 0";
+            [JsonProperty("Counter anchor max")] public string CounterAnchorMax = "1 0";
+            [JsonProperty("Counter offset min")] public string CounterOffsetMin = "-208 112";
+            [JsonProperty("Counter offset max")] public string CounterOffsetMax = "-16 146";
+
+            [JsonProperty("Seconds the +X / -X popup stays")]
+            public float DeltaSeconds = 2.5f;
+
+            [JsonProperty("Show event banner in the middle of the screen")]
+            public bool ShowEventBanner = true;
+
+            [JsonProperty("Seconds the event banner stays")]
+            public float BannerSeconds = 8f;
         }
 
         private class GlobalEventsConfig
@@ -307,6 +332,10 @@ namespace Oxide.Plugins
             events.AlopeciaOutbreak.DurationMinutes = Math.Max(1, events.AlopeciaOutbreak.DurationMinutes);
             events.HairiestHunt.MinPlayers = Math.Max(2, events.HairiestHunt.MinPlayers);
 
+            if (config.Ui == null) config.Ui = new UiConfig();
+            config.Ui.DeltaSeconds = Math.Max(0.5f, config.Ui.DeltaSeconds);
+            config.Ui.BannerSeconds = Math.Max(1f, config.Ui.BannerSeconds);
+
             if (config.NpcTiers == null)
             {
                 config.NpcTiers = new Dictionary<string, int>();
@@ -370,6 +399,10 @@ namespace Oxide.Plugins
 
         private class PlayerData
         {
+            // Filled in at load/creation (it is the dictionary key), not stored twice in the file.
+            [JsonIgnore]
+            public ulong Id;
+
             public string Name = string.Empty;
             public long Baldness;
             public int Kills;
@@ -401,6 +434,11 @@ namespace Oxide.Plugins
             {
                 storedData.Players = new Dictionary<ulong, PlayerData>();
             }
+
+            foreach (KeyValuePair<ulong, PlayerData> entry in storedData.Players)
+            {
+                entry.Value.Id = entry.Key;
+            }
         }
 
         private void SaveData()
@@ -419,7 +457,7 @@ namespace Oxide.Plugins
             ulong id = (ulong)player.userID;
             if (!storedData.Players.TryGetValue(id, out PlayerData data))
             {
-                data = new PlayerData();
+                data = new PlayerData { Id = id };
                 storedData.Players[id] = data;
                 dataDirty = true;
             }
@@ -496,7 +534,8 @@ namespace Oxide.Plugins
                 ["AdminEventUsage"] = "Uso: /calvoadmin evento <hora|champu|peludo|alopecia|parar>",
                 ["AdminEventBusy"] = "Ya hay un evento en marcha: {0}. Páralo antes con /calvoadmin evento parar.",
                 ["AdminEventCannotStart"] = "No se puede lanzar {0} ahora (¿pocos jugadores conectados o desactivado en la config?).",
-                ["AdminEventNone"] = "No hay ningún evento en marcha."
+                ["AdminEventNone"] = "No hay ningún evento en marcha.",
+                ["HudCounter"] = "<size=11><color=#b8b8b8>CALVICIE</color></size>  <color=#f0c040>{0}</color>\n<size=10><color=#d8d8d8>{1}</color></size>"
             };
 
             // Spanish is registered as the default ("en") set too: Oxide assigns each player the language
@@ -560,6 +599,14 @@ namespace Oxide.Plugins
 
             timer.Every(SurvivalTickSeconds, SurvivalTick);
 
+            foreach (BasePlayer player in BasePlayer.activePlayerList)
+            {
+                if (IsRealPlayer(player) && !player.IsSleeping())
+                {
+                    DrawCounter(player);
+                }
+            }
+
             if (config.GlobalEvents.Enabled)
             {
                 timer.Every(config.GlobalEvents.IntervalMinutes * 60f, () => StartRandomEvent());
@@ -568,7 +615,14 @@ namespace Oxide.Plugins
 
         private void OnServerSave() => SaveData();
 
-        private void Unload() => SaveData();
+        private void Unload()
+        {
+            SaveData();
+            foreach (BasePlayer player in BasePlayer.activePlayerList)
+            {
+                DestroyUi(player);
+            }
+        }
 
         private void OnNewSave(string filename)
         {
@@ -1084,7 +1138,7 @@ namespace Oxide.Plugins
         {
             if (activeEvent == GlobalEvent.HairiestHunt && player != null && (ulong)player.userID == huntTargetId)
             {
-                Broadcast("EventHuntEscaped", player.displayName);
+                BroadcastEvent("EventHuntEscaped", player.displayName);
                 EndEvent(false);
             }
         }
@@ -1126,12 +1180,12 @@ namespace Oxide.Plugins
                 case GlobalEvent.BaldHour:
                     if (!events.BaldHour.Enabled) return false;
                     minutes = events.BaldHour.DurationMinutes;
-                    Broadcast("EventBaldHourStart", minutes, events.BaldHour.Multiplier);
+                    BroadcastEvent("EventBaldHourStart", minutes, events.BaldHour.Multiplier);
                     break;
                 case GlobalEvent.ShampooRain:
                     if (!events.ShampooRain.Enabled) return false;
                     minutes = events.ShampooRain.DurationMinutes;
-                    Broadcast("EventShampooRainStart", minutes, events.ShampooRain.Multiplier);
+                    BroadcastEvent("EventShampooRainStart", minutes, events.ShampooRain.Multiplier);
                     break;
                 case GlobalEvent.HairiestHunt:
                     HairiestHuntConfig hunt = events.HairiestHunt;
@@ -1143,12 +1197,12 @@ namespace Oxide.Plugins
                     BasePlayer target = hairiest[random.Next(hairiest.Count)];
                     huntTargetId = (ulong)target.userID;
                     minutes = hunt.DurationMinutes;
-                    Broadcast("EventHuntStart", target.displayName, FormatBaldness(lowest), FormatBaldness(hunt.KillerBonus), minutes, FormatBaldness(hunt.SurvivorBonus));
+                    BroadcastEvent("EventHuntStart", target.displayName, FormatBaldness(lowest), FormatBaldness(hunt.KillerBonus), minutes, FormatBaldness(hunt.SurvivorBonus));
                     break;
                 case GlobalEvent.AlopeciaOutbreak:
                     if (!events.AlopeciaOutbreak.Enabled) return false;
                     minutes = events.AlopeciaOutbreak.DurationMinutes;
-                    Broadcast("EventAlopeciaStart", minutes, events.AlopeciaOutbreak.Multiplier);
+                    BroadcastEvent("EventAlopeciaStart", minutes, events.AlopeciaOutbreak.Multiplier);
                     break;
                 default:
                     return false;
@@ -1178,22 +1232,22 @@ namespace Oxide.Plugins
                 switch (ended)
                 {
                     case GlobalEvent.BaldHour:
-                        Broadcast("EventBaldHourEnd");
+                        BroadcastEvent("EventBaldHourEnd");
                         break;
                     case GlobalEvent.ShampooRain:
-                        Broadcast("EventShampooRainEnd");
+                        BroadcastEvent("EventShampooRainEnd");
                         break;
                     case GlobalEvent.HairiestHunt:
                         if (storedData.Players.TryGetValue(huntTargetId, out PlayerData target))
                         {
                             long bonus = config.GlobalEvents.HairiestHunt.SurvivorBonus;
-                            Broadcast("EventHuntSurvived", target.Name, FormatBaldness(bonus));
+                            BroadcastEvent("EventHuntSurvived", target.Name, FormatBaldness(bonus));
                             ChangeBaldness(target, bonus, true, Lang("ReasonHuntSurvived"));
                         }
 
                         break;
                     case GlobalEvent.AlopeciaOutbreak:
-                        Broadcast("EventAlopeciaEnd");
+                        BroadcastEvent("EventAlopeciaEnd");
                         break;
                 }
             }
@@ -1206,13 +1260,13 @@ namespace Oxide.Plugins
         {
             if (killer == null)
             {
-                Broadcast("EventHuntDied", targetData.Name);
+                BroadcastEvent("EventHuntDied", targetData.Name);
             }
             else
             {
                 long bonus = config.GlobalEvents.HairiestHunt.KillerBonus;
                 PlayerData killerData = GetOrCreateData(killer);
-                Broadcast("EventHuntKilled", killerData.Name, targetData.Name, FormatBaldness(bonus));
+                BroadcastEvent("EventHuntKilled", killerData.Name, targetData.Name, FormatBaldness(bonus));
                 ChangeBaldness(killerData, bonus, true, Lang("ReasonHuntKill", null, targetData.Name));
             }
 
@@ -1236,7 +1290,7 @@ namespace Oxide.Plugins
                         return;
                     }
 
-                    Broadcast("EventStoppedByAdmin", EventName(activeEvent));
+                    BroadcastEvent("EventStoppedByAdmin", EventName(activeEvent));
                     EndEvent(false);
                     return;
                 default:
@@ -1274,6 +1328,169 @@ namespace Oxide.Plugins
             }
 
             ChangeBaldness(data, amount, true, reason);
+        }
+
+        #endregion
+
+        #region On-screen UI
+
+        private const string UiCounter = "IslaDeCalvos.Counter";
+        private const string UiDelta = "IslaDeCalvos.Delta";
+        private const string UiBanner = "IslaDeCalvos.Banner";
+
+        private readonly Dictionary<ulong, Timer> deltaTimers = new Dictionary<ulong, Timer>();
+        private Timer bannerTimer;
+
+        // The client is ready for UI once the player wakes up (after connecting and after every respawn).
+        private void OnPlayerSleepEnded(BasePlayer player)
+        {
+            if (IsRealPlayer(player))
+            {
+                DrawCounter(player);
+            }
+        }
+
+        private void DrawCounter(BasePlayer player)
+        {
+            if (!config.Ui.ShowCounter || player == null || !player.IsConnected)
+            {
+                return;
+            }
+
+            PlayerData data = GetOrCreateData(player);
+            UiConfig ui = config.Ui;
+            var container = new CuiElementContainer();
+            container.Add(new CuiPanel
+            {
+                Image = { Color = "0 0 0 0.55" },
+                RectTransform = { AnchorMin = ui.CounterAnchorMin, AnchorMax = ui.CounterAnchorMax, OffsetMin = ui.CounterOffsetMin, OffsetMax = ui.CounterOffsetMax }
+            }, "Hud", UiCounter, UiCounter);
+            container.Add(new CuiLabel
+            {
+                Text =
+                {
+                    Text = Lang("HudCounter", player.UserIDString, FormatBaldness(data.Baldness), GetTitle(data.Baldness)),
+                    FontSize = 14,
+                    Align = TextAnchor.MiddleCenter,
+                    Color = "1 1 1 1"
+                },
+                RectTransform = { AnchorMin = "0 0", AnchorMax = "1 1" }
+            }, UiCounter);
+            CuiHelper.AddUi(player, container);
+        }
+
+        // Redraws the counter of an online player and pops a +X / -X next to it for a moment.
+        private void RefreshCounter(PlayerData data, long delta)
+        {
+            BasePlayer player = BasePlayer.FindByID(data.Id);
+            if (!config.Ui.ShowCounter || player == null || !player.IsConnected || player.IsSleeping())
+            {
+                return;
+            }
+
+            DrawCounter(player);
+
+            UiConfig ui = config.Ui;
+            var container = new CuiElementContainer();
+            container.Add(new CuiLabel
+            {
+                Text =
+                {
+                    Text = (delta > 0 ? "+" : string.Empty) + FormatBaldness(delta),
+                    FontSize = 18,
+                    Align = TextAnchor.MiddleRight,
+                    Color = delta > 0 ? "0.94 0.75 0.25 1" : "0.88 0.31 0.31 1",
+                    FadeIn = 0.2f
+                },
+                // Just left of the counter.
+                RectTransform = { AnchorMin = ui.CounterAnchorMin, AnchorMax = ui.CounterAnchorMax, OffsetMin = ShiftX(ui.CounterOffsetMin, -110), OffsetMax = ShiftX(ui.CounterOffsetMin, -6, ui.CounterOffsetMax) },
+                FadeOut = 0.5f
+            }, "Hud", UiDelta, UiDelta);
+            CuiHelper.AddUi(player, container);
+
+            if (deltaTimers.TryGetValue(data.Id, out Timer previous))
+            {
+                previous?.Destroy();
+            }
+
+            deltaTimers[data.Id] = timer.Once(ui.DeltaSeconds, () =>
+            {
+                deltaTimers.Remove(data.Id);
+                if (player != null && player.IsConnected)
+                {
+                    CuiHelper.DestroyUi(player, UiDelta);
+                }
+            });
+        }
+
+        // Event messages also go to the chat; the banner is the big version in the middle of the screen.
+        private void BroadcastEvent(string key, params object[] args)
+        {
+            Broadcast(key, args);
+            if (!config.Ui.ShowEventBanner)
+            {
+                return;
+            }
+
+            string message = Lang(key, null, args);
+            foreach (BasePlayer player in BasePlayer.activePlayerList)
+            {
+                if (!IsRealPlayer(player) || !player.IsConnected)
+                {
+                    continue;
+                }
+
+                var container = new CuiElementContainer();
+                container.Add(new CuiPanel
+                {
+                    Image = { Color = "0 0 0 0.6" },
+                    RectTransform = { AnchorMin = "0.2 0.72", AnchorMax = "0.8 0.82" },
+                    FadeOut = 0.8f
+                }, "Hud", UiBanner, UiBanner);
+                container.Add(new CuiLabel
+                {
+                    Text = { Text = message, FontSize = 22, Align = TextAnchor.MiddleCenter, Color = "1 1 1 1", FadeIn = 0.3f },
+                    RectTransform = { AnchorMin = "0.02 0", AnchorMax = "0.98 1" },
+                    FadeOut = 0.8f
+                }, UiBanner);
+                CuiHelper.AddUi(player, container);
+            }
+
+            bannerTimer?.Destroy();
+            bannerTimer = timer.Once(config.Ui.BannerSeconds, () =>
+            {
+                bannerTimer = null;
+                foreach (BasePlayer player in BasePlayer.activePlayerList)
+                {
+                    CuiHelper.DestroyUi(player, UiBanner);
+                }
+            });
+        }
+
+        private static void DestroyUi(BasePlayer player)
+        {
+            if (player == null)
+            {
+                return;
+            }
+
+            CuiHelper.DestroyUi(player, UiCounter);
+            CuiHelper.DestroyUi(player, UiDelta);
+            CuiHelper.DestroyUi(player, UiBanner);
+        }
+
+        // "x y" offset with x moved by dx; y taken from yFrom (defaults to the same offset).
+        private static string ShiftX(string offset, float dx, string yFrom = null)
+        {
+            string[] a = offset.Split(' ');
+            string[] b = (yFrom ?? offset).Split(' ');
+            if (a.Length != 2 || b.Length != 2 ||
+                !float.TryParse(a[0], NumberStyles.Float, CultureInfo.InvariantCulture, out float x))
+            {
+                return offset;
+            }
+
+            return (x + dx).ToString(CultureInfo.InvariantCulture) + " " + b[1];
         }
 
         #endregion
@@ -1406,6 +1623,7 @@ namespace Oxide.Plugins
 
             data.Baldness = newValue;
             dataDirty = true;
+            RefreshCounter(data, newValue - oldValue);
 
             if (!announce)
             {
