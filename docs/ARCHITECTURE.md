@@ -66,6 +66,7 @@ Hooks que usa la v1.0 y de dónde sale cada uno:
 | `OnPatrolHelicopterKill(PatrolHelicopter heli, HitInfo info)` | Cuando el daño supera la vida del heli. **El heli no muere ahí**: el juego le pone 10000 de vida y lo manda a estrellarse. Es el momento de "derribado". | Código descompilado (`PatrolHelicopter.Hurt`) |
 | `OnHelicopterAttack(CH47HelicopterAIController heli, HitInfo info)` | Ataque al Chinook, antes de `base.OnAttacked`. | Código descompilado (`CH47HelicopterAIController.OnAttacked`) |
 | `OnEntityKill(BaseNetworkable entity)` | Cualquier entidad destruida (también al despawnear). Solo lo usamos para limpiar memoria. | Código descompilado (`BaseNetworkable.Kill`) |
+| `OnPlayerSleepEnded(BasePlayer player)` | El jugador despierta (tras conectar y tras cada respawn). Es cuando se dibuja el contador en pantalla. | Código descompilado (`BasePlayer.EndSleeping`) |
 | `OnPlayerDisconnected(BasePlayer player, string reason)` | Jugador desconectado. Termina la cacería si se va el objetivo. | Código descompilado (`ServerMgr`) + `RustHooks.cs` |
 
 ## 3. Configuración
@@ -129,6 +130,22 @@ Para añadir otro evento: decidir qué hook marca "participar" y cuál marca
   `CompleteEventTarget` (recompensa compartida).
 - Para añadir un evento: nuevo valor en el enum `GlobalEvent`, su bloque en la
   config, su `case` en `StartEvent`/`EndEvent` y sus textos en `lang`.
+
+## 4d. Interfaz en pantalla (v1.2)
+
+- Se usa la CUI de Oxide.Rust (`Oxide.Game.Rust.Cui`: `CuiHelper.AddUi`/
+  `DestroyUi`, `CuiElementContainer`, `CuiPanel`, `CuiLabel`), verificada en
+  `src/RustCui.cs`.
+- Tres elementos con nombre fijo: `IslaDeCalvos.Counter`, `IslaDeCalvos.Delta`
+  e `IslaDeCalvos.Banner`. Se añaden con `destroyUi` = su propio nombre, así
+  cada redibujado sustituye al anterior sin parpadeo.
+- El contador se redibuja desde `ChangeBaldness` (todo cambio pasa por ahí) y
+  al despertar (`OnPlayerSleepEnded`). No se manda UI a jugadores dormidos.
+- Los mensajes de evento van por `BroadcastEvent` (chat + cartel central).
+- `Unload` borra la UI de todos. `PlayerData.Id` (no se guarda en disco, se
+  rellena al cargar) permite encontrar al jugador desde sus datos.
+- **No se puede ver la UI desde el entorno cloud**: posiciones y tamaños hay
+  que ajustarlos mirando el juego.
 
 ## 5. Localización (lang)
 
