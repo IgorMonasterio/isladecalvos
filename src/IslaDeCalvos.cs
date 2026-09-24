@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using Newtonsoft.Json;
 using Oxide.Core;
+using UnityEngine;
 
 namespace Oxide.Plugins
 {
@@ -13,8 +15,8 @@ namespace Oxide.Plugins
         #region Fields
 
         private const string PermAdmin = "isladecalvos.admin";
-        private const int MinBaldness = 0;
-        private const int MaxBaldness = 100;
+        private const double MinBaldness = 0;
+        private const double MaxBaldness = 100;
         private const int TopCount = 10;
         private const float SurvivalTickSeconds = 60f;
 
@@ -22,11 +24,23 @@ namespace Oxide.Plugins
         private StoredData storedData;
         private bool dataDirty;
 
+        // Runtime lookups built from the config (case-insensitive ShortPrefabName keys).
+        private Dictionary<string, int> npcTiers;
+        private Dictionary<int, double> tierRewards;
+        private HashSet<string> disabledNpcs;
+        private HashSet<string> sharedRewardTargets;
+
         // Last counted kill per killer -> victim, used by the anti-farm cooldown. In memory only.
         private readonly Dictionary<ulong, Dictionary<ulong, DateTime>> killCooldowns = new Dictionary<ulong, Dictionary<ulong, DateTime>>();
 
         // Who downed a player, so a bleed-out death is still credited to them. Cleared on recovery or death.
         private readonly Dictionary<ulong, WoundRecord> woundRecords = new Dictionary<ulong, WoundRecord>();
+
+        // Unlisted NPC prefabs already reported in the console (each one is logged only once per load).
+        private readonly HashSet<string> reportedUnknownNpcs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        // Admins receiving debug messages for every baldness change. In memory only.
+        private readonly HashSet<ulong> debugAdmins = new HashSet<ulong>();
 
         private class WoundRecord
         {
@@ -41,28 +55,28 @@ namespace Oxide.Plugins
         private class Configuration
         {
             [JsonProperty("Baldness gained per player kill")]
-            public int KillReward = 3;
+            public double KillReward = 3;
 
             [JsonProperty("Baldness gained per headshot kill (instead of the normal kill reward)")]
-            public int HeadshotKillReward = 7;
+            public double HeadshotKillReward = 7;
 
             [JsonProperty("Baldness gained per survival interval")]
-            public int SurvivalReward = 1;
+            public double SurvivalReward = 1;
 
             [JsonProperty("Survival interval (minutes alive and connected)")]
             public int SurvivalIntervalMinutes = 30;
 
             [JsonProperty("Baldness lost on death")]
-            public int DeathPenalty = 5;
+            public double DeathPenalty = 5;
 
             [JsonProperty("Extra baldness lost when the death is a headshot")]
-            public int HeadshotDeathExtraPenalty = 3;
+            public double HeadshotDeathExtraPenalty = 3;
+
+            [JsonProperty("Deaths caused by NPCs lower baldness")]
+            public bool NpcDeathsLowerBaldness = true;
 
             [JsonProperty("Kill cooldown per victim (minutes)")]
             public int KillCooldownMinutes = 30;
-
-            [JsonProperty("Count kills of NPC players (scientists, etc.)")]
-            public bool CountNpcKills = false;
 
             [JsonProperty("Announce when a player reaches 100% baldness")]
             public bool AnnounceSupremeBaldness = true;
@@ -73,8 +87,8 @@ namespace Oxide.Plugins
             [JsonProperty("Reset baldness on map wipe (stats are kept)")]
             public bool ResetBaldnessOnWipe = false;
 
-            // Replace, not merge: Oxide reads configs with default Newtonsoft settings, which would append
-            // the file's titles to these defaults and make the list grow on every reload.
+            // Collections use Replace, not merge: Oxide reads configs with default Newtonsoft settings, which would
+            // append the file's entries to these defaults (lists grow on every reload, removed keys come back).
             [JsonProperty("Titles (minimum baldness -> title)", ObjectCreationHandling = ObjectCreationHandling.Replace)]
             public List<TitleTier> Titles = new List<TitleTier>
             {
@@ -86,6 +100,28 @@ namespace Oxide.Plugins
                 new TitleTier { MinBaldness = 90, Name = "Gran Calvo" },
                 new TitleTier { MinBaldness = 100, Name = "Dios Calvo" }
             };
+
+            [JsonProperty("NpcTiers", ObjectCreationHandling = ObjectCreationHandling.Replace)]
+            public Dictionary<string, int> NpcTiers = DefaultNpcTiers();
+
+            [JsonProperty("TierRewards", ObjectCreationHandling = ObjectCreationHandling.Replace)]
+            public Dictionary<string, double> TierRewards = DefaultTierRewards();
+
+            [JsonProperty("DisabledNpcs", ObjectCreationHandling = ObjectCreationHandling.Replace)]
+            public List<string> DisabledNpcs = new List<string>
+            {
+                "npc_bandit_guard",
+                "sentry.scientist.static",
+                "sentry.scientist.barge",
+                "sentry.scientist.barge.static",
+                "sentry.bandit.static"
+            };
+
+            [JsonProperty("SharedRewardTargets", ObjectCreationHandling = ObjectCreationHandling.Replace)]
+            public List<string> SharedRewardTargets = new List<string> { "patrolhelicopter", "bradleyapc", "ch47scientists.entity" };
+
+            [JsonProperty("Shared reward: teammate radius from the target (meters)")]
+            public float SharedRewardTeamRadius = 300f;
         }
 
         private class TitleTier
@@ -95,6 +131,64 @@ namespace Oxide.Plugins
 
             [JsonProperty("Title")]
             public string Name;
+        }
+
+        private static Dictionary<string, int> DefaultNpcTiers()
+        {
+            var tiers = new Dictionary<string, int>();
+            void Add(int tier, params string[] prefabs)
+            {
+                foreach (string prefab in prefabs)
+                {
+                    tiers[prefab] = tier;
+                }
+            }
+
+            Add(1, "chicken");
+            Add(2, "zombie");
+            Add(3, "snake.entity", "boar", "stag");
+            Add(4, "beeswarm", "scientistnpc_ptboat", "scientistnpc_rhib");
+            Add(5, "beemasterswarm", "wolf2", "frankensteinpet");
+            Add(6, "npc_tunneldweller", "npc_tunneldwellerspawned");
+            Add(7, "scientistnpc_junkpile_pistol", "npc_underwaterdweller", "simpleshark");
+            Add(8, "scientistnpc_full_pistol", "scientistnpc_full_shotgun", "scientistnpc_full_mp5",
+                "scientistnpc_full_lr300", "scientistnpc_full_any");
+            Add(9, "scientistnpc_roam", "scientistnpc_roamtethered", "scientistnpc_patrol",
+                "scientistnpc_patrol_arctic", "scientistnpc_arena");
+            Add(10, "scientistnpc_outbreak", "scientistnpc_excavator", "scientistnpc_ch47_gunner",
+                "scientistnpc_bradley", "panther", "tiger", "scarecrow", "scarecrow_dungeon", "scarecrow_dungeonnoroam");
+            Add(11, "bear", "scientist2", "scientist2.shotgun", "npc_bandit_guard");
+            Add(12, "scientistnpc_oilrig", "scientistnpc_cargo", "scientistnpc_cargo_turret_any",
+                "scientistnpc_cargo_turret_lr300");
+            Add(13, "polarbear", "crocodile", "gingerbread_dungeon");
+            Add(14, "scientistnpc_heavy", "scientistnpc_peacekeeper", "scientistnpc_roam_nvg_variant",
+                "gingerbread_meleedungeon");
+            Add(15, "scientistnpc_bradley_heavy");
+            Add(16, "sentry.scientist.static", "sentry.scientist.barge", "sentry.scientist.barge.static",
+                "sentry.bandit.static");
+            Add(17, "scientist2.heavy");
+            Add(18, "bradleyapc");
+            Add(19, "ch47scientists.entity");
+            Add(20, "patrolhelicopter");
+            return tiers;
+        }
+
+        // Geometric curve from +0.1 (tier 1) to +15 (tier 20), about x1.3 per tier.
+        private static Dictionary<string, double> DefaultTierRewards()
+        {
+            double[] rewards =
+            {
+                0.1, 0.13, 0.17, 0.22, 0.29, 0.37, 0.49, 0.63, 0.82, 1.07,
+                1.4, 1.82, 2.37, 3.08, 4.01, 5.22, 6.8, 8.85, 11.52, 15
+            };
+
+            var result = new Dictionary<string, double>();
+            for (int i = 0; i < rewards.Length; i++)
+            {
+                result[(i + 1).ToString(CultureInfo.InvariantCulture)] = rewards[i];
+            }
+
+            return result;
         }
 
         protected override void LoadDefaultConfig() => config = new Configuration();
@@ -139,6 +233,57 @@ namespace Oxide.Plugins
             config.Titles = config.Titles.OrderBy(t => t.MinBaldness).ToList();
             config.SurvivalIntervalMinutes = Math.Max(1, config.SurvivalIntervalMinutes);
             config.KillCooldownMinutes = Math.Max(0, config.KillCooldownMinutes);
+            config.SharedRewardTeamRadius = Math.Max(0f, config.SharedRewardTeamRadius);
+
+            if (config.NpcTiers == null)
+            {
+                config.NpcTiers = new Dictionary<string, int>();
+            }
+
+            if (config.TierRewards == null)
+            {
+                config.TierRewards = new Dictionary<string, double>();
+            }
+
+            if (config.DisabledNpcs == null)
+            {
+                config.DisabledNpcs = new List<string>();
+            }
+
+            if (config.SharedRewardTargets == null)
+            {
+                config.SharedRewardTargets = new List<string>();
+            }
+
+            npcTiers = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            foreach (KeyValuePair<string, int> entry in config.NpcTiers)
+            {
+                if (!string.IsNullOrEmpty(entry.Key))
+                {
+                    npcTiers[entry.Key] = entry.Value;
+                }
+            }
+
+            tierRewards = new Dictionary<int, double>();
+            foreach (KeyValuePair<string, double> entry in config.TierRewards)
+            {
+                if (int.TryParse(entry.Key, NumberStyles.Integer, CultureInfo.InvariantCulture, out int tier))
+                {
+                    tierRewards[tier] = entry.Value;
+                }
+                else
+                {
+                    PrintWarning($"TierRewards: '{entry.Key}' is not a tier number; ignored.");
+                }
+            }
+
+            foreach (int tier in npcTiers.Values.Distinct().Where(t => !tierRewards.ContainsKey(t)))
+            {
+                PrintWarning($"TierRewards has no value for tier {tier}; NPCs of that tier give nothing.");
+            }
+
+            disabledNpcs = new HashSet<string>(config.DisabledNpcs.Where(p => !string.IsNullOrEmpty(p)), StringComparer.OrdinalIgnoreCase);
+            sharedRewardTargets = new HashSet<string>(config.SharedRewardTargets.Where(p => !string.IsNullOrEmpty(p)), StringComparer.OrdinalIgnoreCase);
         }
 
         #endregion
@@ -154,7 +299,7 @@ namespace Oxide.Plugins
         private class PlayerData
         {
             public string Name = string.Empty;
-            public int Baldness;
+            public double Baldness;
             public int Kills;
             public int Deaths;
             public int HeadshotKills;
@@ -231,12 +376,31 @@ namespace Oxide.Plugins
                 ["SupremeBaldness"] = "🧑‍🦲 {0} HA ALCANZADO LA CALVICIE SUPREMA",
                 ["TitleDrop"] = "⚠️ A {0} le está saliendo pelo (ahora es {1})",
                 ["NoPermission"] = "No tienes permiso para usar este comando.",
-                ["AdminUsage"] = "Uso: /calvoadmin set <jugador> <valor> | /calvoadmin reset <jugador>",
+                ["AdminUsage"] = "Uso: /calvoadmin set <jugador> <valor> | /calvoadmin reset <jugador> | /calvoadmin debug on|off",
                 ["AdminInvalidValue"] = "El valor tiene que ser un número entre {0} y {1}.",
                 ["PlayerNotFound"] = "No se ha encontrado ningún jugador con '{0}'.",
                 ["PlayerAmbiguous"] = "Hay {0} jugadores que coinciden con '{1}'. Sé más concreto o usa el SteamID.",
                 ["AdminSet"] = "Calvicie de {0} fijada en {1}%.",
-                ["AdminReset"] = "Calvicie de {0} reseteada a {1}%."
+                ["AdminReset"] = "Calvicie de {0} reseteada a {1}%.",
+                ["DebugOn"] = "Debug activado: verás en el chat cada cambio de calvicie y su motivo.",
+                ["DebugOff"] = "Debug desactivado.",
+                ["DebugChange"] = "[debug] {0}: {1}% → {2}% ({3}{4}) · {5}",
+                ["DebugNoReward"] = "[debug] {0}: sin calvicie · {1}",
+                ["ReasonPlayerKill"] = "kill a {0}",
+                ["ReasonPlayerHeadshotKill"] = "kill de headshot a {0}",
+                ["ReasonDeath"] = "muerte",
+                ["ReasonHeadshotDeath"] = "muerte por headshot",
+                ["ReasonSurvival"] = "supervivencia",
+                ["ReasonNpcKill"] = "NPC {0} (T{1})",
+                ["ReasonEventParticipant"] = "evento {0} (T{1}), le hizo daño",
+                ["ReasonEventTeammate"] = "evento {0} (T{1}), compañero de equipo cerca",
+                ["ReasonAdmin"] = "admin",
+                ["NoRewardSleeper"] = "víctima dormida o desconectada ({0})",
+                ["NoRewardCooldown"] = "cooldown con {0}",
+                ["NoRewardNpcDisabled"] = "NPC {0} desactivado en la config",
+                ["NoRewardNpcUnlisted"] = "NPC {0} no está en NpcTiers",
+                ["NoRewardTierMissing"] = "NPC {0} (T{1}) sin valor en TierRewards",
+                ["NoRewardNpcDeath"] = "muerte por NPC (desactivado en la config)"
             };
 
             // Spanish is registered as the default ("en") set too: Oxide assigns each player the language
@@ -255,6 +419,8 @@ namespace Oxide.Plugins
             SendReply(player, Lang(key, player.UserIDString, args));
 
         private void Broadcast(string key, params object[] args) => PrintToChat(Lang(key, null, args));
+
+        private static string FormatBaldness(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
 
         #endregion
 
@@ -304,7 +470,7 @@ namespace Oxide.Plugins
 
         #endregion
 
-        #region Game Hooks
+        #region Player Hooks
 
         private void OnPlayerConnected(BasePlayer player)
         {
@@ -339,6 +505,8 @@ namespace Oxide.Plugins
             }
         }
 
+        // Real players only. NPC deaths (including NPC players) are rewarded in OnEntityDeath, which Rust
+        // also fires for every BasePlayer after OnPlayerDeath (BasePlayer.Die calls base.Die).
         private void OnPlayerDeath(BasePlayer victim, HitInfo info)
         {
             if (victim == null)
@@ -361,26 +529,28 @@ namespace Oxide.Plugins
                 }
             }
 
-            bool victimIsReal = IsRealPlayer(victim);
-
-            if (victimIsReal)
-            {
-                PlayerData victimData = GetOrCreateData(victim);
-                victimData.Deaths++;
-                victimData.SurvivalSeconds = 0f;
-                dataDirty = true;
-
-                int penalty = config.DeathPenalty + (headshot ? config.HeadshotDeathExtraPenalty : 0);
-                ChangeBaldness(victimData, -penalty, true);
-            }
-
-            // Suicide (or no killer at all) only counts as a death.
-            if (killer == null || killer == victim || !IsRealPlayer(killer))
+            if (!IsRealPlayer(victim))
             {
                 return;
             }
 
-            if (!victimIsReal && !config.CountNpcKills)
+            PlayerData victimData = GetOrCreateData(victim);
+            victimData.Deaths++;
+            victimData.SurvivalSeconds = 0f;
+            dataDirty = true;
+
+            if (!config.NpcDeathsLowerBaldness && IsKilledByNpc(info, killer))
+            {
+                DebugNoReward(victimData, Lang("NoRewardNpcDeath"));
+            }
+            else
+            {
+                double penalty = config.DeathPenalty + (headshot ? config.HeadshotDeathExtraPenalty : 0);
+                ChangeBaldness(victimData, -penalty, true, Lang(headshot ? "ReasonHeadshotDeath" : "ReasonDeath"));
+            }
+
+            // Suicide (or no killer at all) only counts as a death.
+            if (killer == null || killer == victim || !IsRealPlayer(killer))
             {
                 return;
             }
@@ -394,12 +564,236 @@ namespace Oxide.Plugins
 
             dataDirty = true;
 
-            if (victimIsReal && !IsKillRewardable((ulong)killer.userID, victim))
+            if (!IsKillRewardable(killerData, (ulong)killer.userID, victim, victimData.Name))
             {
                 return;
             }
 
-            ChangeBaldness(killerData, headshot ? config.HeadshotKillReward : config.KillReward, true);
+            ChangeBaldness(killerData, headshot ? config.HeadshotKillReward : config.KillReward, true,
+                Lang(headshot ? "ReasonPlayerHeadshotKill" : "ReasonPlayerKill", null, victimData.Name));
+        }
+
+        #endregion
+
+        #region NPC Hooks
+
+        private void OnEntityDeath(BaseCombatEntity entity, HitInfo info)
+        {
+            if (entity == null)
+            {
+                return;
+            }
+
+            // Real players are handled in OnPlayerDeath.
+            BasePlayer entityPlayer = entity as BasePlayer;
+            if (entityPlayer != null && IsRealPlayer(entityPlayer))
+            {
+                return;
+            }
+
+            string prefab = entity.ShortPrefabName;
+            if (sharedRewardTargets.Contains(prefab))
+            {
+                CompleteEventTarget(entity);
+                return;
+            }
+
+            BasePlayer killer = info?.InitiatorPlayer;
+            if (!IsRealPlayer(killer))
+            {
+                return;
+            }
+
+            if (!npcTiers.ContainsKey(prefab) && !IsPossibleNpc(entity))
+            {
+                return;
+            }
+
+            PlayerData killerData = GetOrCreateData(killer);
+            if (!TryGetNpcReward(prefab, out int tier, out double reward, out string whyNot))
+            {
+                DebugNoReward(killerData, whyNot);
+                return;
+            }
+
+            ChangeBaldness(killerData, reward, true, Lang("ReasonNpcKill", null, prefab, tier));
+        }
+
+        #endregion
+
+        #region Event Rewards
+
+        // Generic "event reward": a target whose death pays the full reward to every player who damaged it and to
+        // their online teammates near the target, once per player. Future team events reuse TrackEventParticipant,
+        // CompleteEventTarget and PayEventReward with their own targets.
+
+        private readonly Dictionary<BaseEntity, EventState> activeEvents = new Dictionary<BaseEntity, EventState>();
+        private readonly HashSet<BaseEntity> completedEvents = new HashSet<BaseEntity>();
+
+        private class EventState
+        {
+            public readonly HashSet<ulong> Participants = new HashSet<ulong>();
+            public readonly HashSet<ulong> Teams = new HashSet<ulong>();
+        }
+
+        private class RewardEvent
+        {
+            public string Label;
+            public int Tier;
+            public double Amount;
+            public Vector3 Position;
+            public EventState State;
+        }
+
+        // Generic damage hook (Oxide.Rust calls it from BaseCombatEntity.Hurt for non-player entities: Bradley, CH47…).
+        private void OnEntityTakeDamage(BaseCombatEntity entity, HitInfo info) => TrackEventParticipant(entity, info);
+
+        // The patrol helicopter overrides Hurt, so its damage has its own hook.
+        private void OnPatrolHelicopterTakeDamage(PatrolHelicopter heli, HitInfo info) => TrackEventParticipant(heli, info);
+
+        // CH47 damage also arrives here (before base.OnAttacked); tracking twice is harmless.
+        private void OnHelicopterAttack(CH47HelicopterAIController heli, HitInfo info) => TrackEventParticipant(heli, info);
+
+        // The patrol helicopter does not die when its health runs out: Hurt fires this hook, then sends it crashing.
+        private void OnPatrolHelicopterKill(PatrolHelicopter heli, HitInfo info) => CompleteEventTarget(heli);
+
+        private void OnEntityKill(BaseNetworkable entity)
+        {
+            if (activeEvents.Count == 0 && completedEvents.Count == 0)
+            {
+                return;
+            }
+
+            BaseEntity baseEntity = entity as BaseEntity;
+            if (baseEntity != null)
+            {
+                activeEvents.Remove(baseEntity);
+                completedEvents.Remove(baseEntity);
+            }
+        }
+
+        private void TrackEventParticipant(BaseEntity target, HitInfo info)
+        {
+            if (target == null || info == null || sharedRewardTargets.Count == 0)
+            {
+                return;
+            }
+
+            if (!sharedRewardTargets.Contains(target.ShortPrefabName) || completedEvents.Contains(target))
+            {
+                return;
+            }
+
+            BasePlayer attacker = info.InitiatorPlayer;
+            if (!IsRealPlayer(attacker))
+            {
+                return;
+            }
+
+            if (!activeEvents.TryGetValue(target, out EventState state))
+            {
+                state = new EventState();
+                activeEvents[target] = state;
+            }
+
+            if (state.Participants.Add((ulong)attacker.userID))
+            {
+                GetOrCreateData(attacker);
+            }
+
+            if (attacker.currentTeam != 0UL)
+            {
+                state.Teams.Add(attacker.currentTeam);
+            }
+        }
+
+        private void CompleteEventTarget(BaseEntity target)
+        {
+            if (target == null || completedEvents.Contains(target))
+            {
+                return;
+            }
+
+            completedEvents.Add(target);
+            if (!activeEvents.TryGetValue(target, out EventState state))
+            {
+                return;
+            }
+
+            activeEvents.Remove(target);
+            string prefab = target.ShortPrefabName;
+            if (!TryGetNpcReward(prefab, out int tier, out double reward, out string whyNot))
+            {
+                foreach (ulong id in state.Participants)
+                {
+                    if (storedData.Players.TryGetValue(id, out PlayerData data))
+                    {
+                        DebugNoReward(data, whyNot);
+                    }
+                }
+
+                return;
+            }
+
+            PayEventReward(new RewardEvent
+            {
+                Label = prefab,
+                Tier = tier,
+                Amount = reward,
+                Position = target.transform.position,
+                State = state
+            });
+        }
+
+        private void PayEventReward(RewardEvent rewardEvent)
+        {
+            var paid = new HashSet<ulong>();
+
+            foreach (ulong id in rewardEvent.State.Participants)
+            {
+                if (paid.Add(id) && storedData.Players.TryGetValue(id, out PlayerData data))
+                {
+                    ChangeBaldness(data, rewardEvent.Amount, true,
+                        Lang("ReasonEventParticipant", null, rewardEvent.Label, rewardEvent.Tier));
+                }
+            }
+
+            foreach (BasePlayer mate in GetNearbyOnlineTeammates(rewardEvent.State.Teams, rewardEvent.Position))
+            {
+                if (paid.Add((ulong)mate.userID))
+                {
+                    ChangeBaldness(GetOrCreateData(mate), rewardEvent.Amount, true,
+                        Lang("ReasonEventTeammate", null, rewardEvent.Label, rewardEvent.Tier));
+                }
+            }
+        }
+
+        // Team IDs are recorded at damage time, so teammates are found even if the damager is offline or dead.
+        private List<BasePlayer> GetNearbyOnlineTeammates(IEnumerable<ulong> teamIds, Vector3 position)
+        {
+            var result = new List<BasePlayer>();
+            float radius = config.SharedRewardTeamRadius;
+
+            foreach (ulong teamId in teamIds)
+            {
+                RelationshipManager.PlayerTeam team = RelationshipManager.ServerInstance?.FindTeam(teamId);
+                if (team?.members == null)
+                {
+                    continue;
+                }
+
+                foreach (ulong memberId in team.members)
+                {
+                    BasePlayer member = BasePlayer.FindByID(memberId);
+                    if (IsRealPlayer(member) && member.IsConnected &&
+                        Vector3.Distance(member.transform.position, position) <= radius)
+                    {
+                        result.Add(member);
+                    }
+                }
+            }
+
+            return result;
         }
 
         #endregion
@@ -415,7 +809,7 @@ namespace Oxide.Plugins
             }
 
             PlayerData data = GetOrCreateData(player);
-            Reply(player, "MyBaldness", data.Baldness, GetTitle(data.Baldness));
+            Reply(player, "MyBaldness", FormatBaldness(data.Baldness), GetTitle(data.Baldness));
         }
 
         [ChatCommand("calvos")]
@@ -436,7 +830,7 @@ namespace Oxide.Plugins
             var lines = new List<string> { Lang("TopHeader", player.UserIDString, TopCount) };
             for (int i = 0; i < top.Count; i++)
             {
-                lines.Add(Lang("TopLine", player.UserIDString, i + 1, top[i].Name, top[i].Baldness, GetTitle(top[i].Baldness)));
+                lines.Add(Lang("TopLine", player.UserIDString, i + 1, top[i].Name, FormatBaldness(top[i].Baldness), GetTitle(top[i].Baldness)));
             }
 
             SendReply(player, string.Join("\n", lines));
@@ -458,12 +852,18 @@ namespace Oxide.Plugins
             }
 
             string action = args[0].ToLowerInvariant();
-            int value;
+            if (action == "debug")
+            {
+                ToggleDebug(player, args[1]);
+                return;
+            }
+
+            double value;
             if (action == "set")
             {
-                if (args.Length < 3 || !int.TryParse(args[2], out value) || value < MinBaldness || value > MaxBaldness)
+                if (args.Length < 3 || !TryParseBaldness(args[2], out value) || value < MinBaldness || value > MaxBaldness)
                 {
-                    Reply(player, "AdminInvalidValue", MinBaldness, MaxBaldness);
+                    Reply(player, "AdminInvalidValue", FormatBaldness(MinBaldness), FormatBaldness(MaxBaldness));
                     return;
                 }
             }
@@ -493,9 +893,28 @@ namespace Oxide.Plugins
             PlayerData target = matches[0].Value;
 
             // Admin changes are silent: no global announcements.
-            ChangeBaldness(target, value - target.Baldness, false);
-            Reply(player, action == "set" ? "AdminSet" : "AdminReset", target.Name, target.Baldness);
-            Puts($"{player.displayName} ({player.UserIDString}) {action} baldness of {target.Name} ({matches[0].Key}) to {target.Baldness}%.");
+            ChangeBaldness(target, value - target.Baldness, false, Lang("ReasonAdmin"));
+            Reply(player, action == "set" ? "AdminSet" : "AdminReset", target.Name, FormatBaldness(target.Baldness));
+            Puts($"{player.displayName} ({player.UserIDString}) {action} baldness of {target.Name} ({matches[0].Key}) to {FormatBaldness(target.Baldness)}%.");
+        }
+
+        private void ToggleDebug(BasePlayer player, string mode)
+        {
+            ulong id = (ulong)player.userID;
+            switch (mode.ToLowerInvariant())
+            {
+                case "on":
+                    debugAdmins.Add(id);
+                    Reply(player, "DebugOn");
+                    break;
+                case "off":
+                    debugAdmins.Remove(id);
+                    Reply(player, "DebugOff");
+                    break;
+                default:
+                    Reply(player, "AdminUsage");
+                    break;
+            }
         }
 
         #endregion
@@ -504,11 +923,72 @@ namespace Oxide.Plugins
 
         private static bool IsRealPlayer(BasePlayer player) => player != null && player.userID.IsSteamId();
 
-        private bool IsKillRewardable(ulong killerId, BasePlayer victim)
+        // Used only to decide whether an unlisted prefab deserves a console notice; rewards come from NpcTiers.
+        private static bool IsPossibleNpc(BaseCombatEntity entity)
+        {
+            if (entity is BasePlayer || entity is BaseNpc)
+            {
+                return true;
+            }
+
+            BaseEntity baseEntity = entity;
+            return entity.OwnerID == 0UL && !(baseEntity is LootContainer) && !(baseEntity is ResourceEntity);
+        }
+
+        private bool IsKilledByNpc(HitInfo info, BasePlayer killer)
+        {
+            if (killer != null)
+            {
+                return !IsRealPlayer(killer);
+            }
+
+            BaseEntity initiator = info?.Initiator;
+            if (initiator == null)
+            {
+                return false;
+            }
+
+            return initiator is BaseNpc || npcTiers.ContainsKey(initiator.ShortPrefabName);
+        }
+
+        private bool TryGetNpcReward(string prefab, out int tier, out double reward, out string whyNot)
+        {
+            tier = 0;
+            reward = 0;
+            whyNot = null;
+
+            if (!npcTiers.TryGetValue(prefab, out tier))
+            {
+                if (reportedUnknownNpcs.Add(prefab))
+                {
+                    Puts($"Unlisted NPC killed: '{prefab}'. Add it to NpcTiers in the config to give baldness for it.");
+                }
+
+                whyNot = Lang("NoRewardNpcUnlisted", null, prefab);
+                return false;
+            }
+
+            if (disabledNpcs.Contains(prefab))
+            {
+                whyNot = Lang("NoRewardNpcDisabled", null, prefab);
+                return false;
+            }
+
+            if (!tierRewards.TryGetValue(tier, out reward))
+            {
+                whyNot = Lang("NoRewardTierMissing", null, prefab, tier);
+                return false;
+            }
+
+            return true;
+        }
+
+        private bool IsKillRewardable(PlayerData killerData, ulong killerId, BasePlayer victim, string victimName)
         {
             // Killing sleepers or disconnected players is not glorious.
             if (victim.IsSleeping() || !victim.IsConnected)
             {
+                DebugNoReward(killerData, Lang("NoRewardSleeper", null, victimName));
                 return false;
             }
 
@@ -522,6 +1002,7 @@ namespace Oxide.Plugins
             DateTime now = DateTime.UtcNow;
             if (victims.TryGetValue(victimId, out DateTime lastKill) && (now - lastKill).TotalMinutes < config.KillCooldownMinutes)
             {
+                DebugNoReward(killerData, Lang("NoRewardCooldown", null, victimName));
                 return false;
             }
 
@@ -546,15 +1027,19 @@ namespace Oxide.Plugins
                 if (data.SurvivalSeconds >= interval)
                 {
                     data.SurvivalSeconds -= interval;
-                    ChangeBaldness(data, config.SurvivalReward, true);
+                    ChangeBaldness(data, config.SurvivalReward, true, Lang("ReasonSurvival"));
                 }
             }
         }
 
-        private void ChangeBaldness(PlayerData data, int delta, bool announce)
+        private void ChangeBaldness(PlayerData data, double delta, bool announce, string reason)
         {
-            int oldValue = data.Baldness;
-            int newValue = Math.Max(MinBaldness, Math.Min(MaxBaldness, oldValue + delta));
+            double oldValue = data.Baldness;
+            double newValue = Math.Round(Math.Max(MinBaldness, Math.Min(MaxBaldness, oldValue + delta)), 2);
+
+            SendDebug("DebugChange", data.Name, FormatBaldness(oldValue), FormatBaldness(newValue),
+                delta >= 0 ? "+" : string.Empty, FormatBaldness(delta), reason);
+
             if (newValue == oldValue)
             {
                 return;
@@ -568,7 +1053,7 @@ namespace Oxide.Plugins
                 return;
             }
 
-            if (config.AnnounceSupremeBaldness && newValue == MaxBaldness && oldValue < MaxBaldness)
+            if (config.AnnounceSupremeBaldness && newValue >= MaxBaldness && oldValue < MaxBaldness)
             {
                 Broadcast("SupremeBaldness", data.Name);
             }
@@ -579,7 +1064,29 @@ namespace Oxide.Plugins
             }
         }
 
-        private int GetTierIndex(int baldness)
+        private void DebugNoReward(PlayerData data, string reason) => SendDebug("DebugNoReward", data.Name, reason);
+
+        private void SendDebug(string key, params object[] args)
+        {
+            if (debugAdmins.Count == 0)
+            {
+                return;
+            }
+
+            foreach (ulong adminId in debugAdmins)
+            {
+                BasePlayer admin = BasePlayer.FindByID(adminId);
+                if (admin != null && admin.IsConnected)
+                {
+                    SendReply(admin, Lang(key, admin.UserIDString, args));
+                }
+            }
+        }
+
+        private static bool TryParseBaldness(string text, out double value) =>
+            double.TryParse(text.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out value);
+
+        private int GetTierIndex(double baldness)
         {
             int index = 0;
             for (int i = 0; i < config.Titles.Count; i++)
@@ -593,7 +1100,7 @@ namespace Oxide.Plugins
             return index;
         }
 
-        private string GetTitle(int baldness) => config.Titles[GetTierIndex(baldness)].Name;
+        private string GetTitle(double baldness) => config.Titles[GetTierIndex(baldness)].Name;
 
         private List<KeyValuePair<ulong, PlayerData>> FindStoredPlayers(string query)
         {
