@@ -8,10 +8,12 @@ el [README](../README.md) y en los issues de cada versión.
 > el código fuente de [Oxide.Core](https://github.com/OxideMod/Oxide.Core),
 > [Oxide.CSharp](https://github.com/OxideMod/Oxide.CSharp) y
 > [Oxide.Rust](https://github.com/OxideMod/Oxide.Rust) (incluido
-> `resources/Rust.opj`, que define dónde se inyecta cada hook). La
-> documentación de umod.org no se ha podido consultar porque estaba bloqueada
-> desde el entorno de trabajo. La API del propio juego (clases de Rust) solo se
-> puede verificar en parte: ver sección 8.
+> `resources/Rust.opj`, que define dónde se inyecta cada hook) y contra
+> [Oxide.Docs](https://github.com/OxideMod/Oxide.Docs), cuyo `docs.json` trae
+> para cada hook el **código descompilado de Rust** alrededor del punto de
+> inyección (`CodeAfterInjection`). Esa es la mejor fuente disponible para la
+> API del propio juego. umod.org y docs.oxidemod.com estaban bloqueados desde el
+> entorno de trabajo. Lo que no se ha podido verificar está en la sección 8.
 
 ## 1. Cómo carga Oxide un plugin
 
@@ -57,7 +59,13 @@ Hooks que usa la v1.0 y de dónde sale cada uno:
 | `OnPlayerConnected(BasePlayer player)` | Jugador conectado. | `RustHooks.cs` |
 | `OnPlayerWound(BasePlayer player, HitInfo info)` | Jugador derribado (downed). | `Rust.opj` (`BasePlayer.BecomeWounded`) |
 | `OnPlayerRecovered(BasePlayer player)` | Jugador que se levanta tras estar derribado. | `Rust.opj` (`BasePlayer.RecoverFromWounded`) |
-| `OnPlayerDeath(BasePlayer player, HitInfo info)` | Muerte de cualquier `BasePlayer` (también NPCs humanos). | `Rust.opj` (`BasePlayer.Die`) |
+| `OnPlayerDeath(BasePlayer player, HitInfo info)` | Muerte de cualquier `BasePlayer` (también NPCs humanos). No salta si el jugador queda derribado en vez de morir. | `Rust.opj` + código descompilado (`BasePlayer.Die`) |
+| `OnEntityDeath(BaseCombatEntity entity, HitInfo info)` | Muerte de cualquier entidad de combate: NPCs, animales, Bradley, CH47… **También de jugadores**: `BasePlayer.Die` lanza `OnPlayerDeath` y luego llama a `base.Die`, que lanza este. | Código descompilado (`BaseCombatEntity.Die`) |
+| `OnEntityTakeDamage(BaseCombatEntity entity, HitInfo info)` | Daño a entidades. Oxide.Rust lo genera desde `IOnBaseCombatEntityHurt` (y desde otros dos hooks internos para jugadores). | `RustHooks.cs` + código descompilado (`BaseCombatEntity.Hurt`) |
+| `OnPatrolHelicopterTakeDamage(PatrolHelicopter heli, HitInfo info)` | Daño al helicóptero de patrulla, que **sobrescribe `Hurt`**. | Código descompilado (`PatrolHelicopter.Hurt`) |
+| `OnPatrolHelicopterKill(PatrolHelicopter heli, HitInfo info)` | Cuando el daño supera la vida del heli. **El heli no muere ahí**: el juego le pone 10000 de vida y lo manda a estrellarse. Es el momento de "derribado". | Código descompilado (`PatrolHelicopter.Hurt`) |
+| `OnHelicopterAttack(CH47HelicopterAIController heli, HitInfo info)` | Ataque al Chinook, antes de `base.OnAttacked`. | Código descompilado (`CH47HelicopterAIController.OnAttacked`) |
+| `OnEntityKill(BaseNetworkable entity)` | Cualquier entidad destruida (también al despawnear). Solo lo usamos para limpiar memoria. | Código descompilado (`BaseNetworkable.Kill`) |
 
 ## 3. Configuración
 
@@ -65,6 +73,12 @@ Hooks que usa la v1.0 y de dónde sale cada uno:
 - Patrón: una clase `Configuration` tipada; `LoadDefaultConfig()` la crea con
   valores por defecto, `Config.ReadObject<Configuration>()` la lee al cargar y
   `Config.WriteObject(...)` la guarda.
+- **Trampa de Newtonsoft (verificada)**: Oxide lee la config con los ajustes
+  por defecto (`ObjectCreationHandling.Auto`). Con ellos, las listas del JSON
+  se *añaden* a las que ya trae el valor por defecto del campo, y las claves
+  borradas de un diccionario reaparecen. Por eso **toda colección con valores
+  por defecto lleva `ObjectCreationHandling = ObjectCreationHandling.Replace`**
+  en su `[JsonProperty]`.
 - Si el JSON está corrupto, se avisa con `PrintWarning` y se usan los valores
   por defecto. Tras leerla se valida (títulos ordenados, intervalos mínimos) y
   se vuelve a guardar, para que las opciones nuevas aparezcan en el fichero.
@@ -79,6 +93,27 @@ Hooks que usa la v1.0 y de dónde sale cada uno:
   `Unload()`, nunca en cada kill.
 - Lo que no hace falta que sobreviva a un reinicio (cooldowns anti-farmeo,
   registros de derribos) vive solo en memoria.
+
+## 4b. Recompensas de evento
+
+Sistema genérico para "objetivos grandes" cuya caída paga a un grupo. Hoy lo
+usan el heli, la Bradley y el CH47 (`SharedRewardTargets`), pero está pensado
+para más eventos de equipo:
+
+- `TrackEventParticipant(target, info)`: se llama desde los hooks de daño.
+  Apunta al atacante (jugador real) y su `currentTeam` en el estado del
+  objetivo. No depende del atacante del hook de muerte.
+- `CompleteEventTarget(target)`: se llama cuando el objetivo cae. Marca el
+  objetivo como cobrado (nunca se paga dos veces) y construye un `RewardEvent`.
+- `PayEventReward(rewardEvent)`: paga a todos los participantes y a los
+  compañeros de sus equipos conectados y cerca de la posición, **una vez por
+  jugador**.
+- Los equipos se guardan al registrar el daño, así que los compañeros se
+  encuentran aunque el atacante ya esté muerto o desconectado.
+- El estado vive en memoria y se limpia en `OnEntityKill`.
+
+Para añadir otro evento: decidir qué hook marca "participar" y cuál marca
+"completado", y llamar a esas funciones con su propio objetivo y recompensa.
 
 ## 5. Localización (lang)
 
@@ -130,8 +165,18 @@ Hooks que usa la v1.0 y de dónde sale cada uno:
   MyGet, umod.org y Steam están bloqueados). Lo máximo que se puede hacer ahí
   es compilar contra *stubs*:
   - clases de Oxide con las firmas copiadas de su código fuente;
-  - clases de Rust con las firmas **supuestas**. De estas, `HitInfo.InitiatorPlayer`,
-    `BasePlayer.userID` (`EncryptedValue<ulong>`), `IsConnected`, `IsDead()`,
-    `displayName`, `UserIDString` y `activePlayerList` aparecen en el código de
-    Oxide.Rust. `HitInfo.isHeadshot` y `BasePlayer.IsSleeping()` solo se han
-    visto en plugins públicos antiguos.
+  - clases de Rust con las firmas vistas en el código de Oxide.Rust o en el
+    código descompilado de Oxide.Docs: `HitInfo.InitiatorPlayer`,
+    `HitInfo.Initiator`, `BasePlayer.userID` (`EncryptedValue<ulong>`),
+    `IsConnected`, `IsSleeping()`, `IsDead()`, `IsNpc`, `currentTeam`,
+    `BasePlayer.FindByID`, `BaseNetworkable.ShortPrefabName`,
+    `BaseEntity.OwnerID`, `RelationshipManager.ServerInstance.FindTeam`,
+    `PlayerTeam.members`, `Vector3.Distance`, `transform.position`.
+  - **No verificado**: `HitInfo.isHeadshot` (solo en plugins públicos
+    antiguos), el tipo exacto de `PlayerTeam.members` (se asume `List<ulong>`)
+    y la jerarquía de clases (qué hereda de qué). Si algo de esto no cuadra, el
+    compilador de Oxide lo dirá al cargar.
+- Además, en el entorno cloud se ejecuta un arnés de pruebas (fuera del repo)
+  que llama a los hooks con stubs funcionales y comprueba los resultados:
+  eventos compartidos, tiers, sin doble pago, config de muertes por NPC,
+  debug. Prueba la lógica, no la integración con el juego.
