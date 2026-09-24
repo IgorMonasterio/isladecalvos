@@ -53,7 +53,7 @@ namespace Oxide.Plugins
         #region Configuration
 
         // Bump when a release must overwrite values already saved in existing config files.
-        private const int CurrentConfigVersion = 130;
+        private const int CurrentConfigVersion = 131;
 
         private class Configuration
         {
@@ -222,11 +222,11 @@ namespace Oxide.Plugins
             public bool ShowCounter = true;
 
             // Anchors are 0-1 screen fractions (0 0 = bottom left); offsets are pixels from those anchors.
-            [JsonProperty("Counter anchor min")] public string CounterAnchorMin = "1 0";
-            [JsonProperty("Counter anchor max")] public string CounterAnchorMax = "1 0";
-            // Between the belt's backpack button and the health/water/food bars.
-            [JsonProperty("Counter offset min")] public string CounterOffsetMin = "-414 44";
-            [JsonProperty("Counter offset max")] public string CounterOffsetMax = "-218 80";
+            [JsonProperty("Counter anchor min")] public string CounterAnchorMin = "1 1";
+            [JsonProperty("Counter anchor max")] public string CounterAnchorMax = "1 1";
+            // Top-right corner of the screen (the bottom area is used by RaidableBases' status panel).
+            [JsonProperty("Counter offset min")] public string CounterOffsetMin = "-212 -58";
+            [JsonProperty("Counter offset max")] public string CounterOffsetMax = "-16 -22";
 
             [JsonProperty("Seconds the +X / -X popup stays")]
             public float DeltaSeconds = 2.5f;
@@ -416,15 +416,16 @@ namespace Oxide.Plugins
 
             if (config.Ui == null) config.Ui = new UiConfig();
 
-            if (config.ConfigVersion < 130)
+            if (config.ConfigVersion < 131)
             {
-                // 1.3.0 moves the counter next to the status bars; old positions collided with pickup notices.
+                // 1.3.0 moved the counter next to the status bars (pickup notices covered it); 1.3.1 moves it to the
+                // top-right corner because RaidableBases' status panel uses that bottom area.
                 UiConfig uiDefaults = new UiConfig();
                 config.Ui.CounterAnchorMin = uiDefaults.CounterAnchorMin;
                 config.Ui.CounterAnchorMax = uiDefaults.CounterAnchorMax;
                 config.Ui.CounterOffsetMin = uiDefaults.CounterOffsetMin;
                 config.Ui.CounterOffsetMax = uiDefaults.CounterOffsetMax;
-                PrintWarning("Config updated to 1.3.0: baldness counter moved next to the status bars.");
+                PrintWarning("Config updated to 1.3.1: baldness counter moved to the top-right corner.");
             }
 
             config.ConfigVersion = CurrentConfigVersion;
@@ -1583,6 +1584,11 @@ namespace Oxide.Plugins
             DrawCounter(player);
 
             UiConfig ui = config.Ui;
+            // Same width as the counter: below it when the counter is in the top half of the screen, above otherwise.
+            bool below = CounterIsOnTop();
+            string popupMin = below ? ShiftY(ui.CounterOffsetMin, -28) : ShiftY(ui.CounterOffsetMax, 2, ui.CounterOffsetMin);
+            string popupMax = below ? ShiftY(ui.CounterOffsetMin, -2, ui.CounterOffsetMax) : ShiftY(ui.CounterOffsetMax, 28);
+
             var container = new CuiElementContainer();
             container.Add(new CuiLabel
             {
@@ -1594,8 +1600,7 @@ namespace Oxide.Plugins
                     Color = delta > 0 ? "0.94 0.75 0.25 1" : "0.88 0.31 0.31 1",
                     FadeIn = 0.2f
                 },
-                // Right above the counter, same width.
-                RectTransform = { AnchorMin = ui.CounterAnchorMin, AnchorMax = ui.CounterAnchorMax, OffsetMin = ShiftY(ui.CounterOffsetMax, 2, ui.CounterOffsetMin), OffsetMax = ShiftY(ui.CounterOffsetMax, 28) },
+                RectTransform = { AnchorMin = ui.CounterAnchorMin, AnchorMax = ui.CounterAnchorMax, OffsetMin = popupMin, OffsetMax = popupMax },
                 FadeOut = 0.5f
             }, "Hud", UiDelta, UiDelta);
             CuiHelper.AddUi(player, container);
@@ -1670,6 +1675,12 @@ namespace Oxide.Plugins
             CuiHelper.DestroyUi(player, UiDelta);
             CuiHelper.DestroyUi(player, UiBanner);
             CuiHelper.DestroyUi(player, UiMenu);
+        }
+
+        private bool CounterIsOnTop()
+        {
+            string[] anchor = config.Ui.CounterAnchorMin.Split(' ');
+            return anchor.Length == 2 && float.TryParse(anchor[1], NumberStyles.Float, CultureInfo.InvariantCulture, out float y) && y >= 0.5f;
         }
 
         // "x y" offset with y moved by dy; x taken from xFrom (defaults to the same offset).
