@@ -52,8 +52,15 @@ namespace Oxide.Plugins
 
         #region Configuration
 
+        // Bump when a release must overwrite values already saved in existing config files.
+        private const int CurrentConfigVersion = 130;
+
         private class Configuration
         {
+            // Missing in configs older than 1.3.0, so it reads as 0 and triggers the migration below.
+            [JsonProperty("Config version (do not edit)")]
+            public int ConfigVersion;
+
             [JsonProperty("Baldness gained per player kill")]
             public long KillReward = 1000;
 
@@ -219,8 +226,9 @@ namespace Oxide.Plugins
             // Anchors are 0-1 screen fractions (0 0 = bottom left); offsets are pixels from those anchors.
             [JsonProperty("Counter anchor min")] public string CounterAnchorMin = "1 0";
             [JsonProperty("Counter anchor max")] public string CounterAnchorMax = "1 0";
-            [JsonProperty("Counter offset min")] public string CounterOffsetMin = "-208 112";
-            [JsonProperty("Counter offset max")] public string CounterOffsetMax = "-16 146";
+            // Between the belt's backpack button and the health/water/food bars.
+            [JsonProperty("Counter offset min")] public string CounterOffsetMin = "-414 44";
+            [JsonProperty("Counter offset max")] public string CounterOffsetMax = "-218 80";
 
             [JsonProperty("Seconds the +X / -X popup stays")]
             public float DeltaSeconds = 2.5f;
@@ -350,7 +358,7 @@ namespace Oxide.Plugins
             return result;
         }
 
-        protected override void LoadDefaultConfig() => config = new Configuration();
+        protected override void LoadDefaultConfig() => config = new Configuration { ConfigVersion = CurrentConfigVersion };
 
         protected override void LoadConfig()
         {
@@ -408,6 +416,19 @@ namespace Oxide.Plugins
             events.HairiestHunt.MinPlayers = Math.Max(2, events.HairiestHunt.MinPlayers);
 
             if (config.Ui == null) config.Ui = new UiConfig();
+
+            if (config.ConfigVersion < 130)
+            {
+                // 1.3.0 moves the counter next to the status bars; old positions collided with pickup notices.
+                UiConfig uiDefaults = new UiConfig();
+                config.Ui.CounterAnchorMin = uiDefaults.CounterAnchorMin;
+                config.Ui.CounterAnchorMax = uiDefaults.CounterAnchorMax;
+                config.Ui.CounterOffsetMin = uiDefaults.CounterOffsetMin;
+                config.Ui.CounterOffsetMax = uiDefaults.CounterOffsetMax;
+                PrintWarning("Config updated to 1.3.0: baldness counter moved next to the status bars.");
+            }
+
+            config.ConfigVersion = CurrentConfigVersion;
             if (config.CursedItems == null) config.CursedItems = new CursedItemsConfig();
             CursedItemsConfig cursed = config.CursedItems;
             CursedItemsConfig cursedDefaults = new CursedItemsConfig();
@@ -1548,12 +1569,12 @@ namespace Oxide.Plugins
                 {
                     Text = (delta > 0 ? "+" : string.Empty) + FormatBaldness(delta),
                     FontSize = 18,
-                    Align = TextAnchor.MiddleRight,
+                    Align = TextAnchor.MiddleCenter,
                     Color = delta > 0 ? "0.94 0.75 0.25 1" : "0.88 0.31 0.31 1",
                     FadeIn = 0.2f
                 },
-                // Just left of the counter.
-                RectTransform = { AnchorMin = ui.CounterAnchorMin, AnchorMax = ui.CounterAnchorMax, OffsetMin = ShiftX(ui.CounterOffsetMin, -110), OffsetMax = ShiftX(ui.CounterOffsetMin, -6, ui.CounterOffsetMax) },
+                // Right above the counter, same width.
+                RectTransform = { AnchorMin = ui.CounterAnchorMin, AnchorMax = ui.CounterAnchorMax, OffsetMin = ShiftY(ui.CounterOffsetMax, 2, ui.CounterOffsetMin), OffsetMax = ShiftY(ui.CounterOffsetMax, 28) },
                 FadeOut = 0.5f
             }, "Hud", UiDelta, UiDelta);
             CuiHelper.AddUi(player, container);
@@ -1630,18 +1651,18 @@ namespace Oxide.Plugins
             CuiHelper.DestroyUi(player, UiMenu);
         }
 
-        // "x y" offset with x moved by dx; y taken from yFrom (defaults to the same offset).
-        private static string ShiftX(string offset, float dx, string yFrom = null)
+        // "x y" offset with y moved by dy; x taken from xFrom (defaults to the same offset).
+        private static string ShiftY(string offset, float dy, string xFrom = null)
         {
             string[] a = offset.Split(' ');
-            string[] b = (yFrom ?? offset).Split(' ');
+            string[] b = (xFrom ?? offset).Split(' ');
             if (a.Length != 2 || b.Length != 2 ||
-                !float.TryParse(a[0], NumberStyles.Float, CultureInfo.InvariantCulture, out float x))
+                !float.TryParse(a[1], NumberStyles.Float, CultureInfo.InvariantCulture, out float y))
             {
                 return offset;
             }
 
-            return (x + dx).ToString(CultureInfo.InvariantCulture) + " " + b[1];
+            return b[0] + " " + (y + dy).ToString(CultureInfo.InvariantCulture);
         }
 
         #endregion
