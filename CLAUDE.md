@@ -23,7 +23,9 @@ alcance cerrado:
 
 - **v1.0** — sistema de calvicie: puntos, títulos, ranking, anti-farmeo, comandos.
   Implementada (issue #2).
-- **v1.1** — eventos globales (issue #3). Alcance por definir.
+- **v1.1** — eventos globales (issue #3): Hora de la calvicie, Lluvia de
+  champú, Cazar al más peludo y Brote de alopecia. Uno al azar cada hora.
+  Implementada.
 - **v1.2** — objetos malditos/lore: minoxidil, peluca, champú… (issue #4). Alcance por definir.
 - **v1.3** — peluquería/NPC (issue #5). Alcance por definir.
 
@@ -101,6 +103,9 @@ Lee `docs/ARCHITECTURE.md` antes de tocar código.
   propietarias de Rust/Oxide.
 - **Nada de emojis en textos para jugadores**: el chat de Rust no los dibuja
   (salen como `??`, comprobado en el servidor). Para resaltar, usar `<color>`.
+- **Ganancias de calvicie siempre por `GainBaldness`** (para que los eventos
+  puedan multiplicarlas). `ChangeBaldness` directo solo para admin, muertes y
+  premios de eventos.
 - **Mensajes al chat siempre por `Broadcast`/`SendChat`** del plugin (nunca
   `PrintToChat`/`SendReply` directos): así llevan como icono el avatar de la
   cuenta de Steam de la isla (`ChatIconSteamId`, 76561198635630459). Es el
