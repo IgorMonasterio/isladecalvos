@@ -13,7 +13,7 @@ entero **sin límite por arriba** (nunca baja de 0) que se guarda entre
 sesiones. Lo glorioso te deja más calvo; morir hace que te salga pelo.
 No hay cambio visual: todo son puntos, títulos y mensajes.
 
-## Cómo funciona (v1.0)
+## Cómo funciona
 
 Todos los valores se pueden cambiar en la config. Estos son los de por defecto:
 
@@ -122,6 +122,23 @@ chat de Rust no los dibuja y salen como `??`.
 **Estadísticas** por jugador: kills, muertes y kills de headshot (solo contra
 jugadores). Las kills cuentan aunque no den calvicie (sleeper o cooldown).
 
+## Eventos globales (v1.1)
+
+**Cada hora** arranca un **evento al azar**. Solo hay uno a la vez, y solo si
+hay jugadores conectados. Todos salen anunciados en el chat al empezar y al
+terminar.
+
+| Evento | Qué hace | Duración |
+|---|---|---|
+| **Hora de la calvicie** | Todo lo que da calvicie da **el doble**: kills, NPCs, supervivencia y objetivos compartidos. | 30 min |
+| **Lluvia de champú** | Morir resta **el doble** (−2.000). | 20 min |
+| **Cazar al más peludo** | Se anuncia al jugador conectado con **menos calvicie**. Quien lo mate gana **+2.000** además de la kill normal. Si aguanta los 20 min, él gana **+1.000**. Si muere por otra cosa o se desconecta, se acaba sin premio. Hacen falta al menos 2 jugadores conectados. | 20 min |
+| **Brote de alopecia** | Heli, Bradley y Chinook dan **el triple**. | 60 min |
+
+Si toca la cacería y solo hay un jugador conectado, se elige otro evento.
+Todo (intervalo, duraciones, multiplicadores, premios, activar o desactivar
+cada evento) se cambia en el bloque `Global events` de la config.
+
 ## Comandos
 
 | Comando | Quién | Qué hace |
@@ -130,6 +147,8 @@ jugadores). Las kills cuentan aunque no den calvicie (sleeper o cooldown).
 | `/calvos` | Todos | Top 10 de la isla. |
 | `/calvoadmin set <jugador> <valor>` | Admin | Fija la calvicie de un jugador (entero, 0 o más). |
 | `/calvoadmin reset <jugador>` | Admin | Pone la calvicie de un jugador a 0. |
+| `/calvoadmin evento <hora\|champu\|peludo\|alopecia>` | Admin | Lanza ese evento ya, sin esperar a la hora. Para probar. |
+| `/calvoadmin evento parar` | Admin | Cancela el evento en marcha. |
 | `/calvoadmin debug on\|off` | Admin | Muestra en tu chat cada cambio de calvicie (de cualquier jugador) con su motivo: NPC, tier, valor… También avisa cuando algo **no** da calvicie y por qué. Para probar. Se apaga al recargar el plugin. |
 
 `<jugador>` puede ser el SteamID o el nombre (o parte del nombre). Funciona
@@ -192,6 +211,22 @@ Ejemplo del bloque de NPCs:
 
 Si quitas una entrada de una lista o de un diccionario, se queda quitada: el
 plugin no vuelve a meter los valores por defecto.
+
+Bloque de eventos globales (valores por defecto):
+
+```json
+"Global events": {
+  "Enabled": true,
+  "Minutes between random events": 60,
+  "Bald hour (all baldness gains multiplied)": { "Enabled": true, "Duration (minutes)": 30, "Gain multiplier": 2 },
+  "Shampoo rain (death penalty multiplied)": { "Enabled": true, "Duration (minutes)": 20, "Death penalty multiplier": 2 },
+  "Hunt the hairiest (bounty on the online player with least baldness)": {
+    "Enabled": true, "Duration (minutes)": 20, "Bonus for the killer": 2000,
+    "Bonus for the target if they survive": 1000, "Minimum online players": 2
+  },
+  "Alopecia outbreak (shared big-target rewards multiplied)": { "Enabled": true, "Duration (minutes)": 60, "Shared reward multiplier": 3 }
+}
+```
 
 Los textos de los mensajes se editan en `oxide/lang/es/IslaDeCalvos.json` y
 `oxide/lang/en/IslaDeCalvos.json`. Los dos están en español por defecto: la
