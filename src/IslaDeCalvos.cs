@@ -124,6 +124,9 @@ namespace Oxide.Plugins
 
             [JsonProperty("Shared reward: teammate radius from the target (meters)")]
             public float SharedRewardTeamRadius = 300f;
+
+            [JsonProperty("Chat icon: SteamID64 whose avatar is shown next to plugin messages (0 = default Rust icon)")]
+            public ulong ChatIconSteamId = 76561198635630459UL;
         }
 
         private class TitleTier
@@ -433,9 +436,12 @@ namespace Oxide.Plugins
         }
 
         private void Reply(BasePlayer player, string key, params object[] args) =>
-            SendReply(player, Lang(key, player.UserIDString, args));
+            SendChat(player, Lang(key, player.UserIDString, args));
 
-        private void Broadcast(string key, params object[] args) => PrintToChat(Lang(key, null, args));
+        // Oxide.Rust's chat helpers pass this SteamID to "chat.add", and the client draws that account's avatar.
+        private void Broadcast(string key, params object[] args) => Server.Broadcast(Lang(key, null, args), config.ChatIconSteamId);
+
+        private void SendChat(BasePlayer player, string message) => Player.Message(player, message, config.ChatIconSteamId);
 
         // Spanish-style thousands separator (1.000.000), built by hand so it does not depend on the server's cultures.
         private static readonly NumberFormatInfo BaldnessFormat = new NumberFormatInfo { NumberGroupSeparator = ".", NumberGroupSizes = new[] { 3 } };
@@ -853,7 +859,7 @@ namespace Oxide.Plugins
                 lines.Add(Lang("TopLine", player.UserIDString, i + 1, top[i].Name, FormatBaldness(top[i].Baldness), GetTitle(top[i].Baldness)));
             }
 
-            SendReply(player, string.Join("\n", lines));
+            SendChat(player, string.Join("\n", lines));
         }
 
         [ChatCommand("calvoadmin")]
@@ -1107,7 +1113,7 @@ namespace Oxide.Plugins
                 BasePlayer admin = BasePlayer.FindByID(adminId);
                 if (admin != null && admin.IsConnected)
                 {
-                    SendReply(admin, Lang(key, admin.UserIDString, args));
+                    SendChat(admin, Lang(key, admin.UserIDString, args));
                 }
             }
         }
