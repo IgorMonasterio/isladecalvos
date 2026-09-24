@@ -166,6 +166,26 @@ Para añadir otro evento: decidir qué hook marca "participar" y cuál marca
 - Todas las ganancias de objetos pasan por `GainBaldness`, así que eventos y
   pila las multiplican.
 
+## 4f. RP de Server Rewards (plugin 1.4.0)
+
+- Referencia blanda: `[PluginReference] private Plugin ServerRewards = null;`.
+  Oxide rellena el campo por su nombre con el plugin cargado
+  (`PluginReferenceAttribute`, en Oxide.CSharp `CSharpPlugin.cs`). Si no está
+  cargado, se queda en `null` y no se paga nada. Antes de llamar se mira
+  `IsLoaded` (Oxide.Core `Plugin.cs`).
+- Pago: `ServerRewards.Call("AddPoints", ulong userId, int amount)`
+  (`Plugin.Call(string, params object[])`, Oxide.Core). Firma en Server
+  Rewards 0.4.78 (k1lly0u): `object AddPoints(object userID, int amount)`.
+  Acepta `ulong`, `string` o `EncryptedValue<ulong>` y devuelve `true` si
+  paga. Verificado en su código fuente (copia pública en GitHub,
+  publicrust/umod-pluigns-dataset); umod.org está bloqueado desde el entorno
+  cloud. La versión instalada en el servidor no se ha comprobado desde aquí.
+- Reloj: va con `SurvivalTick` (cada minuto, solo vivo, conectado y
+  despierto). `RpSeconds` y `RpMoved` se guardan en `PlayerData`. La última
+  posición vive en memoria (`lastPositions`) y se borra al desconectar.
+- Los RP no pasan por `GainBaldness` ni `ChangeBaldness`: no tocan la calvicie
+  ni se multiplican.
+
 ## 5. Localización (lang)
 
 - Todos los textos del plugin pasan por `lang`: se registran en

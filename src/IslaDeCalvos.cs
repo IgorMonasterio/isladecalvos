@@ -4,12 +4,13 @@ using System.Globalization;
 using System.Linq;
 using Newtonsoft.Json;
 using Oxide.Core;
+using Oxide.Core.Plugins;
 using Oxide.Game.Rust.Cui;
 using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Isla de Calvos", "Igor Monasterio", "1.3.2")]
+    [Info("Isla de Calvos", "Igor Monasterio", "1.4.0")]
     [Description("Baldness system for the Isla de Calvos Rust server: being bald is glory, hair is a curse.")]
     public class IslaDeCalvos : RustPlugin
     {
@@ -41,6 +42,17 @@ namespace Oxide.Plugins
 
         // Admins receiving debug messages for every baldness change. In memory only.
         private readonly HashSet<ulong> debugAdmins = new HashSet<ulong>();
+
+        // Server Rewards (RP): optional. If it is not loaded, no RP is paid and baldness works as usual.
+        [PluginReference] private Plugin ServerRewards = null;
+
+        // RP per interval by title, sorted by minimum baldness (built from the config).
+        private List<KeyValuePair<long, int>> rpRates;
+
+        // Position at the previous survival tick, to tell AFK players apart. In memory only.
+        private readonly Dictionary<ulong, Vector3> lastPositions = new Dictionary<ulong, Vector3>();
+
+        private bool warnedNoServerRewards;
 
         private class WoundRecord
         {
@@ -142,6 +154,32 @@ namespace Oxide.Plugins
 
             [JsonProperty("Cursed items (El Calvario)")]
             public CursedItemsConfig CursedItems = new CursedItemsConfig();
+
+            [JsonProperty("Server Rewards (RP by title)")]
+            public ServerRewardsConfig ServerRewards = new ServerRewardsConfig();
+        }
+
+        // Pays Server Rewards RP to bald players who stay alive, connected and not AFK.
+        private class ServerRewardsConfig
+        {
+            [JsonProperty("Enabled")] public bool Enabled = true;
+
+            [JsonProperty("Interval (minutes alive and connected)")] public int IntervalMinutes = 30;
+
+            [JsonProperty("Only pay players who moved during the interval (not AFK)")] public bool RequireMovement = true;
+
+            [JsonProperty("Minimum movement between checks to count as active (meters)")] public float MinMoveMeters = 1f;
+
+            [JsonProperty("Tell the player in chat when RP is paid")] public bool NotifyPlayer = true;
+
+            [JsonProperty("RP per interval by title (minimum baldness -> RP)", ObjectCreationHandling = ObjectCreationHandling.Replace)]
+            public Dictionary<string, int> RpByMinBaldness = new Dictionary<string, int>
+            {
+                ["1000"] = 1,
+                ["10000"] = 3,
+                ["100000"] = 10,
+                ["1000000"] = 30
+            };
         }
 
         private class ItemDropConfig
@@ -493,6 +531,26 @@ namespace Oxide.Plugins
                 PrintWarning($"TierRewards has no value for tier {tier}; NPCs of that tier give nothing.");
             }
 
+            if (config.ServerRewards == null) config.ServerRewards = new ServerRewardsConfig();
+            ServerRewardsConfig rp = config.ServerRewards;
+            rp.IntervalMinutes = Math.Max(1, rp.IntervalMinutes);
+            rp.MinMoveMeters = Math.Max(0f, rp.MinMoveMeters);
+            if (rp.RpByMinBaldness == null) rp.RpByMinBaldness = new Dictionary<string, int>();
+            rpRates = new List<KeyValuePair<long, int>>();
+            foreach (KeyValuePair<string, int> entry in rp.RpByMinBaldness)
+            {
+                if (long.TryParse(entry.Key, NumberStyles.Integer, CultureInfo.InvariantCulture, out long minBaldness))
+                {
+                    rpRates.Add(new KeyValuePair<long, int>(minBaldness, Math.Max(0, entry.Value)));
+                }
+                else
+                {
+                    PrintWarning($"Server Rewards: '{entry.Key}' is not a baldness number; ignored.");
+                }
+            }
+
+            rpRates = rpRates.OrderBy(r => r.Key).ToList();
+
             disabledNpcs = new HashSet<string>(config.DisabledNpcs.Where(p => !string.IsNullOrEmpty(p)), StringComparer.OrdinalIgnoreCase);
             sharedRewardTargets = new HashSet<string>(config.SharedRewardTargets.Where(p => !string.IsNullOrEmpty(p)), StringComparer.OrdinalIgnoreCase);
         }
@@ -529,6 +587,10 @@ namespace Oxide.Plugins
 
             // Seconds alive and connected since the last survival reward (or since the last death).
             public float SurvivalSeconds;
+
+            // Server Rewards: seconds alive and connected since the last RP payout, and whether the player moved.
+            public float RpSeconds;
+            public bool RpMoved;
         }
 
         private void LoadData()
@@ -675,6 +737,12 @@ namespace Oxide.Plugins
                 ["DebugOff"] = "Debug desactivado.",
                 ["DebugChange"] = "[debug] {0}: {1} → {2} ({3}{4}) · {5}",
                 ["DebugNoReward"] = "[debug] {0}: sin calvicie · {1}",
+                ["DebugRp"] = "[debug] {0}: +{1} RP ({2})",
+                ["DebugNoRp"] = "[debug] {0}: sin RP · {1}",
+                ["NoRpAfk"] = "no se ha movido (AFK)",
+                ["NoRpPlugin"] = "Server Rewards no está cargado",
+                ["NoRpRefused"] = "Server Rewards no aceptó el pago",
+                ["RpEarned"] = "<color=#f0c040>+{0} RP</color> por lucir calva de <color=#f5d3a8>{1}</color>. Ser calvo tiene premio.",
                 ["ReasonPlayerKill"] = "kill a {0}",
                 ["ReasonPlayerHeadshotKill"] = "kill de headshot a {0}",
                 ["ReasonDeath"] = "muerte (-{0} %)",
@@ -1323,6 +1391,11 @@ namespace Oxide.Plugins
 
         private void OnPlayerDisconnected(BasePlayer player, string reason)
         {
+            if (player != null)
+            {
+                lastPositions.Remove((ulong)player.userID);
+            }
+
             if (activeEvent == GlobalEvent.HairiestHunt && player != null && (ulong)player.userID == huntTargetId)
             {
                 BroadcastEvent("EventHuntEscaped", player.displayName);
@@ -2412,7 +2485,87 @@ namespace Oxide.Plugins
                     data.SurvivalSeconds -= interval;
                     GainBaldness(data, config.SurvivalReward, Lang("ReasonSurvival"));
                 }
+
+                RewardPointsTick(player, data);
             }
+        }
+
+        private void RewardPointsTick(BasePlayer player, PlayerData data)
+        {
+            ServerRewardsConfig rp = config.ServerRewards;
+            if (!rp.Enabled)
+            {
+                return;
+            }
+
+            Vector3 position = player.transform.position;
+            if (lastPositions.TryGetValue(data.Id, out Vector3 last) && Vector3.Distance(last, position) >= rp.MinMoveMeters)
+            {
+                data.RpMoved = true;
+            }
+
+            lastPositions[data.Id] = position;
+            data.RpSeconds += SurvivalTickSeconds;
+            if (data.RpSeconds < rp.IntervalMinutes * 60f)
+            {
+                return;
+            }
+
+            data.RpSeconds = 0f;
+            bool moved = data.RpMoved;
+            data.RpMoved = false;
+
+            int amount = GetRpRate(data.Baldness);
+            if (amount <= 0)
+            {
+                return;
+            }
+
+            if (rp.RequireMovement && !moved)
+            {
+                SendDebug("DebugNoRp", data.Name, Lang("NoRpAfk"));
+                return;
+            }
+
+            if (ServerRewards == null || !ServerRewards.IsLoaded)
+            {
+                if (!warnedNoServerRewards)
+                {
+                    warnedNoServerRewards = true;
+                    PrintWarning("Server Rewards is not loaded; no RP is being paid.");
+                }
+
+                SendDebug("DebugNoRp", data.Name, Lang("NoRpPlugin"));
+                return;
+            }
+
+            // Server Rewards API: object AddPoints(object userID, int amount), returns true when paid.
+            object paid = ServerRewards.Call("AddPoints", data.Id, amount);
+            if (!(paid is bool ok) || !ok)
+            {
+                SendDebug("DebugNoRp", data.Name, Lang("NoRpRefused"));
+                return;
+            }
+
+            SendDebug("DebugRp", data.Name, amount, GetTitle(data.Baldness));
+            if (rp.NotifyPlayer)
+            {
+                Reply(player, "RpEarned", amount, GetTitle(data.Baldness));
+            }
+        }
+
+        private int GetRpRate(long baldness)
+        {
+            int amount = 0;
+            foreach (KeyValuePair<long, int> rate in rpRates)
+            {
+                if (baldness >= rate.Key)
+                {
+                    amount = rate.Value;
+                }
+            }
+
+            return amount;
         }
 
         private void ChangeBaldness(PlayerData data, long delta, bool announce, string reason)
