@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Isla de Calvos", "Igor Monasterio", "1.0.1")]
+    [Info("Isla de Calvos", "Igor Monasterio", "1.1.0")]
     [Description("Baldness system for the Isla de Calvos Rust server: being bald is glory, hair is a curse.")]
     public class IslaDeCalvos : RustPlugin
     {
@@ -127,6 +127,60 @@ namespace Oxide.Plugins
 
             [JsonProperty("Chat icon: SteamID64 whose avatar is shown next to plugin messages (0 = default Rust icon)")]
             public ulong ChatIconSteamId = 76561198635630459UL;
+
+            [JsonProperty("Global events")]
+            public GlobalEventsConfig GlobalEvents = new GlobalEventsConfig();
+        }
+
+        private class GlobalEventsConfig
+        {
+            [JsonProperty("Enabled")]
+            public bool Enabled = true;
+
+            [JsonProperty("Minutes between random events")]
+            public int IntervalMinutes = 60;
+
+            [JsonProperty("Bald hour (all baldness gains multiplied)")]
+            public BaldHourConfig BaldHour = new BaldHourConfig();
+
+            [JsonProperty("Shampoo rain (death penalty multiplied)")]
+            public ShampooRainConfig ShampooRain = new ShampooRainConfig();
+
+            [JsonProperty("Hunt the hairiest (bounty on the online player with least baldness)")]
+            public HairiestHuntConfig HairiestHunt = new HairiestHuntConfig();
+
+            [JsonProperty("Alopecia outbreak (shared big-target rewards multiplied)")]
+            public AlopeciaOutbreakConfig AlopeciaOutbreak = new AlopeciaOutbreakConfig();
+        }
+
+        private class BaldHourConfig
+        {
+            [JsonProperty("Enabled")] public bool Enabled = true;
+            [JsonProperty("Duration (minutes)")] public int DurationMinutes = 30;
+            [JsonProperty("Gain multiplier")] public int Multiplier = 2;
+        }
+
+        private class ShampooRainConfig
+        {
+            [JsonProperty("Enabled")] public bool Enabled = true;
+            [JsonProperty("Duration (minutes)")] public int DurationMinutes = 20;
+            [JsonProperty("Death penalty multiplier")] public int Multiplier = 2;
+        }
+
+        private class HairiestHuntConfig
+        {
+            [JsonProperty("Enabled")] public bool Enabled = true;
+            [JsonProperty("Duration (minutes)")] public int DurationMinutes = 20;
+            [JsonProperty("Bonus for the killer")] public long KillerBonus = 2000;
+            [JsonProperty("Bonus for the target if they survive")] public long SurvivorBonus = 1000;
+            [JsonProperty("Minimum online players")] public int MinPlayers = 2;
+        }
+
+        private class AlopeciaOutbreakConfig
+        {
+            [JsonProperty("Enabled")] public bool Enabled = true;
+            [JsonProperty("Duration (minutes)")] public int DurationMinutes = 60;
+            [JsonProperty("Shared reward multiplier")] public int Multiplier = 3;
         }
 
         private class TitleTier
@@ -239,6 +293,19 @@ namespace Oxide.Plugins
             config.SurvivalIntervalMinutes = Math.Max(1, config.SurvivalIntervalMinutes);
             config.KillCooldownMinutes = Math.Max(0, config.KillCooldownMinutes);
             config.SharedRewardTeamRadius = Math.Max(0f, config.SharedRewardTeamRadius);
+
+            if (config.GlobalEvents == null) config.GlobalEvents = new GlobalEventsConfig();
+            GlobalEventsConfig events = config.GlobalEvents;
+            if (events.BaldHour == null) events.BaldHour = new BaldHourConfig();
+            if (events.ShampooRain == null) events.ShampooRain = new ShampooRainConfig();
+            if (events.HairiestHunt == null) events.HairiestHunt = new HairiestHuntConfig();
+            if (events.AlopeciaOutbreak == null) events.AlopeciaOutbreak = new AlopeciaOutbreakConfig();
+            events.IntervalMinutes = Math.Max(1, events.IntervalMinutes);
+            events.BaldHour.DurationMinutes = Math.Max(1, events.BaldHour.DurationMinutes);
+            events.ShampooRain.DurationMinutes = Math.Max(1, events.ShampooRain.DurationMinutes);
+            events.HairiestHunt.DurationMinutes = Math.Max(1, events.HairiestHunt.DurationMinutes);
+            events.AlopeciaOutbreak.DurationMinutes = Math.Max(1, events.AlopeciaOutbreak.DurationMinutes);
+            events.HairiestHunt.MinPlayers = Math.Max(2, events.HairiestHunt.MinPlayers);
 
             if (config.NpcTiers == null)
             {
@@ -382,7 +449,7 @@ namespace Oxide.Plugins
                 ["TitleUp"] = "<color=#f0c040>{0}</color> asciende a <color=#f0c040>{1}</color>",
                 ["TitleDrop"] = "<color=#e05050>A {0} le está saliendo pelo</color> (ahora es {1})",
                 ["NoPermission"] = "No tienes permiso para usar este comando.",
-                ["AdminUsage"] = "Uso: /calvoadmin set <jugador> <valor> | /calvoadmin reset <jugador> | /calvoadmin debug on|off",
+                ["AdminUsage"] = "Uso: /calvoadmin set <jugador> <valor> | /calvoadmin reset <jugador> | /calvoadmin debug on|off | /calvoadmin evento <hora|champu|peludo|alopecia|parar>",
                 ["AdminInvalidValue"] = "El valor tiene que ser un número entero igual o mayor que {0}.",
                 ["PlayerNotFound"] = "No se ha encontrado ningún jugador con '{0}'.",
                 ["PlayerAmbiguous"] = "Hay {0} jugadores que coinciden con '{1}'. Sé más concreto o usa el SteamID.",
@@ -406,7 +473,30 @@ namespace Oxide.Plugins
                 ["NoRewardNpcDisabled"] = "NPC {0} desactivado en la config",
                 ["NoRewardNpcUnlisted"] = "NPC {0} no está en NpcTiers",
                 ["NoRewardTierMissing"] = "NPC {0} (T{1}) sin valor en TierRewards",
-                ["NoRewardNpcDeath"] = "muerte por NPC (desactivado en la config)"
+                ["NoRewardNpcDeath"] = "muerte por NPC (desactivado en la config)",
+                ["EventNameBaldHour"] = "Hora de la calvicie",
+                ["EventNameShampooRain"] = "Lluvia de champú",
+                ["EventNameHairiestHunt"] = "Cazar al más peludo",
+                ["EventNameAlopeciaOutbreak"] = "Brote de alopecia",
+                ["EventTag"] = " [{0} x{1}]",
+                ["EventBaldHourStart"] = "<color=#f0c040>HORA DE LA CALVICIE</color>: durante {0} min todo da x{1} de calvicie. Aprovechad, que el pelo no descansa.",
+                ["EventBaldHourEnd"] = "Se acabó la Hora de la calvicie. El pelo vuelve a acechar.",
+                ["EventShampooRainStart"] = "<color=#e05050>LLUVIA DE CHAMPÚ</color>: durante {0} min morir resta x{1}. Con este tiempo el pelo crece que da gusto.",
+                ["EventShampooRainEnd"] = "Ha escampado. Podéis volver a morir con relativa dignidad.",
+                ["EventHuntStart"] = "<color=#f0c040>CAZAR AL MÁS PELUDO</color>: {0} es el más peludo de la isla ({1}). Quien lo mate gana +{2}. Si aguanta {3} min con su melena, gana él +{4}.",
+                ["EventHuntKilled"] = "<color=#f0c040>{0}</color> ha cazado al más peludo, {1}, y gana +{2}. La isla respira aliviada.",
+                ["EventHuntSurvived"] = "{0} ha sobrevivido a la cacería con todo su pelo y gana +{1}. Qué asco.",
+                ["EventHuntDied"] = "{0} ha muerto sin que nadie se lleve el mérito. Se acabó la cacería.",
+                ["EventHuntEscaped"] = "{0} ha huido de la isla con su melena. Se acabó la cacería.",
+                ["EventAlopeciaStart"] = "<color=#f0c040>BROTE DE ALOPECIA</color>: durante {0} min el heli, la Bradley y el Chinook dan x{1}.",
+                ["EventAlopeciaEnd"] = "El brote de alopecia remite. Por ahora.",
+                ["EventStoppedByAdmin"] = "Un admin ha cancelado el evento {0}.",
+                ["ReasonHuntKill"] = "cazar al más peludo ({0})",
+                ["ReasonHuntSurvived"] = "sobrevivir a la cacería",
+                ["AdminEventUsage"] = "Uso: /calvoadmin evento <hora|champu|peludo|alopecia|parar>",
+                ["AdminEventBusy"] = "Ya hay un evento en marcha: {0}. Páralo antes con /calvoadmin evento parar.",
+                ["AdminEventCannotStart"] = "No se puede lanzar {0} ahora (¿pocos jugadores conectados o desactivado en la config?).",
+                ["AdminEventNone"] = "No hay ningún evento en marcha."
             };
 
             // Spanish is registered as the default ("en") set too: Oxide assigns each player the language
@@ -469,6 +559,11 @@ namespace Oxide.Plugins
             }
 
             timer.Every(SurvivalTickSeconds, SurvivalTick);
+
+            if (config.GlobalEvents.Enabled)
+            {
+                timer.Every(config.GlobalEvents.IntervalMinutes * 60f, () => StartRandomEvent());
+            }
         }
 
         private void OnServerSave() => SaveData();
@@ -572,7 +667,19 @@ namespace Oxide.Plugins
             else
             {
                 long penalty = config.DeathPenalty + (headshot ? config.HeadshotDeathExtraPenalty : 0);
-                ChangeBaldness(victimData, -penalty, true, Lang(headshot ? "ReasonHeadshotDeath" : "ReasonDeath"));
+                string reason = Lang(headshot ? "ReasonHeadshotDeath" : "ReasonDeath");
+                if (activeEvent == GlobalEvent.ShampooRain)
+                {
+                    penalty *= config.GlobalEvents.ShampooRain.Multiplier;
+                    reason += EventTag(GlobalEvent.ShampooRain, config.GlobalEvents.ShampooRain.Multiplier);
+                }
+
+                ChangeBaldness(victimData, -penalty, true, reason);
+            }
+
+            if (activeEvent == GlobalEvent.HairiestHunt && victimId == huntTargetId)
+            {
+                HandleHuntTargetDeath(victimData, killer != null && killer != victim && IsRealPlayer(killer) ? killer : null);
             }
 
             // Suicide (or no killer at all) only counts as a death.
@@ -595,7 +702,7 @@ namespace Oxide.Plugins
                 return;
             }
 
-            ChangeBaldness(killerData, headshot ? config.HeadshotKillReward : config.KillReward, true,
+            GainBaldness(killerData, headshot ? config.HeadshotKillReward : config.KillReward,
                 Lang(headshot ? "ReasonPlayerHeadshotKill" : "ReasonPlayerKill", null, victimData.Name));
         }
 
@@ -642,7 +749,7 @@ namespace Oxide.Plugins
                 return;
             }
 
-            ChangeBaldness(killerData, reward, true, Lang("ReasonNpcKill", null, prefab, tier));
+            GainBaldness(killerData, reward, Lang("ReasonNpcKill", null, prefab, tier));
         }
 
         #endregion
@@ -761,6 +868,12 @@ namespace Oxide.Plugins
                 return;
             }
 
+            if (activeEvent == GlobalEvent.AlopeciaOutbreak)
+            {
+                reward *= config.GlobalEvents.AlopeciaOutbreak.Multiplier;
+                prefab += EventTag(GlobalEvent.AlopeciaOutbreak, config.GlobalEvents.AlopeciaOutbreak.Multiplier);
+            }
+
             PayEventReward(new RewardEvent
             {
                 Label = prefab,
@@ -779,7 +892,7 @@ namespace Oxide.Plugins
             {
                 if (paid.Add(id) && storedData.Players.TryGetValue(id, out PlayerData data))
                 {
-                    ChangeBaldness(data, rewardEvent.Amount, true,
+                    GainBaldness(data, rewardEvent.Amount,
                         Lang("ReasonEventParticipant", null, rewardEvent.Label, rewardEvent.Tier));
                 }
             }
@@ -788,7 +901,7 @@ namespace Oxide.Plugins
             {
                 if (paid.Add((ulong)mate.userID))
                 {
-                    ChangeBaldness(GetOrCreateData(mate), rewardEvent.Amount, true,
+                    GainBaldness(GetOrCreateData(mate), rewardEvent.Amount,
                         Lang("ReasonEventTeammate", null, rewardEvent.Label, rewardEvent.Tier));
                 }
             }
@@ -884,6 +997,12 @@ namespace Oxide.Plugins
                 return;
             }
 
+            if (action == "evento")
+            {
+                AdminEvent(player, args[1]);
+                return;
+            }
+
             long value;
             if (action == "set")
             {
@@ -941,6 +1060,220 @@ namespace Oxide.Plugins
                     Reply(player, "AdminUsage");
                     break;
             }
+        }
+
+        #endregion
+
+        #region Global Events
+
+        private enum GlobalEvent
+        {
+            None,
+            BaldHour,
+            ShampooRain,
+            HairiestHunt,
+            AlopeciaOutbreak
+        }
+
+        private readonly System.Random random = new System.Random();
+        private GlobalEvent activeEvent = GlobalEvent.None;
+        private Timer eventEndTimer;
+        private ulong huntTargetId;
+
+        private void OnPlayerDisconnected(BasePlayer player, string reason)
+        {
+            if (activeEvent == GlobalEvent.HairiestHunt && player != null && (ulong)player.userID == huntTargetId)
+            {
+                Broadcast("EventHuntEscaped", player.displayName);
+                EndEvent(false);
+            }
+        }
+
+        // Called every IntervalMinutes. Skips if an event is still running or nobody is online.
+        private bool StartRandomEvent()
+        {
+            if (activeEvent != GlobalEvent.None)
+            {
+                return false;
+            }
+
+            var candidates = new List<GlobalEvent> { GlobalEvent.BaldHour, GlobalEvent.ShampooRain, GlobalEvent.HairiestHunt, GlobalEvent.AlopeciaOutbreak };
+            while (candidates.Count > 0)
+            {
+                GlobalEvent pick = candidates[random.Next(candidates.Count)];
+                if (StartEvent(pick))
+                {
+                    return true;
+                }
+
+                candidates.Remove(pick);
+            }
+
+            return false;
+        }
+
+        private bool StartEvent(GlobalEvent globalEvent)
+        {
+            if (activeEvent != GlobalEvent.None || GetActivePlayers().Count == 0)
+            {
+                return false;
+            }
+
+            GlobalEventsConfig events = config.GlobalEvents;
+            int minutes;
+            switch (globalEvent)
+            {
+                case GlobalEvent.BaldHour:
+                    if (!events.BaldHour.Enabled) return false;
+                    minutes = events.BaldHour.DurationMinutes;
+                    Broadcast("EventBaldHourStart", minutes, events.BaldHour.Multiplier);
+                    break;
+                case GlobalEvent.ShampooRain:
+                    if (!events.ShampooRain.Enabled) return false;
+                    minutes = events.ShampooRain.DurationMinutes;
+                    Broadcast("EventShampooRainStart", minutes, events.ShampooRain.Multiplier);
+                    break;
+                case GlobalEvent.HairiestHunt:
+                    HairiestHuntConfig hunt = events.HairiestHunt;
+                    List<BasePlayer> players = GetActivePlayers();
+                    if (!hunt.Enabled || players.Count < hunt.MinPlayers) return false;
+                    // Ties go to a random player among the hairiest.
+                    long lowest = players.Min(p => GetOrCreateData(p).Baldness);
+                    List<BasePlayer> hairiest = players.Where(p => GetOrCreateData(p).Baldness == lowest).ToList();
+                    BasePlayer target = hairiest[random.Next(hairiest.Count)];
+                    huntTargetId = (ulong)target.userID;
+                    minutes = hunt.DurationMinutes;
+                    Broadcast("EventHuntStart", target.displayName, FormatBaldness(lowest), FormatBaldness(hunt.KillerBonus), minutes, FormatBaldness(hunt.SurvivorBonus));
+                    break;
+                case GlobalEvent.AlopeciaOutbreak:
+                    if (!events.AlopeciaOutbreak.Enabled) return false;
+                    minutes = events.AlopeciaOutbreak.DurationMinutes;
+                    Broadcast("EventAlopeciaStart", minutes, events.AlopeciaOutbreak.Multiplier);
+                    break;
+                default:
+                    return false;
+            }
+
+            activeEvent = globalEvent;
+            eventEndTimer = timer.Once(minutes * 60f, () => EndEvent(true));
+            Puts($"Global event started: {globalEvent} ({minutes} min).");
+            return true;
+        }
+
+        // timedOut: the event ran its full duration (announces the end; the hunt target gets the survivor bonus).
+        private void EndEvent(bool timedOut)
+        {
+            GlobalEvent ended = activeEvent;
+            if (ended == GlobalEvent.None)
+            {
+                return;
+            }
+
+            activeEvent = GlobalEvent.None;
+            eventEndTimer?.Destroy();
+            eventEndTimer = null;
+
+            if (timedOut)
+            {
+                switch (ended)
+                {
+                    case GlobalEvent.BaldHour:
+                        Broadcast("EventBaldHourEnd");
+                        break;
+                    case GlobalEvent.ShampooRain:
+                        Broadcast("EventShampooRainEnd");
+                        break;
+                    case GlobalEvent.HairiestHunt:
+                        if (storedData.Players.TryGetValue(huntTargetId, out PlayerData target))
+                        {
+                            long bonus = config.GlobalEvents.HairiestHunt.SurvivorBonus;
+                            Broadcast("EventHuntSurvived", target.Name, FormatBaldness(bonus));
+                            ChangeBaldness(target, bonus, true, Lang("ReasonHuntSurvived"));
+                        }
+
+                        break;
+                    case GlobalEvent.AlopeciaOutbreak:
+                        Broadcast("EventAlopeciaEnd");
+                        break;
+                }
+            }
+
+            huntTargetId = 0;
+            Puts($"Global event ended: {ended}.");
+        }
+
+        private void HandleHuntTargetDeath(PlayerData targetData, BasePlayer killer)
+        {
+            if (killer == null)
+            {
+                Broadcast("EventHuntDied", targetData.Name);
+            }
+            else
+            {
+                long bonus = config.GlobalEvents.HairiestHunt.KillerBonus;
+                PlayerData killerData = GetOrCreateData(killer);
+                Broadcast("EventHuntKilled", killerData.Name, targetData.Name, FormatBaldness(bonus));
+                ChangeBaldness(killerData, bonus, true, Lang("ReasonHuntKill", null, targetData.Name));
+            }
+
+            EndEvent(false);
+        }
+
+        private void AdminEvent(BasePlayer player, string name)
+        {
+            GlobalEvent requested;
+            switch (name.ToLowerInvariant())
+            {
+                case "hora": requested = GlobalEvent.BaldHour; break;
+                case "champu":
+                case "champú": requested = GlobalEvent.ShampooRain; break;
+                case "peludo": requested = GlobalEvent.HairiestHunt; break;
+                case "alopecia": requested = GlobalEvent.AlopeciaOutbreak; break;
+                case "parar":
+                    if (activeEvent == GlobalEvent.None)
+                    {
+                        Reply(player, "AdminEventNone");
+                        return;
+                    }
+
+                    Broadcast("EventStoppedByAdmin", EventName(activeEvent));
+                    EndEvent(false);
+                    return;
+                default:
+                    Reply(player, "AdminEventUsage");
+                    return;
+            }
+
+            if (activeEvent != GlobalEvent.None)
+            {
+                Reply(player, "AdminEventBusy", EventName(activeEvent));
+                return;
+            }
+
+            if (!StartEvent(requested))
+            {
+                Reply(player, "AdminEventCannotStart", EventName(requested));
+            }
+        }
+
+        private string EventName(GlobalEvent globalEvent) => Lang("EventName" + globalEvent);
+
+        private string EventTag(GlobalEvent globalEvent, int multiplier) => Lang("EventTag", null, EventName(globalEvent), multiplier);
+
+        // Real players who are connected, alive and awake.
+        private static List<BasePlayer> GetActivePlayers() =>
+            BasePlayer.activePlayerList.Where(p => IsRealPlayer(p) && p.IsConnected && !p.IsDead() && !p.IsSleeping()).ToList();
+
+        // Every baldness gain from gameplay goes through here so the Bald hour can multiply it.
+        private void GainBaldness(PlayerData data, long amount, string reason)
+        {
+            if (activeEvent == GlobalEvent.BaldHour)
+            {
+                amount *= config.GlobalEvents.BaldHour.Multiplier;
+                reason += EventTag(GlobalEvent.BaldHour, config.GlobalEvents.BaldHour.Multiplier);
+            }
+
+            ChangeBaldness(data, amount, true, reason);
         }
 
         #endregion
@@ -1053,7 +1386,7 @@ namespace Oxide.Plugins
                 if (data.SurvivalSeconds >= interval)
                 {
                     data.SurvivalSeconds -= interval;
-                    ChangeBaldness(data, config.SurvivalReward, true, Lang("ReasonSurvival"));
+                    GainBaldness(data, config.SurvivalReward, Lang("ReasonSurvival"));
                 }
             }
         }
