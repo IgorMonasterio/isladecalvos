@@ -600,7 +600,7 @@ namespace Oxide.Plugins
                 ["MenuYou"] = "Tu calvicie: <color=#f0c040>{0}</color> — {1}",
                 ["MenuTabItems"] = "OBJETOS",
                 ["MenuTabRanking"] = "RANKING",
-                ["MenuClose"] = "CERRAR",
+                ["MenuClose"] = "X",
                 ["MenuUse"] = "USAR",
                 ["MenuYouHave"] = "Tienes: {0}",
                 ["MenuShieldOn"] = "Cinta puesta: tu próxima muerte no resta",
@@ -2030,8 +2030,8 @@ namespace Oxide.Plugins
             }, UiMenu);
 
             AddText(ui, window, Lang("MenuTitle", userId), 24, TextAnchor.MiddleLeft, "0.03 0.9", "0.4 0.98", "0.94 0.75 0.25 1");
-            AddText(ui, window, Lang("MenuYou", userId, FormatBaldness(data.Baldness), GetTitle(data.Baldness)), 15, TextAnchor.MiddleRight, "0.4 0.9", "0.86 0.98");
-            AddButton(ui, window, Lang("MenuClose", userId), "0.88 0.915", "0.98 0.965", "0.6 0.2 0.2 1", null, UiMenu);
+            AddText(ui, window, Lang("MenuYou", userId, FormatBaldness(data.Baldness), GetTitle(data.Baldness)), 15, TextAnchor.MiddleRight, "0.4 0.9", "0.93 0.98");
+            AddButton(ui, window, Lang("MenuClose", userId), "0.956 0.935", "0.99 0.985", "0.6 0.2 0.2 1", null, UiMenu, 18);
 
             AddButton(ui, window, Lang("MenuTabItems", userId), "0.03 0.83", "0.2 0.88", tab == MenuTab.Items ? "0.94 0.75 0.25 1" : "0.25 0.25 0.25 1", "calvos.tab items");
             AddButton(ui, window, Lang("MenuTabRanking", userId), "0.21 0.83", "0.38 0.88", tab == MenuTab.Ranking ? "0.94 0.75 0.25 1" : "0.25 0.25 0.25 1", "calvos.tab ranking 0");
@@ -2174,13 +2174,13 @@ namespace Oxide.Plugins
         }
 
         // command null = disabled button (does nothing). close = element to destroy on click.
-        private static void AddButton(CuiElementContainer ui, string parent, string text, string min, string max, string color, string command, string close = null)
+        private static void AddButton(CuiElementContainer ui, string parent, string text, string min, string max, string color, string command, string close = null, int fontSize = 13)
         {
             ui.Add(new CuiButton
             {
                 Button = { Color = color, Command = command ?? string.Empty, Close = close },
                 RectTransform = { AnchorMin = min, AnchorMax = max },
-                Text = { Text = text, FontSize = 13, Align = TextAnchor.MiddleCenter, Color = "1 1 1 1" }
+                Text = { Text = text, FontSize = fontSize, Align = TextAnchor.MiddleCenter, Color = "1 1 1 1" }
             }, parent);
         }
 
