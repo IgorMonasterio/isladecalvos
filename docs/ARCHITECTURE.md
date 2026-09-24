@@ -1,26 +1,34 @@
 # Arquitectura del plugin
 
 Este documento explica cómo funciona un plugin de uMod/Oxide para Rust y qué
-convenciones seguimos en **Isla de Calvos**. No describe funcionalidad: todavía
-no hay ninguna decidida.
+convenciones seguimos en **Isla de Calvos**. La funcionalidad está descrita en
+el [README](../README.md) y en los issues de cada versión.
 
-> ⚠️ Las referencias a la API de Oxide de este documento se han escrito de
-> memoria y **no se han podido contrastar** con la documentación oficial
-> (umod.org estaba bloqueado desde el entorno en el que se redactó). Antes de
-> apoyarse en una firma concreta, compruébala en <https://umod.org/documentation>
-> o en el código de Oxide.
+> ℹ️ **Fuentes.** Las APIs de Oxide que se citan aquí están verificadas contra
+> el código fuente de [Oxide.Core](https://github.com/OxideMod/Oxide.Core),
+> [Oxide.CSharp](https://github.com/OxideMod/Oxide.CSharp) y
+> [Oxide.Rust](https://github.com/OxideMod/Oxide.Rust) (incluido
+> `resources/Rust.opj`, que define dónde se inyecta cada hook). La
+> documentación de umod.org no se ha podido consultar porque estaba bloqueada
+> desde el entorno de trabajo. La API del propio juego (clases de Rust) solo se
+> puede verificar en parte: ver sección 8.
 
 ## 1. Cómo carga Oxide un plugin
 
 - Un plugin es **un único fichero `.cs`** que se deja en `oxide/plugins/` del
-  servidor.
+  servidor. *Verificado en `Oxide.CSharp`*: cada `.cs` de `oxide/plugins/` es
+  un plugin independiente. No hay forma de repartir un plugin en varios
+  ficheros. La carpeta `oxide/plugins/include/` solo admite ficheros
+  `Ext.<Nombre>.cs` que sustituyen a extensiones ausentes, y `// Requires:`
+  enlaza plugins distintos. Por eso todo va en `src/IslaDeCalvos.cs`,
+  organizado con `#region`.
 - Oxide lo **compila en caliente** con su propio compilador al arrancar y cada
   vez que el fichero cambia (hot reload). No hay `.csproj` ni DLL que distribuir.
 - El **nombre del fichero debe coincidir con el nombre de la clase**:
-  `IslaDeCalvos.cs` → `class IslaDeCalvos`.
-- La clase vive en el namespace `Oxide.Plugins` y hereda de `RustPlugin`
-  (API específica de Rust; `CovalencePlugin` sería la alternativa multijuego,
-  que no usamos).
+  `IslaDeCalvos.cs` → `class IslaDeCalvos`. La declaración
+  `public class IslaDeCalvos : RustPlugin` debe ir en una sola línea: Oxide
+  detecta la clase principal con una expresión regular sobre esa línea.
+- La clase vive en el namespace `Oxide.Plugins` y hereda de `RustPlugin`.
 - Metadatos obligatorios mediante atributos:
   - `[Info("Título", "Autor", "x.y.z")]`
   - `[Description("...")]`
@@ -33,45 +41,57 @@ no hay ninguna decidida.
 Los hooks son **métodos privados con un nombre concreto** que Oxide invoca por
 reflexión cuando ocurre algo. No se registran: basta con declararlos.
 
-Ciclo de vida (los que usaremos seguro):
+En muchos hooks, **devolver un valor distinto de `null` cancela el
+comportamiento del juego** (p. ej. `OnPlayerDeath` o `OnPlayerWound`). Por eso
+nuestros hooks de juego son `void`: solo observamos, nunca cancelamos.
 
-| Hook | Cuándo se llama |
-|---|---|
-| `Init()` | Al cargar el plugin, antes de que el servidor esté listo. Registrar permisos, leer config. |
-| `OnServerInitialized()` | Cuando el servidor ya está listo (o inmediatamente si el plugin se recarga en caliente). Aquí es seguro tocar entidades y jugadores. |
-| `Unload()` | Al descargar/recargar el plugin. Limpiar timers, UI, entidades propias y guardar datos. |
-| `OnServerSave()` | Cada guardado periódico del servidor. Buen momento para persistir datos. |
+Hooks que usa la v1.0 y de dónde sale cada uno:
 
-Hay cientos de hooks de juego (`OnPlayerConnected`, `OnEntityDeath`, …). En
-muchos, **devolver un valor distinto de `null` cancela o modifica el
-comportamiento por defecto**, así que un `return` descuidado puede romper
-mecánicas del juego. Cada hook se documentará en el PR que lo introduzca.
+| Hook | Cuándo se llama | Verificado en |
+|---|---|---|
+| `Init()` | Al cargar el plugin. Registrar permisos y leer datos. | Oxide.Core |
+| `OnServerInitialized()` | Servidor listo (o justo tras recargar el plugin en caliente). | `RustCore.cs` |
+| `Unload()` | Al descargar el plugin. También al apagar el servidor: `OnShutdown` descarga todos los plugins. | `OxideMod.cs` |
+| `OnServerSave()` | Cada guardado automático del servidor. | `Rust.opj` (`SaveRestore.DoAutomatedSave`) |
+| `OnNewSave(string filename)` | Al crearse un mapa nuevo (wipe). | `Rust.opj` (`SaveRestore.Load`) |
+| `OnPlayerConnected(BasePlayer player)` | Jugador conectado. | `RustHooks.cs` |
+| `OnPlayerWound(BasePlayer player, HitInfo info)` | Jugador derribado (downed). | `Rust.opj` (`BasePlayer.BecomeWounded`) |
+| `OnPlayerRecovered(BasePlayer player)` | Jugador que se levanta tras estar derribado. | `Rust.opj` (`BasePlayer.RecoverFromWounded`) |
+| `OnPlayerDeath(BasePlayer player, HitInfo info)` | Muerte de cualquier `BasePlayer` (también NPCs humanos). | `Rust.opj` (`BasePlayer.Die`) |
 
 ## 3. Configuración
 
 - Fichero: `oxide/config/IslaDeCalvos.json` (lo edita el admin del servidor).
-- Patrón habitual: una clase `Configuration` tipada, `LoadDefaultConfig()` para
-  generarla, `Config.ReadObject<Configuration>()` al cargar y
-  `Config.WriteObject(...)` para guardarla.
-- Si el JSON está corrupto o incompleto, se avisa con `PrintWarning` y se
-  regenera/completa con valores por defecto; nunca se deja el plugin a medias.
+- Patrón: una clase `Configuration` tipada; `LoadDefaultConfig()` la crea con
+  valores por defecto, `Config.ReadObject<Configuration>()` la lee al cargar y
+  `Config.WriteObject(...)` la guarda.
+- Si el JSON está corrupto, se avisa con `PrintWarning` y se usan los valores
+  por defecto. Tras leerla se valida (títulos ordenados, intervalos mínimos) y
+  se vuelve a guardar, para que las opciones nuevas aparezcan en el fichero.
 
 ## 4. Datos persistentes
 
-- Ficheros en `oxide/data/` mediante
-  `Interface.Oxide.DataFileSystem.ReadObject<T>(nombre)` / `WriteObject(nombre, obj)`.
-- Se distinguen claramente: **config** = lo que decide el admin; **data** = el
-  estado que genera la partida.
-- Se guarda en `OnServerSave()` y en `Unload()`; no en cada evento.
+- Fichero `oxide/data/IslaDeCalvos.json` mediante
+  `Interface.Oxide.DataFileSystem.ReadObject<T>` / `WriteObject`.
+- **Config** = lo que decide el admin; **data** = el estado que genera la
+  partida.
+- Se guarda solo si hay cambios (flag `dataDirty`), en `OnServerSave()` y en
+  `Unload()`, nunca en cada kill.
+- Lo que no hace falta que sobreviva a un reinicio (cooldowns anti-farmeo,
+  registros de derribos) vive solo en memoria.
 
 ## 5. Localización (lang)
 
-- Todos los textos que ve un jugador pasan por el sistema `lang` de Oxide:
-  se registran en `LoadDefaultMessages()` con `lang.RegisterMessages(...)` y se
-  leen con `lang.GetMessage(clave, this, userId)`.
+- Todos los textos del plugin pasan por `lang`: se registran en
+  `LoadDefaultMessages()` con `lang.RegisterMessages(...)` y se leen con
+  `lang.GetMessage(clave, this, userId)`.
 - Oxide genera `oxide/lang/<idioma>/IslaDeCalvos.json`, que el admin puede
   editar sin tocar código.
-- Idiomas: **`es` es el principal**; se registra también `en` como respaldo.
+- **El español es el idioma por defecto.** *Verificado en `Oxide.Rust` y
+  `Oxide.Core`*: Oxide asigna a cada jugador el idioma de su cliente de Rust
+  (casi siempre `en`) y, si falta un texto, recurre a `en`. Por eso los textos
+  en español se registran **en `es` y también en `en`**. Si algún día se quiere
+  traducir al inglés, basta con editar `oxide/lang/en/IslaDeCalvos.json`.
 
 ## 6. Permisos
 
@@ -81,24 +101,23 @@ mecánicas del juego. Cada hook se documentará en el PR que lo introduzca.
 
 ## 7. Convenciones del proyecto
 
-- **Un solo plugin, un solo fichero**: `src/IslaDeCalvos.cs`. Si crece demasiado
-  se discutirá dividirlo en varios plugins antes de hacerlo.
+- **Un solo plugin, un solo fichero**: `src/IslaDeCalvos.cs`, con `#region`.
 - **Idioma**: código, identificadores y comentarios en inglés; documentación y
-  textos para jugadores en español (vía `lang`).
+  textos para jugadores en español.
 - **Permisos**: siempre con el prefijo `isladecalvos.` (p. ej.
   `isladecalvos.admin`), declarados como constantes al principio de la clase.
-- **Nada de textos hardcodeados** para el jugador: todo por `lang`.
+- **Textos para jugadores por `lang`**. Excepción decidida: los nombres de los
+  títulos van en la config, junto con sus tramos.
 - **Nada de magic numbers** ajustables por el admin: van a la config.
 - **Orden dentro de la clase** (con `#region`): campos/constantes → config →
   data → lang → hooks de ciclo de vida → hooks de juego → comandos → helpers.
 - **Defensivo**: comprobar `null` en jugadores/entidades (desconexiones,
   entidades destruidas) y no hacer nada bloqueante en el hilo del servidor.
-- **Limpieza**: todo lo que el plugin cree (timers, UI, entidades) se destruye
-  en `Unload()`.
+- **Limpieza**: todo lo que el plugin cree (UI, entidades) se destruye en
+  `Unload()`. Los timers de `timer` los destruye Oxide al descargar.
 - **Versionado**: SemVer en `[Info]`; se sube la versión en cada PR que cambie
   comportamiento.
-- **Temática**: todo acaba teniendo que ver con el pelo o la calvicie, pero la
-  funcionalidad concreta se decide explícitamente antes de programarla.
+- **Cero dependencias** de otros plugins salvo decisión explícita.
 
 ## 8. Compilación y pruebas
 
@@ -107,3 +126,12 @@ mecánicas del juego. Cada hook se documentará en el PR que lo introduzca.
 - Las DLL de Rust (`Assembly-CSharp.dll`, etc.) son propietarias de Facepunch y
   las de Oxide vienen con el servidor: **no se suben al repo** (`.gitignore`
   ignora `*.dll`, `lib/` y `References/`).
+- En el entorno cloud no hay ni DLL de Rust ni de Oxide (NuGet no las tiene;
+  MyGet, umod.org y Steam están bloqueados). Lo máximo que se puede hacer ahí
+  es compilar contra *stubs*:
+  - clases de Oxide con las firmas copiadas de su código fuente;
+  - clases de Rust con las firmas **supuestas**. De estas, `HitInfo.InitiatorPlayer`,
+    `BasePlayer.userID` (`EncryptedValue<ulong>`), `IsConnected`, `IsDead()`,
+    `displayName`, `UserIDString` y `activePlayerList` aparecen en el código de
+    Oxide.Rust. `HitInfo.isHeadshot` y `BasePlayer.IsSleeping()` solo se han
+    visto en plugins públicos antiguos.
