@@ -122,6 +122,20 @@ chat de Rust no los dibuja y salen como `??`.
 **Estadísticas** por jugador: kills, muertes y kills de headshot (solo contra
 jugadores). Las kills cuentan aunque no den calvicie (sleeper o cooldown).
 
+## En pantalla (v1.2)
+
+- **Contador de calvicie**, siempre visible abajo a la derecha, encima de las
+  barras de vida/comida/agua: `CALVICIE 1.174` y tu título debajo. Se
+  actualiza con cada cambio.
+- Al ganar puntos sale al lado un **`+18`** en amarillo durante 2,5 s; al
+  perderlos, un **`-1.000`** en rojo.
+- Los **eventos globales** salen además en un **cartel grande en el centro
+  de la pantalla** durante 8 s (y en el chat, como siempre).
+- La posición del contador, los tiempos y activar o desactivar cada cosa se
+  cambian en el bloque `On-screen UI` de la config. La posición va en anclas
+  de pantalla (0-1) y desplazamientos en píxeles; si en tu resolución queda
+  montado sobre algo, ajusta los `offset`.
+
 ## Eventos globales (v1.1)
 
 **Cada hora** arranca un **evento al azar**. Solo hay uno a la vez, y solo si
@@ -211,6 +225,21 @@ Ejemplo del bloque de NPCs:
 
 Si quitas una entrada de una lista o de un diccionario, se queda quitada: el
 plugin no vuelve a meter los valores por defecto.
+
+Bloque de pantalla (valores por defecto):
+
+```json
+"On-screen UI": {
+  "Show baldness counter": true,
+  "Counter anchor min": "1 0",
+  "Counter anchor max": "1 0",
+  "Counter offset min": "-208 112",
+  "Counter offset max": "-16 146",
+  "Seconds the +X / -X popup stays": 2.5,
+  "Show event banner in the middle of the screen": true,
+  "Seconds the event banner stays": 8.0
+}
+```
 
 Bloque de eventos globales (valores por defecto):
 

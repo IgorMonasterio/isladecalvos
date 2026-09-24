@@ -26,7 +26,11 @@ alcance cerrado:
 - **v1.1** — eventos globales (issue #3): Hora de la calvicie, Lluvia de
   champú, Cazar al más peludo y Brote de alopecia. Uno al azar cada hora.
   Implementada.
-- **v1.2** — objetos malditos/lore: minoxidil, peluca, champú… (issue #4). Alcance por definir.
+- **v1.2 (plugin 1.2.0)** — en pantalla: contador de calvicie fijo abajo a la
+  derecha con popup `+X`/`-X`, y los eventos globales en un cartel grande en
+  el centro. (Nota: la numeración del plugin ya no coincide con la de los
+  issues de la hoja de ruta.)
+- **Siguiente** — objetos malditos/lore: minoxidil, peluca, champú… (issue #4). Alcance por definir.
 - **v1.3** — peluquería/NPC (issue #5). Alcance por definir.
 
 Decisiones de diseño de la v1.0 que no venían en la especificación inicial:
