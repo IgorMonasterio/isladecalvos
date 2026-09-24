@@ -97,15 +97,15 @@ Un título por cada cero:
 
 | Desde | Título |
 |---|---|
-| 1 | Greñas Apestosas |
+| 1 | Greñas Sucias |
 | 10 | Pelambrera Lamentable |
-| 100 | Entradas Preocupantes |
+| 100 | Entradas Incipientes |
 | 1.000 | Coronilla a la Intemperie |
 | 10.000 | Caballero de la Tonsura |
 | 100.000 | Lord Bola de Billar |
 | 1.000.000 | Su Calvísima Majestad |
 
-Con 0 puntos también eres Greñas Apestosas.
+Con 0 puntos también eres Greñas Sucias.
 
 **Anuncios globales** (se pueden desactivar):
 - Al subir de título: `{jugador} asciende a {título}`

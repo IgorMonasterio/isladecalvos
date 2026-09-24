@@ -57,7 +57,7 @@ Cambio de escala (de % a puntos enteros sin límite):
   por headshot, sea cual sea la causa.
 - Supervivencia: +100 cada 30 min vivo y conectado.
 - Títulos por cada cero, de mucho pelo a nada, con humor calvo británico:
-  Greñas Apestosas (1), Pelambrera Lamentable (10), Entradas Preocupantes
+  Greñas Sucias (1), Pelambrera Lamentable (10), Entradas Incipientes
   (100), Coronilla a la Intemperie (1.000), Caballero de la Tonsura (10.000),
   Lord Bola de Billar (100.000), Su Calvísima Majestad (1.000.000).
 - Se anuncia cada subida de título. Al llegar al más alto sale el mensaje de

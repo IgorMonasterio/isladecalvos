@@ -94,9 +94,9 @@ namespace Oxide.Plugins
             [JsonProperty("Titles (minimum baldness -> title)", ObjectCreationHandling = ObjectCreationHandling.Replace)]
             public List<TitleTier> Titles = new List<TitleTier>
             {
-                new TitleTier { MinBaldness = 1, Name = "Greñas Apestosas" },
+                new TitleTier { MinBaldness = 1, Name = "Greñas Sucias" },
                 new TitleTier { MinBaldness = 10, Name = "Pelambrera Lamentable" },
-                new TitleTier { MinBaldness = 100, Name = "Entradas Preocupantes" },
+                new TitleTier { MinBaldness = 100, Name = "Entradas Incipientes" },
                 new TitleTier { MinBaldness = 1000, Name = "Coronilla a la Intemperie" },
                 new TitleTier { MinBaldness = 10000, Name = "Caballero de la Tonsura" },
                 new TitleTier { MinBaldness = 100000, Name = "Lord Bola de Billar" },
