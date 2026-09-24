@@ -8,9 +8,10 @@ Hecho para **uMod/Oxide** en C#. Sin dependencias de otros plugins.
 ## La premisa
 
 En Isla de Calvos **ser calvo es la gloria** y **el pelo es una maldición** que
-vuelve a crecer. Cada jugador tiene un **% de calvicie (0-100)** que se guarda
-entre sesiones. Lo glorioso te deja más calvo; morir hace que te salga pelo.
-No hay cambio visual: todo son porcentajes, títulos y mensajes.
+vuelve a crecer. Cada jugador tiene una **puntuación de calvicie**: un número
+entero **sin límite por arriba** (nunca baja de 0) que se guarda entre
+sesiones. Lo glorioso te deja más calvo; morir hace que te salga pelo.
+No hay cambio visual: todo son puntos, títulos y mensajes.
 
 ## Cómo funciona (v1.0)
 
@@ -18,14 +19,13 @@ Todos los valores se pueden cambiar en la config. Estos son los de por defecto:
 
 | Qué pasa | Calvicie |
 |---|---|
-| Matas a otro jugador | **+3** |
-| Lo matas de headshot | **+7** (en lugar de +3) |
-| Matas a un NPC | según su tier, de **+0.1** (T1) a **+15** (T20) |
+| Matas a otro jugador | **+800** |
+| Lo matas de headshot | **+1.000** (en lugar de +800) |
+| Matas a un NPC | según su tier, de **+1** (T1) a **+1.000** (T20) |
 | Cada 30 min vivo y conectado | **+1** |
-| Mueres (por lo que sea: PvP, NPC, entorno, suicidio) | **−5** |
-| Mueres de headshot | **−3** extra (−8 en total) |
+| Mueres, sea como sea (PvP, headshot, NPC, caída, suicidio…) | **−1.000** |
 
-La calvicie admite decimales (p. ej. `12.37%`).
+Siempre son números enteros.
 
 **Anti-farmeo:**
 - Matar a un jugador **dormido (sleeper) o desconectado** no da calvicie.
@@ -41,30 +41,31 @@ derribó.
 
 Cada NPC tiene un **tier del 1 (fácil) al 20 (difícil)** según su
 `ShortPrefabName`, y cada tier da una calvicie fija (config `NpcTiers` y
-`TierRewards`). Recompensas por defecto: curva creciente de ×1.3 por tier.
+`TierRewards`). Recompensas por defecto: curva creciente de ×1,44 por tier,
+de 1 a 1.000.
 
 | Tier | Calvicie | NPCs |
 |---|---|---|
-| 1 | +0.1 | chicken |
-| 2 | +0.13 | zombie |
-| 3 | +0.17 | snake.entity, boar, stag |
-| 4 | +0.22 | beeswarm, scientistnpc_ptboat, scientistnpc_rhib |
-| 5 | +0.29 | beemasterswarm, wolf2, frankensteinpet |
-| 6 | +0.37 | npc_tunneldweller, npc_tunneldwellerspawned |
-| 7 | +0.49 | scientistnpc_junkpile_pistol, npc_underwaterdweller, simpleshark |
-| 8 | +0.63 | scientistnpc_full_pistol, scientistnpc_full_shotgun, scientistnpc_full_mp5, scientistnpc_full_lr300, scientistnpc_full_any |
-| 9 | +0.82 | scientistnpc_roam, scientistnpc_roamtethered, scientistnpc_patrol, scientistnpc_patrol_arctic, scientistnpc_arena |
-| 10 | +1.07 | scientistnpc_outbreak, scientistnpc_excavator, scientistnpc_ch47_gunner, scientistnpc_bradley, panther, tiger, scarecrow, scarecrow_dungeon, scarecrow_dungeonnoroam |
-| 11 | +1.4 | bear, scientist2, scientist2.shotgun, npc_bandit_guard ⛔ |
-| 12 | +1.82 | scientistnpc_oilrig, scientistnpc_cargo, scientistnpc_cargo_turret_any, scientistnpc_cargo_turret_lr300 |
-| 13 | +2.37 | polarbear, crocodile, gingerbread_dungeon |
-| 14 | +3.08 | scientistnpc_heavy, scientistnpc_peacekeeper, scientistnpc_roam_nvg_variant, gingerbread_meleedungeon |
-| 15 | +4.01 | scientistnpc_bradley_heavy |
-| 16 | +5.22 | sentry.scientist.static ⛔, sentry.scientist.barge ⛔, sentry.scientist.barge.static ⛔, sentry.bandit.static ⛔ |
-| 17 | +6.8 | scientist2.heavy |
-| 18 | +8.85 | bradleyapc 👥 |
-| 19 | +11.52 | ch47scientists.entity 👥 |
-| 20 | +15 | patrolhelicopter 👥 |
+| 1 | +1 | chicken |
+| 2 | +2 | zombie |
+| 3 | +3 | snake.entity, boar, stag |
+| 4 | +4 | beeswarm, scientistnpc_ptboat, scientistnpc_rhib |
+| 5 | +5 | beemasterswarm, wolf2, frankensteinpet |
+| 6 | +6 | npc_tunneldweller, npc_tunneldwellerspawned |
+| 7 | +9 | scientistnpc_junkpile_pistol, npc_underwaterdweller, simpleshark |
+| 8 | +13 | scientistnpc_full_pistol, scientistnpc_full_shotgun, scientistnpc_full_mp5, scientistnpc_full_lr300, scientistnpc_full_any |
+| 9 | +18 | scientistnpc_roam, scientistnpc_roamtethered, scientistnpc_patrol, scientistnpc_patrol_arctic, scientistnpc_arena |
+| 10 | +26 | scientistnpc_outbreak, scientistnpc_excavator, scientistnpc_ch47_gunner, scientistnpc_bradley, panther, tiger, scarecrow, scarecrow_dungeon, scarecrow_dungeonnoroam |
+| 11 | +38 | bear, scientist2, scientist2.shotgun, npc_bandit_guard ⛔ |
+| 12 | +55 | scientistnpc_oilrig, scientistnpc_cargo, scientistnpc_cargo_turret_any, scientistnpc_cargo_turret_lr300 |
+| 13 | +78 | polarbear, crocodile, gingerbread_dungeon |
+| 14 | +113 | scientistnpc_heavy, scientistnpc_peacekeeper, scientistnpc_roam_nvg_variant, gingerbread_meleedungeon |
+| 15 | +162 | scientistnpc_bradley_heavy |
+| 16 | +234 | sentry.scientist.static ⛔, sentry.scientist.barge ⛔, sentry.scientist.barge.static ⛔, sentry.bandit.static ⛔ |
+| 17 | +336 | scientist2.heavy |
+| 18 | +483 | bradleyapc 👥 |
+| 19 | +695 | ch47scientists.entity 👥 |
+| 20 | +1.000 | patrolhelicopter 👥 |
 
 ⛔ = en la config pero **desactivado por defecto** (`DisabledNpcs`).
 👥 = **recompensa compartida** (ver abajo).
@@ -93,20 +94,24 @@ Cada jugador cobra **una sola vez** por objetivo.
 
 ### Títulos
 
-Según el % de calvicie:
+Un título por cada cero:
 
 | Desde | Título |
 |---|---|
-| 0 % | Aspirante a Calvo |
-| 15 % | Calvo Novato |
-| 30 % | Calvo Profesional |
-| 50 % | Calvo Veterano |
-| 70 % | Maestro de la Calvicie |
-| 90 % | Gran Calvo |
-| 100 % | Dios Calvo |
+| 1 | Aspirante a Calvo |
+| 10 | Calvo Novato |
+| 100 | Calvo Profesional |
+| 1.000 | Calvo Veterano |
+| 10.000 | Maestro de la Calvicie |
+| 100.000 | Gran Calvo |
+| 1.000.000 | Dios Calvo |
+
+Con 0 puntos también eres Aspirante a Calvo.
 
 **Anuncios globales** (se pueden desactivar):
-- Al llegar al 100 %: `🧑‍🦲 {jugador} HA ALCANZADO LA CALVICIE SUPREMA`
+- Al subir de título: `🧑‍🦲 {jugador} asciende a {título}`
+- Al llegar al título más alto (Dios Calvo), en lugar del anterior:
+  `🧑‍🦲 {jugador} HA ALCANZADO LA CALVICIE SUPREMA`
 - Al bajar de título: `⚠️ A {jugador} le está saliendo pelo (ahora es {título})`
 
 **Estadísticas** por jugador: kills, muertes y kills de headshot (solo contra
@@ -116,9 +121,9 @@ jugadores). Las kills cuentan aunque no den calvicie (sleeper o cooldown).
 
 | Comando | Quién | Qué hace |
 |---|---|---|
-| `/calvo` | Todos | Tu % de calvicie y tu título. |
+| `/calvo` | Todos | Tu calvicie y tu título. |
 | `/calvos` | Todos | Top 10 de la isla. |
-| `/calvoadmin set <jugador> <valor>` | Admin | Fija la calvicie de un jugador (0-100, admite decimales). |
+| `/calvoadmin set <jugador> <valor>` | Admin | Fija la calvicie de un jugador (entero, 0 o más). |
 | `/calvoadmin reset <jugador>` | Admin | Pone la calvicie de un jugador a 0. |
 | `/calvoadmin debug on\|off` | Admin | Muestra en tu chat cada cambio de calvicie (de cualquier jugador) con su motivo: NPC, tier, valor… También avisa cuando algo **no** da calvicie y por qué. Para probar. Se apaga al recargar el plugin. |
 
@@ -143,20 +148,21 @@ plugin. Después de editarla: `oxide.reload IslaDeCalvos`.
 
 | Opción | Por defecto | Qué hace |
 |---|---|---|
-| `Baldness gained per player kill` | 3 | Calvicie por kill. |
-| `Baldness gained per headshot kill (instead of the normal kill reward)` | 7 | Calvicie por kill de headshot. |
+| `Baldness gained per player kill` | 800 | Calvicie por kill. |
+| `Baldness gained per headshot kill (instead of the normal kill reward)` | 1000 | Calvicie por kill de headshot. |
 | `Baldness gained per survival interval` | 1 | Calvicie por sobrevivir. |
 | `Survival interval (minutes alive and connected)` | 30 | Cada cuántos minutos se gana. |
-| `Baldness lost on death` | 5 | Calvicie perdida al morir. |
-| `Extra baldness lost when the death is a headshot` | 3 | Extra si la muerte es de headshot. |
+| `Baldness lost on death` | 1000 | Calvicie perdida al morir. |
+| `Extra baldness lost when the death is a headshot` | 0 | Extra si la muerte es de headshot. |
 | `Deaths caused by NPCs lower baldness` | true | Si morir a manos de un NPC resta calvicie. |
 | `Kill cooldown per victim (minutes)` | 30 | Anti-farmeo por víctima (0 = sin cooldown). |
-| `Announce when a player reaches 100% baldness` | true | Anuncio de calvicie suprema. |
+| `Announce when a player reaches the highest title` | true | Anuncio de calvicie suprema. |
+| `Announce when a player rises to a higher title` | true | Anuncio de subida de título. |
 | `Announce when a player drops to a lower title` | true | Anuncio de bajada de título. |
-| `Reset baldness on map wipe (stats are kept)` | false | Si el wipe pone a todos a 0 %. |
-| `Titles (minimum baldness -> title)` | ver tabla | Lista de títulos y desde qué % se consiguen. |
+| `Reset baldness on map wipe (stats are kept)` | false | Si el wipe pone a todos a 0. |
+| `Titles (minimum baldness -> title)` | ver tabla | Lista de títulos y desde cuántos puntos se consiguen. |
 | `NpcTiers` | ver tabla | `"<shortprefabname>": <tier>` para cada NPC que da calvicie. |
-| `TierRewards` | curva +0.1 … +15 | `"<tier>": <calvicie>` para los tiers 1-20. Admite decimales. |
+| `TierRewards` | curva 1 … 1000 | `"<tier>": <calvicie>` para los tiers 1-20. Números enteros. |
 | `DisabledNpcs` | bandit guard y sentries | NPCs que están en `NpcTiers` pero no dan nada. |
 | `SharedRewardTargets` | heli, Bradley, CH47 | Objetivos con recompensa compartida. Tienen que estar también en `NpcTiers`. |
 | `Shared reward: teammate radius from the target (meters)` | 300 | Distancia máxima de los compañeros de equipo al objetivo. |
@@ -170,9 +176,9 @@ Ejemplo del bloque de NPCs:
   "patrolhelicopter": 20
 },
 "TierRewards": {
-  "1": 0.1,
-  "9": 0.82,
-  "20": 15.0
+  "1": 1,
+  "9": 18,
+  "20": 1000
 },
 "DisabledNpcs": [ "npc_bandit_guard" ],
 "SharedRewardTargets": [ "patrolhelicopter", "bradleyapc", "ch47scientists.entity" ]
