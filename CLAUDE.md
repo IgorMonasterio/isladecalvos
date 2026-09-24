@@ -121,6 +121,11 @@ Lee `docs/ARCHITECTURE.md` antes de tocar código.
   1 RP = 10 monedas). No hay otros plugins que den recompensas por kills.
 - **Objetos del juego**: el tipo `Item` se escribe `global::Item`, porque
   `RustPlugin` tiene un campo llamado `Item`.
+- **Argumentos de comandos de consola**: `arg.FullString` siempre con
+  `.ToString()` antes de usarlo como `string` (p. ej. `Split`). En el Rust
+  actual `ConsoleSystem.Arg.FullString` es un `StringView`, no un `string`, y
+  sin `.ToString()` no compila en el servidor real (lo detectó Igor en la
+  1.3.1). Las imitaciones con las que se compila aquí no lo detectan.
 - **Colecciones en la config**: siempre con
   `ObjectCreationHandling = ObjectCreationHandling.Replace` (ver ARCHITECTURE §3).
 - **Flujo por PR**: cada cambio en una rama propia + Pull Request, con commits

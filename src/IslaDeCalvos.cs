@@ -9,7 +9,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Isla de Calvos", "Igor Monasterio", "1.3.1")]
+    [Info("Isla de Calvos", "Igor Monasterio", "1.3.2")]
     [Description("Baldness system for the Isla de Calvos Rust server: being bald is glory, hair is a curse.")]
     public class IslaDeCalvos : RustPlugin
     {
@@ -2039,7 +2039,7 @@ namespace Oxide.Plugins
         }
 
         private static string[] MenuArgs(ConsoleSystem.Arg arg) =>
-            arg.HasArgs() ? arg.FullString.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries) : new string[0];
+            arg.HasArgs() ? arg.FullString.ToString().Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries) : new string[0];
 
         // Barber-shop palette: leather browns, bald-head cream and barber-pole stripes.
         private const string ColorWindow = "0.12 0.07 0.06 0.97";
