@@ -198,6 +198,15 @@ Para añadir otro evento: decidir qué hook marca "participar" y cuál marca
   (casi siempre `en`) y, si falta un texto, recurre a `en`. Por eso los textos
   en español se registran **en `es` y también en `en`**. Si algún día se quiere
   traducir al inglés, basta con editar `oxide/lang/en/IslaDeCalvos.json`.
+- **Cambiar un texto ya desplegado**: `Lang.MergeMessages` (Oxide.Core
+  `Libraries/Lang.cs`) solo añade las claves que faltan en el fichero y borra
+  las que ya no se registran. Nunca pisa un texto que ya existe. Para que un
+  texto nuevo llegue solo, se renombra su clave. Convención desde la 1.4.1:
+  sufijo `V2`, `V3`… (`TitleUp` → `TitleUpV2`). La 1.3.1 lo hizo con el
+  prefijo `Calvario*`.
+- Refranes del Calvario: `CalvarioProverb<n>`, con los números en
+  `ProverbNumbers`. El 6 se quitó en la 1.4.1 y no se reutiliza: su clave
+  vieja sigue en los ficheros desplegados hasta que Oxide la borra al cargar.
 
 ## 6. Permisos
 

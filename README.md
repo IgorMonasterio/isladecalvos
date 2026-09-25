@@ -108,7 +108,7 @@ Un título por cada cero:
 Con 0 puntos también eres Greñas Sucias.
 
 **Anuncios globales** (se pueden desactivar):
-- Al subir de título: `{jugador} asciende a {título}`
+- Al subir de título: `{jugador} asciende a {título}. Su peluquero ya ha pedido el paro.`
 - Al llegar al título más alto (Su Calvísima Majestad), en lugar del anterior:
   `{jugador} HA ALCANZADO LA CALVICIE SUPREMA`
 - Al bajar de título: `A {jugador} le está saliendo pelo (ahora es {título})`
@@ -364,7 +364,7 @@ servidor.
 1. Ten un servidor dedicado de Rust con **Oxide (uMod)** instalado.
 2. Copia `src/IslaDeCalvos.cs` en la carpeta `oxide/plugins/` del servidor.
 3. Oxide lo compila y carga solo. En la consola deberías ver algo como
-   `Loaded plugin Isla de Calvos v1.4.0 by Igor Monasterio`.
+   `Loaded plugin Isla de Calvos v1.4.1 by Igor Monasterio`.
 4. Para recargarlo tras cambiar el fichero (normalmente se recarga solo):
    `oxide.reload IslaDeCalvos`
 
