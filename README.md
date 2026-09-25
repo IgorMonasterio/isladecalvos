@@ -180,13 +180,14 @@ cada evento) se cambia en el bloque `Global events` de la config.
 Objetos que **existen en el código de Rust pero no salen en ningún servidor
 normal**. Solo los reparte este plugin: van **directos a tu inventario** (o
 caen a tus pies si lo llevas lleno) con aviso en el chat. Se pueden cambiar o
-regalar como cualquier objeto, y se usan desde **`/calvos`**, pestaña
-**Objetos malditos** (botón **¡A LA CALVA!**).
+regalar como cualquier objeto, y se usan en **el Calvario de la peluquería**:
+hablando con su NPC (tecla **E**) se abre la ventana de **Objetos malditos**
+(botón **¡A LA CALVA!**). Ver [La peluquería](#la-peluquería-plugin-150).
 
-La ventana va de **barbería calva**: rayas de poste de barbero, barra de
-progreso hacia tu siguiente título, un refrán calvo al azar y, en el **Salón
-de la fama calva**, oro/plata/bronce para el podio y cuánto te falta para
-adelantar al de arriba.
+Las ventanas van de **barbería calva**: rayas de poste de barbero, barra de
+progreso hacia tu siguiente título, un refrán calvo al azar en la de objetos
+y, en el **Salón de la fama calva** (`/calvos`), oro/plata/bronce para el
+podio y cuánto te falta para adelantar al de arriba.
 
 | Objeto | Cómo se consigue | Qué hace al usarlo |
 |---|---|---|
@@ -211,11 +212,108 @@ el premio del carné completo no se multiplican.
 Si un nombre interno no existe en la versión de Rust del servidor, el plugin
 lo avisa en la consola al arrancar.
 
+## La peluquería (plugin 1.5.0)
+
+Tres casitas, cada una con un NPC de **HumanNPC**:
+
+| Casa | NPC | Plugin que la atiende |
+|---|---|---|
+| **El Calvario** | El Barbero | Este plugin: objetos malditos y Carné de Calvo |
+| **Mercalvona** | Tendero de Mercalvona | GUIShop (monedas) |
+| **Premios Calvos** | Cambista de Premios Calvos | Server Rewards (RP) |
+
+Se llega con **`/peluqueria`**, igual que `/bandit` o `/outpost`. `/shop` y
+`/s` dejan de funcionar fuera de allí, y `/calvos` solo muestra el ranking.
+
+Los objetos solo se pueden usar **a 5 m o menos del barbero, y después de
+haberle hablado**. Si el jugador se aleja o intenta usarlos por consola desde
+otro sitio, se le cierra la ventana y se le manda a la peluquería.
+
+### Cómo se monta en el servidor
+
+Casi todo es configuración de otros plugins. Lo he mirado en su código
+(copias públicas: HumanNPC 0.5.4, GUIShop 2.4.48, Server Rewards 2.0.7,
+NTeleportation 1.8.9). El servidor tiene Server Rewards 2.0.8. Si alguna
+versión es otra, los nombres pueden cambiar un poco.
+
+1. **Las casas y los NPC.** Construye las tres casitas y pon un NPC de
+   HumanNPC en cada una (`/npc_add`). Apunta el `userid` de cada NPC: sale
+   con `/npc_list`.
+2. **El Calvario (este plugin).** En `oxide/config/IslaDeCalvos.json`:
+   ```json
+   "Barber shop (HumanNPC)": {
+     "Calvario NPC ids (HumanNPC userid)": [ <userid del barbero> ],
+     "Max distance to the Calvario NPC to use items (meters)": 5.0
+   }
+   ```
+   Después: `oxide.reload IslaDeCalvos`.
+3. **Mercalvona (GUIShop).** En la tienda que quieras asignar, activa
+   `EnableNPC` y pon el `userid` del tendero en `NpcIds`. Para que `/shop` no
+   abra nada fuera de la casa, deja `"Set Default Global Shop to open": ""`
+   (vacío). Es la forma que indica el propio GUIShop para desactivar las
+   tiendas globales.
+4. **Premios Calvos (Server Rewards).** Mirando al cambista, `/srnpc add`. En su
+   config, `"Use NPC dealers only": true`: así `/s` solo funciona para
+   admins.
+5. **El TP (NTeleportation).** En `"Dynamic Commands"`, añade una entrada
+   `"Peluqueria"` copiando la de `"Bandit"`. Recarga NTeleportation, ponte
+   en la puerta y usa `/peluqueria set` (admin). Los jugadores ya pueden usar
+   `/peluqueria`, con el cooldown y la cuenta atrás de esa entrada.
+
+### Textos de las tiendas
+
+Revisados por Igor. Van en la configuración de cada plugin, en el servidor;
+este plugin no los toca.
+
+**Nombre y frases de cada NPC (HumanNPC).** Se editan con `/npc_edit <userid>`
+y después `/npc name "…"`, `/npc hello "…" "…"`, `/npc use "…"` y
+`/npc bye "…"`. Cada frase entre comillas es una opción; sale una al azar.
+`/npc_end` para terminar.
+
+```
+# Mercalvona
+/npc name "Tendero de Mercalvona"
+/npc hello "¡Bienvenido a Mercalvona®! Precios bajos y cabezas relucientes." "Pasa, pasa. Champú no tenemos, que aquí eso es contrabando."
+/npc use "¿Qué va a ser? Dale a la E y no toques lo que no vayas a pagar."
+/npc bye "Gracias por comprar en Mercalvona®. Vuelve con menos pelo y más cartera."
+
+# El Calvario (use vacío: la E abre directamente El Calvario)
+/npc name "El Barbero"
+/npc hello "Huele a pelo. Siéntate, que te lo quito todo."
+/npc use reset
+/npc bye "Vuelve cuando te asome algo. Aquí no se deja crecer ni la duda."
+
+# Premios Calvos
+/npc name "Cambista de Premios Calvos"
+/npc hello "Premios Calvos: tu calva vale RP y aquí se cobra. Pasa por caja."
+/npc use "A ver cuánto te ha pagado esa cabeza. Dale a la E."
+/npc bye "Sigue brillando, que cada media hora te cae algo."
+```
+
+**GUIShop** (`oxide/lang/es/GUIShop.json`). Solo estas cinco; el resto ya
+está en el servidor con el tono de la isla y no se toca:
+
+```json
+"NPCResponseOpen": "¡Bienvenido a {0}! ¿Qué te pongo? Dale a la E, que no tengo todo el día.",
+"NPCResponseClose": "Gracias por comprar en {0}. Vuelve pronto, y más pelado.",
+"GlobalShopsDisabled": "Aquí no se compra desde el sofá, señorito. Ve a Mercalvona con /peluqueria y háblale al tendero.",
+"Bought": "Te llevas {0} de {1}. El tendero ya está contando tus monedas.",
+"Sold": "Has vendido {0} de {1}. Con eso no te da ni para un peine."
+```
+
+**Server Rewards 2.x** (`oxide/lang/es/ServerRewards.json`). Con
+`"Use NPC dealers only": true`, el aviso de RP sin gastar usa esta clave
+(conservar la etiqueta de color):
+
+```json
+"Message.Notification.Unspent.NPC": "Busca al <color=#B6F34A>cambista</color> con /peluqueria para gastarlos."
+```
+
 ## Comandos
 
 | Comando | Quién | Qué hace |
 |---|---|---|
-| `/calvos` | Todos | Abre **El Calvario**: pestaña **Objetos malditos** (usar objetos y el Carné) y pestaña **Salón de la fama calva** (ranking de todo el servidor, de 10 en 10, con tu posición). Se cierra con la **X**. |
+| `/calvos` | Todos | Abre el **Salón de la fama calva**: ranking de todo el servidor, de 10 en 10, con tu posición. Se cierra con la **X**. Los objetos se usan hablando con el barbero de la peluquería. |
 | `/calvoadmin set <jugador> <valor>` | Admin | Fija la calvicie de un jugador (entero, 0 o más). |
 | `/calvoadmin reset <jugador>` | Admin | Pone la calvicie de un jugador a 0. |
 | `/calvoadmin evento <hora\|champu\|peludo\|alopecia>` | Admin | Lanza ese evento ya, sin esperar a la hora. Para probar. |
@@ -364,7 +462,7 @@ servidor.
 1. Ten un servidor dedicado de Rust con **Oxide (uMod)** instalado.
 2. Copia `src/IslaDeCalvos.cs` en la carpeta `oxide/plugins/` del servidor.
 3. Oxide lo compila y carga solo. En la consola deberías ver algo como
-   `Loaded plugin Isla de Calvos v1.4.1 by Igor Monasterio`.
+   `Loaded plugin Isla de Calvos v1.5.0 by Igor Monasterio`.
 4. Para recargarlo tras cambiar el fichero (normalmente se recarga solo):
    `oxide.reload IslaDeCalvos`
 

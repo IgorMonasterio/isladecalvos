@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Isla de Calvos", "Igor Monasterio", "1.4.1")]
+    [Info("Isla de Calvos", "Igor Monasterio", "1.5.0")]
     [Description("Baldness system for the Isla de Calvos Rust server: being bald is glory, hair is a curse.")]
     public class IslaDeCalvos : RustPlugin
     {
@@ -53,6 +53,10 @@ namespace Oxide.Plugins
         private readonly Dictionary<ulong, Vector3> lastPositions = new Dictionary<ulong, Vector3>();
 
         private bool warnedNoServerRewards;
+
+        // Barber shop: Calvario NPC ids (HumanNPC) and the NPC each player last talked to. In memory only.
+        private HashSet<ulong> calvarioNpcIds;
+        private readonly Dictionary<ulong, BasePlayer> calvarioNpcInUse = new Dictionary<ulong, BasePlayer>();
 
         private class WoundRecord
         {
@@ -157,6 +161,18 @@ namespace Oxide.Plugins
 
             [JsonProperty("Server Rewards (RP by title)")]
             public ServerRewardsConfig ServerRewards = new ServerRewardsConfig();
+
+            [JsonProperty("Barber shop (HumanNPC)")]
+            public BarberShopConfig BarberShop = new BarberShopConfig();
+        }
+
+        // El Calvario opens from a HumanNPC at the barber shop; /calvos only shows the ranking.
+        private class BarberShopConfig
+        {
+            [JsonProperty("Calvario NPC ids (HumanNPC userid)", ObjectCreationHandling = ObjectCreationHandling.Replace)]
+            public List<ulong> CalvarioNpcIds = new List<ulong>();
+
+            [JsonProperty("Max distance to the Calvario NPC to use items (meters)")] public float MaxDistance = 5f;
         }
 
         // Pays Server Rewards RP to bald players who stay alive, connected and not AFK.
@@ -531,6 +547,11 @@ namespace Oxide.Plugins
                 PrintWarning($"TierRewards has no value for tier {tier}; NPCs of that tier give nothing.");
             }
 
+            if (config.BarberShop == null) config.BarberShop = new BarberShopConfig();
+            if (config.BarberShop.CalvarioNpcIds == null) config.BarberShop.CalvarioNpcIds = new List<ulong>();
+            config.BarberShop.MaxDistance = Math.Max(1f, config.BarberShop.MaxDistance);
+            calvarioNpcIds = new HashSet<ulong>(config.BarberShop.CalvarioNpcIds);
+
             if (config.ServerRewards == null) config.ServerRewards = new ServerRewardsConfig();
             ServerRewardsConfig rp = config.ServerRewards;
             rp.IntervalMinutes = Math.Max(1, rp.IntervalMinutes);
@@ -707,7 +728,8 @@ namespace Oxide.Plugins
                 ["CalvarioDescBlueDogTags"] = "Arrancadas a un heavy con melena. +{0}.",
                 ["CalvarioDescRedDogTags"] = "Del piloto que perdió el tupé con el helicóptero. +{0}.",
                 ["CalvarioDescGems"] = "Joya de la corona de Su Calvísima Majestad. Brilla como tu cabeza. +{0}.",
-                ["ItemFoundV2"] = "Has encontrado: <color=#f0c040>{0}</color>. Úsalo desde /calvos, que en el bolsillo no hace nada.",
+                ["ItemFoundV3"] = "Has encontrado: <color=#f0c040>{0}</color>. Llévalo al Calvario de la peluquería (/peluqueria), que en el bolsillo no hace nada.",
+                ["CalvarioGoToBarber"] = "Los objetos malditos se usan en el Calvario de la peluquería. Ve con /peluqueria y háblale al barbero.",
                 ["ItemNoneV2"] = "No llevas {0} encima. Ni eso.",
                 ["ItemShieldAlready"] = "Ya llevas la calva tapada con cinta. Muere primero.",
                 ["ItemBatteryAlreadyV2"] = "La maquinilla ya está en marcha (quedan {0} min). Más rápido no va a ir, fiera.",
@@ -1279,7 +1301,7 @@ namespace Oxide.Plugins
         {
             if (IsRealPlayer(player))
             {
-                OpenMenu(player, MenuTab.Items, 0);
+                OpenMenu(player, MenuTab.Ranking, 0);
             }
         }
 
@@ -1393,6 +1415,7 @@ namespace Oxide.Plugins
             if (player != null)
             {
                 lastPositions.Remove((ulong)player.userID);
+                calvarioNpcInUse.Remove((ulong)player.userID);
             }
 
             if (activeEvent == GlobalEvent.HairiestHunt && player != null && (ulong)player.userID == huntTargetId)
@@ -1913,7 +1936,7 @@ namespace Oxide.Plugins
 
             if (GiveItem(player, item.Shortname))
             {
-                Reply(player, "ItemFoundV2", displayName ?? CursedItemName(KeyOf(item)));
+                Reply(player, "ItemFoundV3", displayName ?? CursedItemName(KeyOf(item)));
             }
         }
 
@@ -2080,6 +2103,11 @@ namespace Oxide.Plugins
             string[] parts = MenuArgs(arg);
             MenuTab tab = parts.Length > 0 && parts[0] == "ranking" ? MenuTab.Ranking : MenuTab.Items;
             int page = parts.Length > 1 && int.TryParse(parts[1], out int p) ? p : 0;
+            if (tab == MenuTab.Items && !RequireCalvarioNpc(player))
+            {
+                return;
+            }
+
             OpenMenu(player, tab, page);
         }
 
@@ -2088,7 +2116,7 @@ namespace Oxide.Plugins
         {
             BasePlayer player = arg.Player();
             string[] parts = MenuArgs(arg);
-            if (!IsRealPlayer(player) || parts.Length == 0)
+            if (!IsRealPlayer(player) || parts.Length == 0 || !RequireCalvarioNpc(player))
             {
                 return;
             }
@@ -2101,13 +2129,40 @@ namespace Oxide.Plugins
         private void CcmdCarne(ConsoleSystem.Arg arg)
         {
             BasePlayer player = arg.Player();
-            if (!IsRealPlayer(player))
+            if (!IsRealPlayer(player) || !RequireCalvarioNpc(player))
             {
                 return;
             }
 
             DeliverIdTags(player);
             OpenMenu(player, MenuTab.Items, 0);
+        }
+
+        // HumanNPC hook: called when a player presses USE on one of its NPCs (5 m max).
+        private void OnUseNPC(BasePlayer npc, BasePlayer player)
+        {
+            if (npc == null || !IsRealPlayer(player) || !calvarioNpcIds.Contains((ulong)npc.userID))
+            {
+                return;
+            }
+
+            calvarioNpcInUse[(ulong)player.userID] = npc;
+            OpenMenu(player, MenuTab.Items, 0);
+        }
+
+        // Items can only be used next to the Calvario NPC the player talked to; console commands can be typed anywhere.
+        private bool RequireCalvarioNpc(BasePlayer player)
+        {
+            if (calvarioNpcInUse.TryGetValue((ulong)player.userID, out BasePlayer npc) && npc != null && !npc.IsDead()
+                && Vector3.Distance(player.transform.position, npc.transform.position) <= config.BarberShop.MaxDistance)
+            {
+                return true;
+            }
+
+            calvarioNpcInUse.Remove((ulong)player.userID);
+            CuiHelper.DestroyUi(player, UiMenu);
+            Reply(player, "CalvarioGoToBarber");
+            return false;
         }
 
         private static string[] MenuArgs(ConsoleSystem.Arg arg) =>
@@ -2162,8 +2217,9 @@ namespace Oxide.Plugins
             DrawTitleProgress(ui, window, data.Baldness, userId);
             AddButton(ui, window, Lang("CalvarioClose", userId), "0.956 0.935", "0.99 0.985", ColorPoleRed, null, UiMenu, 18);
 
-            AddButton(ui, window, Lang("CalvarioTabItems", userId), "0.03 0.81", "0.25 0.86", tab == MenuTab.Items ? ColorScalp : ColorCardDark, "calvos.tab items", null, 13, tab == MenuTab.Items ? "0.12 0.07 0.06 1" : ColorText);
-            AddButton(ui, window, Lang("CalvarioTabRanking", userId), "0.26 0.81", "0.48 0.86", tab == MenuTab.Ranking ? ColorScalp : ColorCardDark, "calvos.tab ranking 0", null, 13, tab == MenuTab.Ranking ? "0.12 0.07 0.06 1" : ColorText);
+            // One section per window: the Calvario NPC opens the items, /calvos opens the ranking.
+            string section = AddPanel(ui, window, ColorScalp, "0.03 0.81", "0.35 0.86");
+            AddText(ui, section, Lang(tab == MenuTab.Items ? "CalvarioTabItems" : "CalvarioTabRanking", userId), 13, TextAnchor.MiddleCenter, "0 0", "1 1", "0.12 0.07 0.06 1");
 
             if (tab == MenuTab.Items)
             {
