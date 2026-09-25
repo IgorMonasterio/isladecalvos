@@ -223,6 +223,33 @@ Para añadir otro evento: decidir qué hook marca "participar" y cuál marca
   (NTeleportation, "Dynamic Commands") son configuración de esos plugins; el
   plugin no los llama. Los pasos están en el README.
 
+## 4h. Premios por título, RP lineal y cambio de calvicie (plugin 1.6.0)
+
+- **Economics** es la segunda dependencia blanda (`[PluginReference] Plugin
+  Economics`), decidida por Igor para premios y cambio. API verificada en
+  Economics 3.9.2 (copia pública): `Deposit(string playerId, double)` → `bool`,
+  `Withdraw(string, double)` → `bool` y `Balance(string)` → `double`. El plugin
+  pasa el id como `string` y la cantidad como `double`, para caer en la
+  sobrecarga exacta. La versión del servidor no se ha comprobado.
+- **Server Rewards 2.x**: además de `AddPoints`, `TakePoints(ulong, int)` →
+  `bool` (falla si no hay saldo) y `CheckPoints(ulong)` → `int`. Visto en la 2.0.7.
+- **Premios**: `ChangeBaldness` llama a `PayTierPrizes` al subir de título si
+  `announce` es verdadero (así que no se paga con los cambios de admin).
+  `PlayerData.PrizedTier` guarda el título más alto ya tratado. Vale -1 hasta
+  el primer cambio de título; entonces se inicializa con el título que tenía,
+  para no pagar títulos ya conseguidos antes de la 1.6.0. Con `bought` (cambio)
+  y la opción desactivada, se marca como tratado sin pagar.
+- **Cartel de subida**: `ShowBanner(texto, segundos)`, compartido con
+  `BroadcastEvent`.
+- **RP lineal**: `GetRpRate` = `min(int.MaxValue, calvicie / X)` en `long`.
+- **Cambio**: comando `calvos.exchange mode|amount|confirm`. La operación
+  pendiente vive en el servidor (`pendingExchanges`); `confirm` no lleva
+  datos. Se comprueba que el modo existe (`Enum.IsDefined`), que la cantidad
+  está en la lista de la config y que llega el saldo. Primero se mueve el
+  RP o las monedas y después la calvicie. La calvicie comprada entra por
+  `ChangeBaldness` (no por `GainBaldness`), para que no la multipliquen
+  eventos ni la pila.
+
 ## 5. Localización (lang)
 
 - Todos los textos del plugin pasan por `lang`: se registran en
