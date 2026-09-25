@@ -214,7 +214,11 @@ Para añadir otro evento: decidir qué hook marca "participar" y cuál marca
   y estar a `MaxDistance` o menos. Si no, cierran la ventana y mandan al
   jugador a la peluquería. Hace falta porque los comandos de consola se pueden
   escribir desde cualquier sitio.
-- `/calvos` abre solo el ranking (`OpenRanking`).
+- `/calvos` abre solo el ranking (`OpenRanking`). Plan B (1.5.1): si
+  `Calvario NPC ids` está vacío (`HasBarber` falso), `/calvos` abre el barbero
+  sin exigir NPC ni distancia, con una opción para ir al ranking.
+- Los cadáveres (`*.corpse`) mueren al desollarlos. `IsPossibleNpc` los
+  descarta para que no salgan en el log de NPC sin tier.
 - Mercalvona (GUIShop), Premios Calvos (Server Rewards) y el TP `/peluqueria`
   (NTeleportation, "Dynamic Commands") son configuración de esos plugins; el
   plugin no los llama. Los pasos están en el README.
