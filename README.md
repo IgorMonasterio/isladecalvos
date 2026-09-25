@@ -181,13 +181,31 @@ Objetos que **existen en el código de Rust pero no salen en ningún servidor
 normal**. Solo los reparte este plugin: van **directos a tu inventario** (o
 caen a tus pies si lo llevas lleno) con aviso en el chat. Se pueden cambiar o
 regalar como cualquier objeto, y se usan en **el Calvario de la peluquería**:
-hablando con su NPC (tecla **E**) se abre la ventana de **Objetos malditos**
-(botón **¡A LA CALVA!**). Ver [La peluquería](#la-peluquería-plugin-150).
+hablando con **El Barbero** (tecla **E**). Ver [La peluquería](#la-peluquería-plugin-150).
 
-Las ventanas van de **barbería calva**: rayas de poste de barbero, barra de
-progreso hacia tu siguiente título, un refrán calvo al azar en la de objetos
-y, en el **Salón de la fama calva** (`/calvos`), oro/plata/bronce para el
-podio y cuánto te falta para adelantar al de arriba.
+**La conversación con el barbero** imita a los dependientes vanilla (como el
+del pueblo pesquero). Abajo sale un cuadro con lo que dice el barbero y tus
+respuestas numeradas:
+
+```
+ EL BARBERO                        Tu calvicie: 2.944 — Coronilla a la Intemperie
+ "Siéntate, peludo. ¿Qué te pelo hoy?"
+
+   1. Quiero usar un objeto maldito
+   2. Vengo a sellar el Carné de Calvo
+   3. Nada, solo miraba
+```
+
+- Te saluda con una de sus frases o con uno de los **refranes** de la isla.
+- **1** lista los objetos que llevas, cada uno con cuántos tienes y qué hace.
+  Al elegir uno, lo usa y el barbero contesta **en el cuadro** (no en el chat).
+- **2** enseña qué colores del carné tienes sellados y cuáles te faltan, con
+  la opción de sellar lo que traes.
+
+El **Salón de la fama calva** (`/calvos`) va de barbería calva: rayas de
+poste de barbero, barra de progreso hacia tu siguiente título,
+oro/plata/bronce para el podio y cuánto te falta para adelantar al de
+arriba.
 
 | Objeto | Cómo se consigue | Qué hace al usarlo |
 |---|---|---|
@@ -200,7 +218,8 @@ podio y cuánto te falta para adelantar al de arriba.
 | **Gemas** (`kickgems`) | 1 % al matar un NPC de tier 12 o más | **+5.000** |
 | **Tarjetas de identificación** (11 colores) | 5 % al matar un NPC de tier 1-17, color al azar | Van al **Carné de Calvo** |
 
-**Carné de Calvo:** entrega una tarjeta de cada color (botón **SELLAR**):
+**Carné de Calvo:** entrega al barbero una tarjeta de cada color (opción
+**Séllame lo que traigo**):
 **+100** por tarjeta y **+10.000** al completar los 11 colores, con anuncio en
 el cartel del centro. Después empieza un carné nuevo. Las tarjetas repetidas
 no se gastan: sirven para cambiarlas con otros.
@@ -224,6 +243,11 @@ Tres casitas, cada una con un NPC de **HumanNPC**:
 
 Se llega con **`/peluqueria`**, igual que `/bandit` o `/outpost`. `/shop` y
 `/s` dejan de funcionar fuera de allí, y `/calvos` solo muestra el ranking.
+
+Dónde va la peluquería y cómo se viste a los NPC depende de cada mapa y lo
+decide quien monta el servidor tras cada wipe. El plugin solo se enlaza con
+el barbero por su `userid`. **Hacen falta los tres NPC.** Sin barbero
+configurado, los objetos no se pueden usar, y la consola lo avisa al cargar.
 
 Los objetos solo se pueden usar **a 5 m o menos del barbero, y después de
 haberle hablado**. Si el jugador se aleja o intenta usarlos por consola desde
@@ -462,7 +486,7 @@ servidor.
 1. Ten un servidor dedicado de Rust con **Oxide (uMod)** instalado.
 2. Copia `src/IslaDeCalvos.cs` en la carpeta `oxide/plugins/` del servidor.
 3. Oxide lo compila y carga solo. En la consola deberías ver algo como
-   `Loaded plugin Isla de Calvos v1.5.0 by Igor Monasterio`.
+   `Loaded plugin Isla de Calvos v1.5.1 by Igor Monasterio`.
 4. Para recargarlo tras cambiar el fichero (normalmente se recarga solo):
    `oxide.reload IslaDeCalvos`
 

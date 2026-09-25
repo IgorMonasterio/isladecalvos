@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Isla de Calvos", "Igor Monasterio", "1.5.0")]
+    [Info("Isla de Calvos", "Igor Monasterio", "1.5.1")]
     [Description("Baldness system for the Isla de Calvos Rust server: being bald is glory, hair is a curse.")]
     public class IslaDeCalvos : RustPlugin
     {
@@ -551,6 +551,10 @@ namespace Oxide.Plugins
             if (config.BarberShop.CalvarioNpcIds == null) config.BarberShop.CalvarioNpcIds = new List<ulong>();
             config.BarberShop.MaxDistance = Math.Max(1f, config.BarberShop.MaxDistance);
             calvarioNpcIds = new HashSet<ulong>(config.BarberShop.CalvarioNpcIds);
+            if (calvarioNpcIds.Count == 0)
+            {
+                PrintWarning("No Calvario NPC configured (\"Calvario NPC ids\" is empty): nobody can use cursed items until the barber's HumanNPC userid is added.");
+            }
 
             if (config.ServerRewards == null) config.ServerRewards = new ServerRewardsConfig();
             ServerRewardsConfig rp = config.ServerRewards;
@@ -681,19 +685,41 @@ namespace Oxide.Plugins
             var messages = new Dictionary<string, string>
             {
                 ["CalvarioTitle"] = "EL CALVARIO",
+                ["BarberName"] = "EL BARBERO",
+                ["BarberGreeting1"] = "Siéntate, peludo. ¿Qué te pelo hoy?",
+                ["BarberGreeting2"] = "Pasa, pasa. Esa melena no se va a arrancar sola.",
+                ["BarberGreeting3"] = "Otra vez tú. Cada día te veo más frente, así me gusta.",
+                ["BarberOptItems"] = "Quiero usar un objeto maldito",
+                ["BarberOptCarne"] = "Vengo a sellar el Carné de Calvo",
+                ["BarberOptBye"] = "Nada, solo miraba",
+                ["BarberOptBack"] = "Volver",
+                ["BarberOptStamp"] = "Séllame lo que traigo",
+                ["BarberItemsIntro"] = "A ver qué traes en esos bolsillos.",
+                ["BarberItemsNone"] = "No llevas nada maldito encima. Vuelve cuando hayas matado algo.",
+                ["BarberItemLine"] = "{0} (tienes {1}): {2}",
+                ["BarberTrophyUsed"] = "{0}: +{1}. Lo cuelgo en la pared de los trofeos.",
+                ["BarberCarneIntro"] = "Enséñame el carné. Llevas {0} de {1} colores sellados. Carnés completos: {2}.",
+                ["BarberCarneStamped"] = "Sellados: {0}",
+                ["BarberCarneMissing"] = "Te faltan: {0}",
+                ["TagColorBlue"] = "azul",
+                ["TagColorGray"] = "gris",
+                ["TagColorGreen"] = "verde",
+                ["TagColorLavender"] = "lavanda",
+                ["TagColorMint"] = "menta",
+                ["TagColorOrange"] = "naranja",
+                ["TagColorPink"] = "rosa",
+                ["TagColorPurple"] = "morado",
+                ["TagColorRed"] = "rojo",
+                ["TagColorWhite"] = "blanco",
+                ["TagColorYellow"] = "amarillo",
                 ["CalvarioSubtitleV2"] = "Clínica de alopecia voluntaria  ·  Se entra con pelo y se sale con dignidad",
                 ["CalvarioYou"] = "Tu calvicie: <color=#f5d3a8>{0}</color>  —  {1}",
                 ["CalvarioNextV2"] = "Hacia <color=#f5d3a8>{0}</color>: te faltan {1}. Sigue matando, que no se pela solo.",
                 ["CalvarioTop"] = "Cima capilar alcanzada. Ya no queda nada que arrancar.",
-                ["CalvarioTabItems"] = "OBJETOS MALDITOS",
                 ["CalvarioTabRanking"] = "SALÓN DE LA FAMA CALVA",
                 ["CalvarioClose"] = "X",
-                ["CalvarioUse"] = "¡A LA CALVA!",
-                ["CalvarioUseNone"] = "SIN EXISTENCIAS",
-                ["CalvarioHave"] = "En la mochila: {0}",
                 ["CalvarioShieldOn"] = "Cinta puesta. Tu calva sobrevive a la próxima muerte.",
                 ["CalvarioBatteryOn"] = "Maquinilla zumbando: quedan {0} min.",
-                ["CalvarioWisdom"] = "SABIDURÍA CALVA",
                 ["CalvarioProverb1"] = "Dios hizo pocas cabezas perfectas. Al resto les puso pelo.",
                 ["CalvarioProverb2"] = "El pelo es temporal. La calva es para siempre.",
                 ["CalvarioProverb3"] = "Más vale calvo conocido que peludo por conocer.",
@@ -701,11 +727,7 @@ namespace Oxide.Plugins
                 ["CalvarioProverb5"] = "No es una calva. Es un panel solar.",
                 ["CalvarioProverb7"] = "La calva no se pierde: se conquista.",
                 ["CalvarioProverb8"] = "El champú anticaída es propaganda peluda.",
-                ["CalvarioCarneTitle"] = "CARNÉ DE CALVO  ·  Ministerio de Alopecia de la Isla   ({0}/{1})   ·   Carnés sellados: {2}",
                 ["CalvarioCarneHintV2"] = "Una tarjeta de cada color: +{0} por sello y +{1} al completar el carné. Las repetidas, para cambiarlas en el patio.",
-                ["CalvarioCarneStamp"] = "SELLADO",
-                ["CalvarioCarneDeliver"] = "SELLAR",
-                ["CalvarioCarneNone"] = "NADA QUE SELLAR",
                 ["CalvarioRankingEmpty"] = "Aún no hay nadie en el salón. La isla está llena de pelo.",
                 ["CalvarioRankingLine"] = "{0}.  {1}",
                 ["CalvarioRankingYouV2"] = "Tu puesto: <color=#f5d3a8>{0}º</color> de {1}. Te faltan <color=#f5d3a8>{2}</color> para adelantar a {3}. Venga, que ese tiene hasta cejas.",
@@ -1301,7 +1323,7 @@ namespace Oxide.Plugins
         {
             if (IsRealPlayer(player))
             {
-                OpenMenu(player, MenuTab.Ranking, 0);
+                OpenRanking(player, 0);
             }
         }
 
@@ -1798,10 +1820,12 @@ namespace Oxide.Plugins
 
         private const string UiMenu = "IslaDeCalvos.Menu";
 
-        private enum MenuTab
+        // Pages of the barber conversation.
+        private enum BarberPage
         {
+            Main,
             Items,
-            Ranking
+            Carne
         }
 
         // Item keys used by the menu buttons and the config.
@@ -1975,38 +1999,36 @@ namespace Oxide.Plugins
         private int BatteryMinutesLeft(ulong playerId) =>
             IsBatteryActive(playerId) ? (int)Math.Ceiling((batteryUntil[playerId] - DateTime.UtcNow).TotalMinutes) : 0;
 
-        private void UseCursedItem(BasePlayer player, string key)
+        // Returns what the barber says about it (null if nothing happened).
+        private string UseCursedItem(BasePlayer player, string key)
         {
             ItemDropConfig item = CursedItemConfig(key);
             if (item == null || !config.CursedItems.Enabled)
             {
-                return;
+                return null;
             }
 
             PlayerData data = GetOrCreateData(player);
             string name = CursedItemName(key);
             if (CountItem(player, item.Shortname) < 1)
             {
-                Reply(player, "ItemNoneV2", name);
-                return;
+                return Lang("ItemNoneV2", player.UserIDString, name);
             }
 
             // Refuse before consuming anything.
             if (key == "ducttape" && data.HasDeathShield)
             {
-                Reply(player, "ItemShieldAlready");
-                return;
+                return Lang("ItemShieldAlready", player.UserIDString);
             }
 
             if (key == "battery" && IsBatteryActive(data.Id))
             {
-                Reply(player, "ItemBatteryAlreadyV2", BatteryMinutesLeft(data.Id));
-                return;
+                return Lang("ItemBatteryAlreadyV2", player.UserIDString, BatteryMinutesLeft(data.Id));
             }
 
             if (!TakeItem(player, item.Shortname))
             {
-                return;
+                return null;
             }
 
             string reason = Lang("ReasonItemUse", null, name);
@@ -2016,26 +2038,20 @@ namespace Oxide.Plugins
                     BleachConfig bleach = config.CursedItems.Bleach;
                     if (random.NextDouble() < bleach.WinChance)
                     {
-                        Reply(player, "ItemBleachWin", FormatBaldness(bleach.WinAmount));
                         GainBaldness(data, bleach.WinAmount, reason);
-                    }
-                    else
-                    {
-                        Reply(player, "ItemBleachFail", FormatBaldness(bleach.LoseAmount));
-                        ChangeBaldness(data, -bleach.LoseAmount, true, reason);
+                        return Lang("ItemBleachWin", player.UserIDString, FormatBaldness(bleach.WinAmount));
                     }
 
-                    break;
+                    ChangeBaldness(data, -bleach.LoseAmount, true, reason);
+                    return Lang("ItemBleachFail", player.UserIDString, FormatBaldness(bleach.LoseAmount));
                 case "ducttape":
                     data.HasDeathShield = true;
                     dataDirty = true;
-                    Reply(player, "ItemShieldOnV2");
-                    break;
+                    return Lang("ItemShieldOnV2", player.UserIDString);
                 case "battery":
                     BatteryConfig battery = config.CursedItems.Battery;
                     ulong id = data.Id;
                     batteryUntil[id] = DateTime.UtcNow.AddMinutes(battery.Minutes);
-                    Reply(player, "ItemBatteryOnV2", battery.Multiplier, battery.Minutes);
                     timer.Once(battery.Minutes * 60f, () =>
                     {
                         if (!IsBatteryActive(id))
@@ -2048,15 +2064,16 @@ namespace Oxide.Plugins
                             }
                         }
                     });
-                    break;
+                    return Lang("ItemBatteryOnV2", player.UserIDString, battery.Multiplier, battery.Minutes);
                 default:
-                    GainBaldness(data, ((TrophyConfig)item).Reward, reason);
-                    break;
+                    long reward = ((TrophyConfig)item).Reward;
+                    GainBaldness(data, reward, reason);
+                    return Lang("BarberTrophyUsed", player.UserIDString, name, FormatBaldness(reward));
             }
         }
 
-        // Delivers one tag of every color the player carries and has not delivered yet.
-        private void DeliverIdTags(BasePlayer player)
+        // Delivers one tag of every color the player carries and has not delivered yet. Returns the barber's line.
+        private string DeliverIdTags(BasePlayer player)
         {
             IdTagsConfig tags = config.CursedItems.IdTags;
             PlayerData data = GetOrCreateData(player);
@@ -2072,12 +2089,11 @@ namespace Oxide.Plugins
 
             if (delivered == 0)
             {
-                Reply(player, "CarneNothingV2");
-                return;
+                return Lang("CarneNothingV2", player.UserIDString);
             }
 
             dataDirty = true;
-            Reply(player, "CarneDeliveredV2", delivered, FormatBaldness(delivered * tags.Reward));
+            string line = Lang("CarneDeliveredV2", player.UserIDString, delivered, FormatBaldness(delivered * tags.Reward));
             GainBaldness(data, delivered * tags.Reward, Lang("ReasonCarne"));
 
             if (tags.Shortnames.All(c => data.CarneColors.Contains(c)))
@@ -2087,6 +2103,8 @@ namespace Oxide.Plugins
                 BroadcastEvent("CarneCompletedV2", data.Name, FormatBaldness(tags.CollectionBonus));
                 ChangeBaldness(data, tags.CollectionBonus, true, Lang("ReasonCarne"));
             }
+
+            return line;
         }
 
         #region Menu UI
@@ -2101,14 +2119,8 @@ namespace Oxide.Plugins
             }
 
             string[] parts = MenuArgs(arg);
-            MenuTab tab = parts.Length > 0 && parts[0] == "ranking" ? MenuTab.Ranking : MenuTab.Items;
             int page = parts.Length > 1 && int.TryParse(parts[1], out int p) ? p : 0;
-            if (tab == MenuTab.Items && !RequireCalvarioNpc(player))
-            {
-                return;
-            }
-
-            OpenMenu(player, tab, page);
+            OpenRanking(player, page);
         }
 
         [ConsoleCommand("calvos.use")]
@@ -2121,8 +2133,7 @@ namespace Oxide.Plugins
                 return;
             }
 
-            UseCursedItem(player, parts[0]);
-            OpenMenu(player, MenuTab.Items, 0);
+            OpenBarber(player, BarberPage.Items, UseCursedItem(player, parts[0]));
         }
 
         [ConsoleCommand("calvos.carne")]
@@ -2134,8 +2145,7 @@ namespace Oxide.Plugins
                 return;
             }
 
-            DeliverIdTags(player);
-            OpenMenu(player, MenuTab.Items, 0);
+            OpenBarber(player, BarberPage.Carne, DeliverIdTags(player));
         }
 
         // HumanNPC hook: called when a player presses USE on one of its NPCs (5 m max).
@@ -2147,7 +2157,7 @@ namespace Oxide.Plugins
             }
 
             calvarioNpcInUse[(ulong)player.userID] = npc;
-            OpenMenu(player, MenuTab.Items, 0);
+            OpenBarber(player, BarberPage.Main, BarberGreeting(player.UserIDString));
         }
 
         // Items can only be used next to the Calvario NPC the player talked to; console commands can be typed anywhere.
@@ -2183,7 +2193,8 @@ namespace Oxide.Plugins
         // Proverb 6 was removed in 1.4.1; its lang key is gone, so the numbers skip it.
         private static readonly int[] ProverbNumbers = { 1, 2, 3, 4, 5, 7, 8 };
 
-        private void OpenMenu(BasePlayer player, MenuTab tab, int page)
+        // Salon de la fama calva (/calvos). The cursed items live with the barber (OpenBarber).
+        private void OpenRanking(BasePlayer player, int page)
         {
             PlayerData data = GetOrCreateData(player);
             string userId = player.UserIDString;
@@ -2217,19 +2228,10 @@ namespace Oxide.Plugins
             DrawTitleProgress(ui, window, data.Baldness, userId);
             AddButton(ui, window, Lang("CalvarioClose", userId), "0.956 0.935", "0.99 0.985", ColorPoleRed, null, UiMenu, 18);
 
-            // One section per window: the Calvario NPC opens the items, /calvos opens the ranking.
             string section = AddPanel(ui, window, ColorScalp, "0.03 0.81", "0.35 0.86");
-            AddText(ui, section, Lang(tab == MenuTab.Items ? "CalvarioTabItems" : "CalvarioTabRanking", userId), 13, TextAnchor.MiddleCenter, "0 0", "1 1", "0.12 0.07 0.06 1");
+            AddText(ui, section, Lang("CalvarioTabRanking", userId), 13, TextAnchor.MiddleCenter, "0 0", "1 1", "0.12 0.07 0.06 1");
 
-            if (tab == MenuTab.Items)
-            {
-                DrawItemsTab(ui, window, player, data);
-            }
-            else
-            {
-                DrawRankingTab(ui, window, data, page, userId);
-            }
-
+            DrawRankingTab(ui, window, data, page, userId);
             CuiHelper.AddUi(player, ui);
         }
 
@@ -2256,75 +2258,142 @@ namespace Oxide.Plugins
             }
         }
 
-        private void DrawItemsTab(CuiElementContainer ui, string window, BasePlayer player, PlayerData data)
+        private const string ColorDialog = "0.06 0.05 0.05 0.94";
+        private const string ColorDialogOption = "0.16 0.13 0.12 0.95";
+
+        // Lang key for each ID tag color, shown in the Carne de Calvo page.
+        private static readonly Dictionary<string, string> TagColorKeys = new Dictionary<string, string>
         {
-            string userId = player.UserIDString;
+            ["blueidtag"] = "TagColorBlue", ["grayidtag"] = "TagColorGray", ["greenidtag"] = "TagColorGreen",
+            ["lavenderidtag"] = "TagColorLavender", ["mintidtag"] = "TagColorMint", ["orangeidtag"] = "TagColorOrange",
+            ["pinkidtag"] = "TagColorPink", ["purpleidtag"] = "TagColorPurple", ["redidtag"] = "TagColorRed",
+            ["whiteidtag"] = "TagColorWhite", ["yellowidtag"] = "TagColorYellow"
+        };
 
-            // 7 item cards (4 + 3) and a proverb card in the eighth slot.
-            for (int i = 0; i <= CursedItemKeys.Length; i++)
+        private const int BarberGreetingCount = 3;
+
+        // The barber greets with one of his own lines or one of the island proverbs.
+        private string BarberGreeting(string userId)
+        {
+            int pick = random.Next(BarberGreetingCount + ProverbNumbers.Length);
+            return pick < BarberGreetingCount
+                ? Lang("BarberGreeting" + (pick + 1), userId)
+                : Lang("CalvarioProverb" + ProverbNumbers[pick - BarberGreetingCount], userId);
+        }
+
+        private string TagColorName(string shortname, string userId) =>
+            TagColorKeys.TryGetValue(shortname, out string key) ? Lang(key, userId) : shortname;
+
+        [ConsoleCommand("calvos.barber")]
+        private void CcmdBarber(ConsoleSystem.Arg arg)
+        {
+            BasePlayer player = arg.Player();
+            string[] parts = MenuArgs(arg);
+            if (!IsRealPlayer(player) || !RequireCalvarioNpc(player))
             {
-                int row = i / 4, col = i % 4;
-                float x0 = 0.03f + col * 0.2375f, x1 = x0 + 0.2275f;
-                float y1 = 0.79f - row * 0.245f, y0 = y1 - 0.235f;
-                string card = AddPanel(ui, window, ColorCard, Anchor(x0, y0), Anchor(x1, y1));
+                return;
+            }
 
-                if (i == CursedItemKeys.Length)
-                {
-                    AddText(ui, card, Lang("CalvarioWisdom", userId), 14, TextAnchor.UpperCenter, "0.05 0.7", "0.95 0.93", ColorScalp);
-                    AddText(ui, card, "\"" + Lang("CalvarioProverb" + ProverbNumbers[random.Next(ProverbNumbers.Length)], userId) + "\"", 14, TextAnchor.MiddleCenter, "0.07 0.1", "0.93 0.7", ColorText);
+            switch (parts.Length > 0 ? parts[0] : "main")
+            {
+                case "items":
+                    OpenBarber(player, BarberPage.Items, null);
                     break;
-                }
-
-                string key = CursedItemKeys[i];
-                ItemDropConfig item = CursedItemConfig(key);
-                int count = CountItem(player, item.Shortname);
-                AddPanel(ui, card, ColorCardDark, "0.04 0.52", "0.3 0.95");
-                AddIcon(ui, card, item.Shortname, "0.06 0.55", "0.28 0.92", count > 0 ? "1 1 1 1" : "1 1 1 0.35");
-                AddText(ui, card, CursedItemName(key), 14, TextAnchor.UpperLeft, "0.34 0.74", "0.98 0.95", ColorScalp);
-                AddText(ui, card, Lang("CalvarioHave", userId, count), 12, TextAnchor.UpperLeft, "0.34 0.54", "0.98 0.74", count > 0 ? ColorText : ColorMuted);
-
-                string status = null;
-                if (key == "ducttape" && data.HasDeathShield) status = Lang("CalvarioShieldOn", userId);
-                if (key == "battery" && IsBatteryActive(data.Id)) status = Lang("CalvarioBatteryOn", userId, BatteryMinutesLeft(data.Id));
-                AddText(ui, card, status ?? CursedItemDescription(key), 11, TextAnchor.UpperLeft, "0.05 0.24", "0.97 0.5", status != null ? "0.6 0.85 0.5 1" : ColorText);
-
-                AddButton(ui, card, Lang(count > 0 ? "CalvarioUse" : "CalvarioUseNone", userId), "0.05 0.05", "0.95 0.21",
-                    count > 0 ? ColorPoleRed : ColorDisabled, count > 0 ? "calvos.use " + key : null, null, 13, count > 0 ? "1 1 1 1" : ColorMuted);
+                case "carne":
+                    OpenBarber(player, BarberPage.Carne, null);
+                    break;
+                case "bye":
+                    CuiHelper.DestroyUi(player, UiMenu);
+                    break;
+                default:
+                    OpenBarber(player, BarberPage.Main, BarberGreeting(player.UserIDString));
+                    break;
             }
+        }
 
-            // Carne de Calvo: one slot per ID tag color.
-            IdTagsConfig tags = config.CursedItems.IdTags;
-            string carne = AddPanel(ui, window, ColorCard, "0.03 0.03", "0.97 0.295");
+        // Conversation box in the style of the vanilla vendors: the barber's line on top, the player's answers below.
+        private void OpenBarber(BasePlayer player, BarberPage page, string line)
+        {
+            PlayerData data = GetOrCreateData(player);
+            string userId = player.UserIDString;
+            var options = new List<KeyValuePair<string, string>>();
 
-            int done = tags.Shortnames.Count(c => data.CarneColors.Contains(c));
-            AddText(ui, carne, Lang("CalvarioCarneTitle", userId, done, tags.Shortnames.Count, data.CarnesCompleted), 14, TextAnchor.MiddleLeft, "0.02 0.78", "0.98 0.97", ColorScalp);
-            AddText(ui, carne, Lang("CalvarioCarneHintV2", userId, FormatBaldness(tags.Reward), FormatBaldness(tags.CollectionBonus)), 11, TextAnchor.MiddleLeft, "0.02 0.62", "0.98 0.78", ColorText);
-
-            bool canDeliver = false;
-            int slots = Math.Max(1, tags.Shortnames.Count);
-            float slotWidth = 0.82f / slots;
-            for (int i = 0; i < tags.Shortnames.Count; i++)
+            switch (page)
             {
-                string color = tags.Shortnames[i];
-                bool delivered = data.CarneColors.Contains(color);
-                int carried = CountItem(player, color);
-                canDeliver |= !delivered && carried > 0;
+                case BarberPage.Items:
+                    foreach (string key in CursedItemKeys)
+                    {
+                        int count = CountItem(player, CursedItemConfig(key).Shortname);
+                        if (count > 0)
+                        {
+                            options.Add(new KeyValuePair<string, string>(
+                                Lang("BarberItemLine", userId, CursedItemName(key), count, CursedItemDescription(key)), "calvos.use " + key));
+                        }
+                    }
 
-                float x0 = 0.02f + i * slotWidth, x1 = x0 + slotWidth - 0.006f;
-                string slot = AddPanel(ui, carne, delivered ? ColorGood : ColorCardDark, Anchor(x0, 0.08f), Anchor(x1, 0.58f));
-                AddIcon(ui, slot, color, "0.1 0.28", "0.9 0.95", delivered || carried > 0 ? "1 1 1 1" : "1 1 1 0.25");
-                if (delivered)
-                {
-                    AddText(ui, slot, Lang("CalvarioCarneStamp", userId), 9, TextAnchor.LowerCenter, "0 0.02", "1 0.28", ColorScalp);
-                }
-                else if (carried > 0)
-                {
-                    AddText(ui, slot, "x" + carried, 11, TextAnchor.LowerCenter, "0 0.02", "1 0.28");
-                }
+                    if (line == null)
+                    {
+                        var status = new List<string> { Lang(options.Count > 0 ? "BarberItemsIntro" : "BarberItemsNone", userId) };
+                        if (data.HasDeathShield) status.Add(Lang("CalvarioShieldOn", userId));
+                        if (IsBatteryActive(data.Id)) status.Add(Lang("CalvarioBatteryOn", userId, BatteryMinutesLeft(data.Id)));
+                        line = string.Join(" ", status.ToArray());
+                    }
+
+                    options.Add(new KeyValuePair<string, string>(Lang("BarberOptBack", userId), "calvos.barber main"));
+                    break;
+                case BarberPage.Carne:
+                    IdTagsConfig tags = config.CursedItems.IdTags;
+                    string[] stamped = tags.Shortnames.Where(c => data.CarneColors.Contains(c)).Select(c => TagColorName(c, userId)).ToArray();
+                    string[] missing = tags.Shortnames.Where(c => !data.CarneColors.Contains(c)).Select(c => TagColorName(c, userId)).ToArray();
+                    var carne = new List<string>();
+                    if (line != null) carne.Add(line);
+                    carne.Add(Lang("BarberCarneIntro", userId, stamped.Length, tags.Shortnames.Count, data.CarnesCompleted));
+                    if (stamped.Length > 0) carne.Add(Lang("BarberCarneStamped", userId, string.Join(", ", stamped)));
+                    if (missing.Length > 0) carne.Add(Lang("BarberCarneMissing", userId, string.Join(", ", missing)));
+                    carne.Add(Lang("CalvarioCarneHintV2", userId, FormatBaldness(tags.Reward), FormatBaldness(tags.CollectionBonus)));
+                    line = string.Join("\n", carne.ToArray());
+
+                    options.Add(new KeyValuePair<string, string>(Lang("BarberOptStamp", userId), "calvos.carne"));
+                    options.Add(new KeyValuePair<string, string>(Lang("BarberOptBack", userId), "calvos.barber main"));
+                    break;
+                default:
+                    options.Add(new KeyValuePair<string, string>(Lang("BarberOptItems", userId), "calvos.barber items"));
+                    options.Add(new KeyValuePair<string, string>(Lang("BarberOptCarne", userId), "calvos.barber carne"));
+                    options.Add(new KeyValuePair<string, string>(Lang("BarberOptBye", userId), "calvos.barber bye"));
+                    break;
             }
 
-            AddButton(ui, carne, Lang(canDeliver ? "CalvarioCarneDeliver" : "CalvarioCarneNone", userId), "0.86 0.12", "0.98 0.52",
-                canDeliver ? ColorPoleRed : ColorDisabled, canDeliver ? "calvos.carne" : null, null, 12, canDeliver ? "1 1 1 1" : ColorMuted);
+            var ui = new CuiElementContainer();
+            ui.Add(new CuiPanel
+            {
+                Image = { Color = "0 0 0 0" },
+                RectTransform = { AnchorMin = "0 0", AnchorMax = "1 1" },
+                CursorEnabled = true
+            }, "Overlay", UiMenu, UiMenu);
+
+            string box = ui.Add(new CuiPanel
+            {
+                Image = { Color = ColorDialog },
+                RectTransform = { AnchorMin = "0.22 0.05", AnchorMax = "0.78 0.5" }
+            }, UiMenu);
+
+            AddText(ui, box, Lang("BarberName", userId), 18, TextAnchor.MiddleLeft, "0.03 0.88", "0.5 0.98", ColorScalp);
+            AddText(ui, box, Lang("CalvarioYou", userId, FormatBaldness(data.Baldness), GetTitle(data.Baldness)), 12, TextAnchor.MiddleRight, "0.5 0.88", "0.93 0.98", ColorMuted);
+            AddButton(ui, box, Lang("CalvarioClose", userId), "0.945 0.9", "0.99 0.98", ColorPoleRed, null, UiMenu, 14);
+            AddPanel(ui, box, ColorScalp, "0.03 0.872", "0.97 0.876");
+            AddText(ui, box, line ?? string.Empty, 14, TextAnchor.UpperLeft, "0.03 0.5", "0.97 0.855", ColorText);
+
+            // Answers stacked from the bottom, like the vanilla dialogue options.
+            const float rowHeight = 0.052f, gap = 0.006f;
+            for (int i = 0; i < options.Count; i++)
+            {
+                int fromBottom = options.Count - 1 - i;
+                float y0 = 0.03f + fromBottom * (rowHeight + gap);
+                AddButton(ui, box, (i + 1) + ". " + options[i].Key, Anchor(0.03f, y0), Anchor(0.97f, y0 + rowHeight), ColorDialogOption,
+                    options[i].Value, null, 12, ColorText, TextAnchor.MiddleLeft);
+            }
+
+            CuiHelper.AddUi(player, ui);
         }
 
         private void DrawRankingTab(CuiElementContainer ui, string window, PlayerData me, int page, string userId)
@@ -2398,13 +2467,13 @@ namespace Oxide.Plugins
         }
 
         // command null = disabled button (does nothing). close = element to destroy on click.
-        private static void AddButton(CuiElementContainer ui, string parent, string text, string min, string max, string color, string command, string close = null, int fontSize = 13, string textColor = "1 1 1 1")
+        private static void AddButton(CuiElementContainer ui, string parent, string text, string min, string max, string color, string command, string close = null, int fontSize = 13, string textColor = "1 1 1 1", TextAnchor align = TextAnchor.MiddleCenter)
         {
             ui.Add(new CuiButton
             {
                 Button = { Color = color, Command = command ?? string.Empty, Close = close },
                 RectTransform = { AnchorMin = min, AnchorMax = max },
-                Text = { Text = text, FontSize = fontSize, Align = TextAnchor.MiddleCenter, Color = textColor }
+                Text = { Text = (align == TextAnchor.MiddleLeft ? "  " : string.Empty) + text, FontSize = fontSize, Align = align, Color = textColor }
             }, parent);
         }
 
@@ -2438,6 +2507,12 @@ namespace Oxide.Plugins
         // Used only to decide whether an unlisted prefab deserves a console notice; rewards come from NpcTiers.
         private static bool IsPossibleNpc(BaseCombatEntity entity)
         {
+            // Skinning a corpse (wolf.corpse, bear.corpse...) kills it; that is not an NPC kill.
+            if (entity.ShortPrefabName.EndsWith(".corpse", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
             if (entity is BasePlayer || entity is BaseNpc)
             {
                 return true;
