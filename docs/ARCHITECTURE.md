@@ -186,6 +186,28 @@ Para añadir otro evento: decidir qué hook marca "participar" y cuál marca
 - Los RP no pasan por `GainBaldness` ni `ChangeBaldness`: no tocan la calvicie
   ni se multiplican.
 
+## 4g. La peluquería: Calvario en un NPC (plugin 1.5.0)
+
+- Hook de **HumanNPC** (no de Oxide): `OnUseNPC(BasePlayer npc, BasePlayer
+  player)`. Se lanza con `Interface.Oxide.CallHook` cuando un jugador pulsa
+  USAR mirando a uno de sus NPC, a 5 m como máximo. Visto en el código de
+  HumanNPC 0.5.4 (copia pública, publicrust/umod-pluigns-dataset). No hace
+  falta `[PluginReference]`: si HumanNPC no está, el hook no llega y el
+  Calvario sencillamente no se abre.
+- Los NPC del Calvario se configuran por `userid` (`Calvario NPC ids`). Sus
+  ids no son SteamID, así que `IsRealPlayer` los descarta en muertes y
+  supervivencia.
+- `calvarioNpcInUse` guarda el NPC con el que habló cada jugador (en memoria).
+  `calvos.use`, `calvos.carne` y `calvos.tab items` exigen haber hablado con él
+  y estar a `MaxDistance` o menos. Si no, cierran la ventana y mandan al
+  jugador a la peluquería. Hace falta porque los comandos de consola se pueden
+  escribir desde cualquier sitio.
+- `/calvos` abre solo el ranking (`MenuTab.Ranking`). Cada ventana muestra una
+  sola sección, sin pestañas.
+- Mercalvona (GUIShop), Exchange (Server Rewards) y el TP `/peluqueria`
+  (NTeleportation, "Dynamic Commands") son configuración de esos plugins; el
+  plugin no los llama. Los pasos están en el README.
+
 ## 5. Localización (lang)
 
 - Todos los textos del plugin pasan por `lang`: se registran en
