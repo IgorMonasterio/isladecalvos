@@ -12,9 +12,10 @@ lo que pasa en la isla acaba teniendo que ver con el pelo o la calvicie.
   límite por arriba**, nunca por debajo de 0. Lo glorioso (matar, sobrevivir)
   la sube; morir hace que crezca el pelo (la baja).
 - Es humor: **no hay cambio visual del pelo**. Todo son puntos, títulos y mensajes.
-- La calvicie da **RP de Server Rewards** cada 30 min según el título
-  (plugin 1.4.0, issue #8). No da monedas directas (Economics): 1 RP = 10
-  monedas y el canje lo gestiona el servidor.
+- La calvicie da **RP de Server Rewards** cada 30 min: 1 RP por cada 100 de
+  calvicie, sin tope (lineal desde la 1.6.0; antes, por escalones de título).
+  1 RP = 10 monedas. Desde la 1.6.0 hay además un cambio de calvicie ↔ RP ↔
+  monedas en El Calvario.
 
 ## Estado y hoja de ruta
 
@@ -45,6 +46,12 @@ alcance cerrado:
   NTeleportation). `/shop` y `/s` solo en sus NPC. `/calvos` solo muestra el
   ranking; los objetos se usan hablando con el barbero. El plugin solo
   escucha `OnUseNPC` de HumanNPC; lo demás es config de esos plugins.
+  (1.5.1: El Calvario es una conversación con el barbero, al estilo de los
+  dependientes vanilla.)
+- **Plugin 1.6.0** — encargo de Igor: cartel grande al subir de título; premios
+  por título (RP, monedas, objetos; una vez por jugador y título, todo a 0 por
+  defecto); RP lineal (`floor(calvicie/100)`); títulos ×10 por defecto; y
+  **cambio de calvicie** en el barbero, con tasas asimétricas y confirmación.
 
 Decisiones de diseño de la v1.0 que no venían en la especificación inicial:
 - Toda muerte resta calvicie (PvP, NPC, entorno, suicidio), también la de un
@@ -76,10 +83,11 @@ Cambio de escala (de % a puntos enteros sin límite):
   calvicie actual** (redondeado hacia arriba), sea cual sea la causa;
   Lluvia de champú −20 %.
 - Supervivencia: +100 cada 30 min vivo y conectado.
-- Títulos por cada cero, de mucho pelo a nada, con humor calvo británico:
-  Greñas Sucias (1), Pelambrera Lamentable (10), Entradas Incipientes
-  (100), Coronilla a la Intemperie (1.000), Caballero de la Tonsura (10.000),
-  Lord Bola de Billar (100.000), Su Calvísima Majestad (1.000.000).
+- Títulos por cada cero, de mucho pelo a nada, con humor calvo británico.
+  Desde la 1.6.0: Greñas Sucias (1), Pelambrera Lamentable (1.000), Entradas
+  Incipientes (10.000), Coronilla a la Intemperie (100.000), Caballero de la
+  Tonsura (1.000.000), Lord Bola de Billar (10.000.000), Su Calvísima
+  Majestad (100.000.000).
 - Se anuncia cada subida de título. Al llegar al más alto sale el mensaje de
   calvicie suprema en su lugar. Las bajadas también se anuncian.
 
@@ -90,9 +98,11 @@ Cambio de escala (de % a puntos enteros sin límite):
 - Oxide compila el `.cs` en el servidor; no hay proyecto .NET ni DLL que publicar.
 - **Un plugin = un fichero** (verificado en el código de Oxide.CSharp). Nada
   de carpetas o ficheros extra que Oxide no vaya a cargar.
-- Cero dependencias de otros plugins salvo decisión explícita de Igor. La
-  única decidida es **Server Rewards**, y es blanda (`[PluginReference]`):
-  si no está cargado, el plugin funciona igual pero no paga RP.
+- Cero dependencias de otros plugins salvo decisión explícita de Igor. Las
+  decididas son **Server Rewards** y **Economics** (1.6.0), ambas blandas
+  (`[PluginReference]`): si no están cargadas, el plugin funciona igual, pero
+  sin RP o sin monedas. HumanNPC no es dependencia de código: solo se escucha
+  su hook `OnUseNPC`.
 
 ## Estructura
 
@@ -147,8 +157,9 @@ Lee `docs/ARCHITECTURE.md` antes de tocar código.
 - **Nada de emojis en textos para jugadores**: el chat de Rust no los dibuja
   (salen como `??`, comprobado en el servidor). Para resaltar, usar `<color>`.
 - **Ganancias de calvicie siempre por `GainBaldness`** (para que los eventos
-  puedan multiplicarlas). `ChangeBaldness` directo solo para admin, muertes y
-  premios de eventos.
+  puedan multiplicarlas). `ChangeBaldness` directo solo para admin, muertes,
+  premios de eventos y calvicie comprada en el cambio (esta con `bought: true`,
+  para que no cobre premios de título).
 - **Mensajes al chat siempre por `Broadcast`/`SendChat`** del plugin (nunca
   `PrintToChat`/`SendReply` directos): así llevan como icono el avatar de la
   cuenta de Steam de la isla (`ChatIconSteamId`, 76561198635630459). Es el

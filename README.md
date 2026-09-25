@@ -93,17 +93,18 @@ Cada jugador cobra **una sola vez** por objetivo.
 
 ### Títulos
 
-Un título por cada cero:
+Un título por cada cero (valores por defecto desde la 1.6.0, los mismos que
+tiene el servidor):
 
 | Desde | Título |
 |---|---|
 | 1 | Greñas Sucias |
-| 10 | Pelambrera Lamentable |
-| 100 | Entradas Incipientes |
-| 1.000 | Coronilla a la Intemperie |
-| 10.000 | Caballero de la Tonsura |
-| 100.000 | Lord Bola de Billar |
-| 1.000.000 | Su Calvísima Majestad |
+| 1.000 | Pelambrera Lamentable |
+| 10.000 | Entradas Incipientes |
+| 100.000 | Coronilla a la Intemperie |
+| 1.000.000 | Caballero de la Tonsura |
+| 10.000.000 | Lord Bola de Billar |
+| 100.000.000 | Su Calvísima Majestad |
 
 Con 0 puntos también eres Greñas Sucias.
 
@@ -113,24 +114,33 @@ Con 0 puntos también eres Greñas Sucias.
   `{jugador} HA ALCANZADO LA CALVICIE SUPREMA`
 - Al bajar de título: `A {jugador} le está saliendo pelo (ahora es {título})`
 
+**Cartel grande al subir de título** (1.6.0): además del chat, a todos los
+conectados les sale en el centro de la pantalla, durante 6 s,
+`¡{jugador} ya es CABALLERO DE LA TONSURA!`. Es el mismo cartel que los
+eventos globales. Las bajadas siguen solo en el chat.
+
+**Premio por subir de título** (1.6.0): cada título puede dar RP, monedas y/o
+objetos. Por defecto todo está a 0. Se cobra **una sola vez por jugador y
+título**: bajar y volver a subir no paga otra vez. A los jugadores que ya
+existían se les apunta como cobrado el título que tenían la primera vez que
+cambian de título. La calvicie **comprada** en el cambio no cobra premios,
+salvo que se active en la config.
+
 Los mensajes van resaltados con color y llevan como **icono** el avatar de la
 cuenta de Steam de la isla. Para cambiar el icono, cambia el avatar de esa
 cuenta en Steam o pon otro SteamID64 en la config. Si acabas de cambiar el
 avatar, los clientes pueden tardar en verlo (Steam lo cachea). **No uses emojis en los textos**: el
 chat de Rust no los dibuja y salen como `??`.
 
-### RP de Server Rewards por título (plugin 1.4.0)
+### RP de Server Rewards por calvicie (plugin 1.4.0, lineal desde la 1.6.0)
 
 Ser calvo da de comer. Cada **30 minutos vivo, conectado y despierto**, el
-plugin paga **RP de Server Rewards** según tu título:
+plugin paga **RP de Server Rewards**: **1 RP por cada 100 de calvicie**, sin
+tope (100 → 1, 3.900 → 39, 2.000.000 → 20.000). Se calcula en entero largo y
+se limita al máximo que admite Server Rewards (2.147.483.647).
 
-| Título | RP cada 30 min |
-|---|---|
-| Por debajo de Coronilla (< 1.000) | 0 |
-| Coronilla a la Intemperie | 1 |
-| Caballero de la Tonsura | 3 |
-| Lord Bola de Billar | 10 |
-| Su Calvísima Majestad | 30 |
+Con `"RP per X baldness (0 = use the table)": 0` se vuelve a la tabla de
+escalones por título de la 1.4.0.
 
 - Solo cobra quien se haya **movido** durante esos 30 minutos (anti-AFK). Se
   mira cada minuto; basta con moverse 1 m entre dos comprobaciones.
@@ -230,6 +240,32 @@ el premio del carné completo no se multiplican.
 
 Si un nombre interno no existe en la versión de Rust del servidor, el plugin
 lo avisa en la consola al arrancar.
+
+### El cambio de calvicie (plugin 1.6.0)
+
+Opción **4. Quiero cambiar calvicie** en la conversación con el barbero.
+Calvicie, RP y monedas se cambian entre sí:
+
+| Operación | Por defecto |
+|---|---|
+| Vender calvicie por RP | 100 de calvicie → 1 RP |
+| Vender calvicie por monedas | 100 de calvicie → 10 monedas |
+| Comprar calvicie con RP | 1 RP → 1 de calvicie |
+| Comprar calvicie con monedas | 10 monedas → 1 de calvicie |
+
+- Las tasas son **asimétricas a propósito**: la calvicie paga RP cada 30 min
+  para siempre, y si comprarla fuera barato sería una máquina de hacer dinero.
+- Cantidades fijas (100, 1.000, 10.000, 100.000 de calvicie), solo enteras. Para
+  vender, un mínimo de 100 y múltiplos exactos.
+- Antes de cada cambio sale una **confirmación** ("¿Seguro que cambias 1.000 de
+  calvicie por 10 RP?") con **CONFIRMAR** / **CANCELAR**. Lo que se confirma se
+  guarda en el servidor, no en el botón, y se vuelve a comprobar al confirmar.
+- Primero se paga o se cobra en Server Rewards o Economics, y solo si eso sale
+  bien se toca la calvicie.
+- Vender puede bajarte de título (se anuncia en el chat, como cualquier
+  bajada). Lo comprado sube de título normal, pero ni se multiplica con
+  eventos o la pila ni cobra premios de título.
+- Si Server Rewards o Economics no están cargados, sus opciones salen cerradas.
 
 ## La peluquería (plugin 1.5.0)
 
@@ -443,6 +479,7 @@ que los títulos:
   "Only pay players who moved during the interval (not AFK)": true,
   "Minimum movement between checks to count as active (meters)": 1.0,
   "Tell the player in chat when RP is paid": true,
+  "RP per X baldness (0 = use the table)": 100,
   "RP per interval by title (minimum baldness -> RP)": {
     "1000": 1,
     "10000": 3,
@@ -451,6 +488,34 @@ que los títulos:
   }
 }
 ```
+
+Bloques de premios por título y del cambio (valores por defecto). Las claves de
+los premios son la calvicie mínima de cada título:
+
+```json
+"Tier prizes (title minimum baldness -> prize)": {
+  "1000": { "RP (Server Rewards)": 0, "Coins (Economics)": 0,
+            "Items": [ { "Item shortname": "scrap", "Amount": 100 } ] },
+  ...
+},
+"Tier prizes also for bought baldness": false,
+"Baldness exchange (El Calvario)": {
+  "Enabled": true,
+  "Sell: baldness for 1 RP": 100,
+  "Sell: coins per 100 baldness": 10,
+  "Buy: RP per 1 baldness": 1,
+  "Buy: coins per 1 baldness": 10,
+  "Minimum baldness to sell": 100,
+  "Amounts offered (baldness)": [ 100, 1000, 10000, 100000 ]
+}
+```
+
+(El `scrap` es solo un ejemplo: por defecto los premios vienen vacíos. En el
+chat, los objetos del premio salen con su nombre interno.)
+
+En `"On-screen UI"` hay dos opciones nuevas:
+`"Show a banner to everyone when a player rises to a higher title": true` y
+`"Seconds the title-up banner stays": 6.0`.
 
 La config lleva además un `Config version (do not edit)`. Sirve para que una
 actualización pueda corregir valores ya guardados (la 1.3.1 mueve el contador
@@ -486,7 +551,7 @@ servidor.
 1. Ten un servidor dedicado de Rust con **Oxide (uMod)** instalado.
 2. Copia `src/IslaDeCalvos.cs` en la carpeta `oxide/plugins/` del servidor.
 3. Oxide lo compila y carga solo. En la consola deberías ver algo como
-   `Loaded plugin Isla de Calvos v1.5.1 by Igor Monasterio`.
+   `Loaded plugin Isla de Calvos v1.6.0 by Igor Monasterio`.
 4. Para recargarlo tras cambiar el fichero (normalmente se recarga solo):
    `oxide.reload IslaDeCalvos`
 
