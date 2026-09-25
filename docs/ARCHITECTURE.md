@@ -179,7 +179,14 @@ Para añadir otro evento: decidir qué hook marca "participar" y cuál marca
   Acepta `ulong`, `string` o `EncryptedValue<ulong>` y devuelve `true` si
   paga. Verificado en su código fuente (copia pública en GitHub,
   publicrust/umod-pluigns-dataset); umod.org está bloqueado desde el entorno
-  cloud. La versión instalada en el servidor no se ha comprobado desde aquí.
+  cloud.
+- El servidor tiene **Server Rewards 2.0.8**. En la 2.0.7 (copia pública,
+  0xF1o/random-free-rustplugins) `AddPoints` está sobrecargado (`BasePlayer`,
+  `IPlayer`, `string`, `EncryptedValue<ulong>`, `ulong`) y devuelve `bool`.
+  Oxide elige la sobrecarga cuyo tipo coincide exactamente con el argumento
+  (`CSPlugin.FindHooks` → `HookMethod.HasMatchingSignature`, Oxide.Core). El
+  plugin pasa un `ulong`, así que entra en `AddPoints(ulong, int)`, que
+  devuelve `true`.
 - Reloj: va con `SurvivalTick` (cada minuto, solo vivo, conectado y
   despierto). `RpSeconds` y `RpMoved` se guardan en `PlayerData`. La última
   posición vive en memoria (`lastPositions`) y se borra al desconectar.
@@ -204,7 +211,7 @@ Para añadir otro evento: decidir qué hook marca "participar" y cuál marca
   escribir desde cualquier sitio.
 - `/calvos` abre solo el ranking (`MenuTab.Ranking`). Cada ventana muestra una
   sola sección, sin pestañas.
-- Mercalvona (GUIShop), Exchange (Server Rewards) y el TP `/peluqueria`
+- Mercalvona (GUIShop), Premios Calvos (Server Rewards) y el TP `/peluqueria`
   (NTeleportation, "Dynamic Commands") son configuración de esos plugins; el
   plugin no los llama. Los pasos están en el README.
 
