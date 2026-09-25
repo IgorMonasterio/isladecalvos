@@ -780,46 +780,46 @@ namespace Oxide.Plugins
             {
                 ["CalvarioTitle"] = "EL CALVARIO",
                 ["BarberName"] = "EL BARBERO",
-                ["BarberOptExchange"] = "Quiero cambiar calvicie",
-                ["BarberExIntro"] = "Aquí se compra y se vende calvicie. Vender sale barato y comprar sale caro: la calva no se regala.\nTienes {0} de calvicie · {1} RP · {2} monedas.",
-                ["BarberExSellRp"] = "Vender calvicie por RP (cada {0} de calvicie, 1 RP)",
-                ["BarberExSellCoins"] = "Vender calvicie por monedas (cada 100 de calvicie, {0} monedas)",
-                ["BarberExBuyRp"] = "Comprar calvicie con RP ({0} RP por cada 1 de calvicie)",
-                ["BarberExBuyCoins"] = "Comprar calvicie con monedas ({0} monedas por cada 1 de calvicie)",
-                ["BarberExClosed"] = "{0}  [cerrado: falta {1}]",
-                ["BarberExPickAmount"] = "¿Cuánto? Piénsatelo, que luego no hay quejas.",
+                ["BarberOptExchange"] = "Vengo a vender (o comprar) calva",
+                ["BarberExIntro"] = "Aquí la calva se compra y se vende. Vender sale barato y comprar sale caro: esto es un negocio, no una ONG.\nTienes {0} de calvicie · {1} RP · {2} monedas.",
+                ["BarberExSellRp"] = "Vender calva por RP (cada {0} de calvicie, 1 RP)",
+                ["BarberExSellCoins"] = "Vender calva por monedas (cada 100 de calvicie, {0} monedas)",
+                ["BarberExBuyRp"] = "Comprar calva con RP ({0} RP cada 1 de calvicie; la gloria no sale barata)",
+                ["BarberExBuyCoins"] = "Comprar calva con monedas ({0} monedas cada 1 de calvicie)",
+                ["BarberExClosed"] = "{0}  [cerrado: falta {1}. Vuelve cuando el jefe lo arregle]",
+                ["BarberExPickAmount"] = "¿Cuánto? Piénsatelo bien, que luego lloras.",
                 ["BarberExSellLine"] = "Dar {0} de calvicie y llevarme {1}",
                 ["BarberExBuyLine"] = "Pagar {1} y llevarme {0} de calvicie",
-                ["BarberExTooMuch"] = "{0}  [no te llega]",
-                ["BarberExConfirmSell"] = "¿Seguro que cambias {0} de calvicie por {1}? Lo que se rapa vuelve a crecer, pero cuesta.",
-                ["BarberExConfirmBuy"] = "¿Seguro que pagas {1} por {0} de calvicie? Aquí no hay devoluciones.",
+                ["BarberExTooMuch"] = "{0}  [no te llega, pelao]",
+                ["BarberExConfirmSell"] = "¿Seguro que cambias {0} de calvicie por {1}? Te va a volver a salir pelo, y eso no se paga con nada.",
+                ["BarberExConfirmBuy"] = "¿Seguro que pagas {1} por {0} de calvicie? Aquí no hay devoluciones ni hoja de reclamaciones.",
                 ["BarberExConfirm"] = "CONFIRMAR",
-                ["BarberExCancel"] = "CANCELAR",
-                ["BarberExDoneSell"] = "Hecho: -{0} de calvicie y +{1}. Te noto más peludo.",
-                ["BarberExDoneBuy"] = "Hecho: +{0} de calvicie y -{1}. Brillas que da gusto.",
-                ["BarberExNotEnough"] = "No te llega. Ni para un afeitado.",
-                ["BarberExFailed"] = "El cambio no ha salido y no se ha tocado nada. Prueba otra vez.",
+                ["BarberExCancel"] = "ME LO PIENSO",
+                ["BarberExDoneSell"] = "Hecho: -{0} de calvicie y +{1}. Ya te asoma pelusilla, traidor.",
+                ["BarberExDoneBuy"] = "Hecho: +{0} de calvicie y -{1}. Brillas como una bola de billar recién encerada.",
+                ["BarberExNotEnough"] = "No te llega. Ni para un afeitado de barrio.",
+                ["BarberExFailed"] = "Algo ha petado y no se ha tocado nada. Prueba otra vez, que la maquinilla tiene sus días.",
                 ["UnitRp"] = "{0} RP",
                 ["UnitCoins"] = "{0} monedas",
-                ["TitleUpBanner"] = "¡{0} ya es {1}!",
-                ["TierPrize"] = "<color=#f0c040>Premio por ascender a {0}:</color> {1}. Invita la casa.",
+                ["TitleUpBanner"] = "¡{0} ya es {1}! Gafas de sol, que deslumbra.",
+                ["TierPrize"] = "<color=#f0c040>Premio por ascender a {0}:</color> {1}. Invita la casa, que tú no tienes ni para peine.",
                 ["DebugTierPrize"] = "[debug] {0}: premio de {1} · {2}",
                 ["ReasonExchange"] = "cambio en el Calvario",
-                ["BarberGreeting1"] = "Siéntate, peludo. ¿Qué te pelo hoy?",
-                ["BarberGreeting2"] = "Pasa, pasa. Esa melena no se va a arrancar sola.",
-                ["BarberGreeting3"] = "Otra vez tú. Cada día te veo más frente, así me gusta.",
-                ["BarberOptItems"] = "Quiero usar un objeto maldito",
+                ["BarberGreetingV2_1"] = "Siéntate, peludo. ¿Qué te quito hoy, el pelo o la dignidad?",
+                ["BarberGreetingV2_2"] = "Pasa, pasa. Esa melena no se va a arrancar sola, y yo cobro por minuto.",
+                ["BarberGreetingV2_3"] = "Otra vez tú. Cada día más frente y menos vergüenza, así me gusta.",
+                ["BarberOptItemsV2"] = "Traigo algo maldito",
                 ["BarberOptCarne"] = "Vengo a sellar el Carné de Calvo",
                 ["BarberOptBye"] = "Nada, solo miraba",
                 ["BarberOptBack"] = "Volver",
                 ["BarberOptStamp"] = "Séllame lo que traigo",
-                ["BarberItemsIntro"] = "A ver qué traes en esos bolsillos.",
-                ["BarberItemsNone"] = "No llevas nada maldito encima. Vuelve cuando hayas matado algo.",
+                ["BarberItemsIntroV2"] = "A ver qué traes en esos bolsillos. Si es un bocadillo, no cuenta.",
+                ["BarberItemsNoneV2"] = "No llevas nada maldito encima. Vuelve cuando hayas matado algo, que así no se asciende.",
                 ["BarberItemLine"] = "{0} (tienes {1}): {2}",
-                ["BarberTrophyUsed"] = "{0}: +{1}. Lo cuelgo en la pared de los trofeos.",
-                ["BarberCarneIntro"] = "Enséñame el carné. Llevas {0} de {1} colores sellados. Carnés completos: {2}.",
+                ["BarberTrophyUsedV2"] = "{0}: +{1}. A la pared de los trofeos, al lado del peluquín del último valiente.",
+                ["BarberCarneIntroV2"] = "Enséñame el carné. Llevas {0} de {1} colores sellados. Carnés completos: {2}. El Ministerio no tiene prisa, pero yo sí.",
                 ["BarberCarneStamped"] = "Sellados: {0}",
-                ["BarberCarneMissing"] = "Te faltan: {0}",
+                ["BarberCarneMissingV2"] = "Te faltan: {0}. Ponte a matar, que no se sellan solos.",
                 ["TagColorBlue"] = "azul",
                 ["TagColorGray"] = "gris",
                 ["TagColorGreen"] = "verde",
@@ -2210,7 +2210,7 @@ namespace Oxide.Plugins
                 default:
                     long reward = ((TrophyConfig)item).Reward;
                     GainBaldness(data, reward, reason);
-                    return Lang("BarberTrophyUsed", player.UserIDString, name, FormatBaldness(reward));
+                    return Lang("BarberTrophyUsedV2", player.UserIDString, name, FormatBaldness(reward));
             }
         }
 
@@ -2419,7 +2419,7 @@ namespace Oxide.Plugins
         {
             int pick = random.Next(BarberGreetingCount + ProverbNumbers.Length);
             return pick < BarberGreetingCount
-                ? Lang("BarberGreeting" + (pick + 1), userId)
+                ? Lang("BarberGreetingV2_" + (pick + 1), userId)
                 : Lang("CalvarioProverb" + ProverbNumbers[pick - BarberGreetingCount], userId);
         }
 
@@ -2621,7 +2621,7 @@ namespace Oxide.Plugins
 
                     if (line == null)
                     {
-                        var status = new List<string> { Lang(options.Count > 0 ? "BarberItemsIntro" : "BarberItemsNone", userId) };
+                        var status = new List<string> { Lang(options.Count > 0 ? "BarberItemsIntroV2" : "BarberItemsNoneV2", userId) };
                         if (data.HasDeathShield) status.Add(Lang("CalvarioShieldOn", userId));
                         if (IsBatteryActive(data.Id)) status.Add(Lang("CalvarioBatteryOn", userId, BatteryMinutesLeft(data.Id)));
                         line = string.Join(" ", status.ToArray());
@@ -2635,9 +2635,9 @@ namespace Oxide.Plugins
                     string[] missing = tags.Shortnames.Where(c => !data.CarneColors.Contains(c)).Select(c => TagColorName(c, userId)).ToArray();
                     var carne = new List<string>();
                     if (line != null) carne.Add(line);
-                    carne.Add(Lang("BarberCarneIntro", userId, stamped.Length, tags.Shortnames.Count, data.CarnesCompleted));
+                    carne.Add(Lang("BarberCarneIntroV2", userId, stamped.Length, tags.Shortnames.Count, data.CarnesCompleted));
                     if (stamped.Length > 0) carne.Add(Lang("BarberCarneStamped", userId, string.Join(", ", stamped)));
-                    if (missing.Length > 0) carne.Add(Lang("BarberCarneMissing", userId, string.Join(", ", missing)));
+                    if (missing.Length > 0) carne.Add(Lang("BarberCarneMissingV2", userId, string.Join(", ", missing)));
                     carne.Add(Lang("CalvarioCarneHintV2", userId, FormatBaldness(tags.Reward), FormatBaldness(tags.CollectionBonus)));
                     line = string.Join("\n", carne.ToArray());
 
@@ -2694,7 +2694,7 @@ namespace Oxide.Plugins
                     options.Add(new KeyValuePair<string, string>(Lang("BarberExCancel", userId), "calvos.barber exchange"));
                     break;
                 default:
-                    options.Add(new KeyValuePair<string, string>(Lang("BarberOptItems", userId), "calvos.barber items"));
+                    options.Add(new KeyValuePair<string, string>(Lang("BarberOptItemsV2", userId), "calvos.barber items"));
                     options.Add(new KeyValuePair<string, string>(Lang("BarberOptCarne", userId), "calvos.barber carne"));
                     if (config.Exchange.Enabled)
                     {
