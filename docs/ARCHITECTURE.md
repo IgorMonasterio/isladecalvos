@@ -157,10 +157,15 @@ Para añadir otro evento: decidir qué hook marca "participar" y cuál marca
 - Repartos: barriles en `OnEntityDeath` (un `LootContainer` cuyo prefab
   contiene `barrel`), NPCs tras cobrar su tier, y placas rojas en
   `PayEventReward` para cada jugador pagado que esté conectado.
-- Menú `/calvos`: CUI sobre `Overlay` con `CursorEnabled`. Los botones
-  llaman a comandos de consola del plugin (`calvos.tab`, `calvos.use`,
-  `calvos.carne`), que leen `arg.Player()` y `arg.FullString`. Cada acción
-  redibuja la ventana. Los iconos usan `CuiImageComponent.ItemId`.
+- Ventanas: CUI sobre `Overlay` con `CursorEnabled`. Los botones llaman a
+  comandos de consola del plugin (`calvos.tab` para el ranking;
+  `calvos.barber`, `calvos.use` y `calvos.carne` para el barbero), que leen
+  `arg.Player()` y `arg.FullString`. Cada acción redibuja la ventana.
+- El barbero (desde la 1.5.0) es un cuadro de conversación: su frase arriba y
+  las respuestas numeradas abajo (`OpenBarber`, páginas `Main`, `Items` y
+  `Carne`). `UseCursedItem` y `DeliverIdTags` **devuelven** la frase del
+  barbero en vez de mandarla al chat. Los anuncios globales (carné completo)
+  y el aviso de pila agotada siguen yendo al chat.
 - Estado: `HasDeathShield`, `CarneColors` y `CarnesCompleted` en `PlayerData`
   (se guardan); la pila vive en memoria (`batteryUntil`).
 - Todas las ganancias de objetos pasan por `GainBaldness`, así que eventos y
@@ -205,12 +210,11 @@ Para añadir otro evento: decidir qué hook marca "participar" y cuál marca
   ids no son SteamID, así que `IsRealPlayer` los descarta en muertes y
   supervivencia.
 - `calvarioNpcInUse` guarda el NPC con el que habló cada jugador (en memoria).
-  `calvos.use`, `calvos.carne` y `calvos.tab items` exigen haber hablado con él
+  `calvos.barber`, `calvos.use` y `calvos.carne` exigen haber hablado con él
   y estar a `MaxDistance` o menos. Si no, cierran la ventana y mandan al
   jugador a la peluquería. Hace falta porque los comandos de consola se pueden
   escribir desde cualquier sitio.
-- `/calvos` abre solo el ranking (`MenuTab.Ranking`). Cada ventana muestra una
-  sola sección, sin pestañas.
+- `/calvos` abre solo el ranking (`OpenRanking`).
 - Mercalvona (GUIShop), Premios Calvos (Server Rewards) y el TP `/peluqueria`
   (NTeleportation, "Dynamic Commands") son configuración de esos plugins; el
   plugin no los llama. Los pasos están en el README.
