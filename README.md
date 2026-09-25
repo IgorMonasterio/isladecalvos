@@ -244,13 +244,13 @@ Tres casitas, cada una con un NPC de **HumanNPC**:
 Se llega con **`/peluqueria`**, igual que `/bandit` o `/outpost`. `/shop` y
 `/s` dejan de funcionar fuera de allí, y `/calvos` solo muestra el ranking.
 
-**Sin barbero configurado** (`Calvario NPC ids` vacío), `/calvos` abre El
-Calvario desde cualquier sitio, con una opción más para ver el ranking, y el
-aviso de objeto encontrado manda a `/calvos`. Así la isla nunca se queda sin
-Calvario mientras se montan los NPC.
+Dónde va la peluquería y cómo se viste a los NPC depende de cada mapa y lo
+decide quien monta el servidor tras cada wipe. El plugin solo se enlaza con
+el barbero por su `userid`. **Hacen falta los tres NPC.** Sin barbero
+configurado, los objetos no se pueden usar, y la consola lo avisa al cargar.
 
-Con barbero, los objetos solo se pueden usar **a 5 m o menos de él, y después
-de haberle hablado**. Si el jugador se aleja o intenta usarlos por consola desde
+Los objetos solo se pueden usar **a 5 m o menos del barbero, y después de
+haberle hablado**. Si el jugador se aleja o intenta usarlos por consola desde
 otro sitio, se le cierra la ventana y se le manda a la peluquería.
 
 ### Cómo se monta en el servidor
