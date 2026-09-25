@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Isla de Calvos", "Igor Monasterio", "1.4.0")]
+    [Info("Isla de Calvos", "Igor Monasterio", "1.4.1")]
     [Description("Baldness system for the Isla de Calvos Rust server: being bald is glory, hair is a curse.")]
     public class IslaDeCalvos : RustPlugin
     {
@@ -660,9 +660,9 @@ namespace Oxide.Plugins
             var messages = new Dictionary<string, string>
             {
                 ["CalvarioTitle"] = "EL CALVARIO",
-                ["CalvarioSubtitle"] = "Clínica de alopecia voluntaria  ·  Aquí el pelo entra, pero no sale",
+                ["CalvarioSubtitleV2"] = "Clínica de alopecia voluntaria  ·  Se entra con pelo y se sale con dignidad",
                 ["CalvarioYou"] = "Tu calvicie: <color=#f5d3a8>{0}</color>  —  {1}",
-                ["CalvarioNext"] = "Hacia <color=#f5d3a8>{0}</color>: te faltan {1}",
+                ["CalvarioNextV2"] = "Hacia <color=#f5d3a8>{0}</color>: te faltan {1}. Sigue matando, que no se pela solo.",
                 ["CalvarioTop"] = "Cima capilar alcanzada. Ya no queda nada que arrancar.",
                 ["CalvarioTabItems"] = "OBJETOS MALDITOS",
                 ["CalvarioTabRanking"] = "SALÓN DE LA FAMA CALVA",
@@ -678,18 +678,17 @@ namespace Oxide.Plugins
                 ["CalvarioProverb3"] = "Más vale calvo conocido que peludo por conocer.",
                 ["CalvarioProverb4"] = "Cabeza que brilla, cabeza que manda.",
                 ["CalvarioProverb5"] = "No es una calva. Es un panel solar.",
-                ["CalvarioProverb6"] = "El peine es un arma. Úsalo contra el peludo.",
                 ["CalvarioProverb7"] = "La calva no se pierde: se conquista.",
                 ["CalvarioProverb8"] = "El champú anticaída es propaganda peluda.",
                 ["CalvarioCarneTitle"] = "CARNÉ DE CALVO  ·  Ministerio de Alopecia de la Isla   ({0}/{1})   ·   Carnés sellados: {2}",
-                ["CalvarioCarneHint"] = "Una tarjeta de cada color: +{0} por sello y +{1} al completar el carné. Las repetidas, para cambiarlas.",
+                ["CalvarioCarneHintV2"] = "Una tarjeta de cada color: +{0} por sello y +{1} al completar el carné. Las repetidas, para cambiarlas en el patio.",
                 ["CalvarioCarneStamp"] = "SELLADO",
                 ["CalvarioCarneDeliver"] = "SELLAR",
                 ["CalvarioCarneNone"] = "NADA QUE SELLAR",
                 ["CalvarioRankingEmpty"] = "Aún no hay nadie en el salón. La isla está llena de pelo.",
                 ["CalvarioRankingLine"] = "{0}.  {1}",
-                ["CalvarioRankingYou"] = "Tu puesto: <color=#f5d3a8>{0}º</color> de {1}. Te faltan <color=#f5d3a8>{2}</color> para adelantar a {3}.",
-                ["CalvarioRankingFirst"] = "Eres la cabeza más brillante de la isla. Que no se te suba (el pelo).",
+                ["CalvarioRankingYouV2"] = "Tu puesto: <color=#f5d3a8>{0}º</color> de {1}. Te faltan <color=#f5d3a8>{2}</color> para adelantar a {3}. Venga, que ese tiene hasta cejas.",
+                ["CalvarioRankingFirstV2"] = "Eres la cabeza más brillante de la isla. Los demás se peinan mirándose en ti.",
                 ["CalvarioPrev"] = "< ANTERIOR",
                 ["CalvarioNextPage"] = "SIGUIENTE >",
                 ["CalvarioPage"] = "Página {0}/{1}",
@@ -708,25 +707,25 @@ namespace Oxide.Plugins
                 ["CalvarioDescBlueDogTags"] = "Arrancadas a un heavy con melena. +{0}.",
                 ["CalvarioDescRedDogTags"] = "Del piloto que perdió el tupé con el helicóptero. +{0}.",
                 ["CalvarioDescGems"] = "Joya de la corona de Su Calvísima Majestad. Brilla como tu cabeza. +{0}.",
-                ["ItemFound"] = "Has encontrado: <color=#f0c040>{0}</color>. Úsalo desde /calvos.",
-                ["ItemNone"] = "No llevas {0} encima.",
+                ["ItemFoundV2"] = "Has encontrado: <color=#f0c040>{0}</color>. Úsalo desde /calvos, que en el bolsillo no hace nada.",
+                ["ItemNoneV2"] = "No llevas {0} encima. Ni eso.",
                 ["ItemShieldAlready"] = "Ya llevas la calva tapada con cinta. Muere primero.",
-                ["ItemBatteryAlready"] = "La maquinilla ya está en marcha (quedan {0} min).",
+                ["ItemBatteryAlreadyV2"] = "La maquinilla ya está en marcha (quedan {0} min). Más rápido no va a ir, fiera.",
                 ["ItemBleachWin"] = "La lejía te ha abrasado el cuero cabelludo. Gloria: +{0}.",
                 ["ItemBleachFail"] = "La lejía te ha dejado un mechón rebelde. Vergüenza: -{0}.",
-                ["ItemShieldOn"] = "Te has tapado la calva con cinta americana. Tu próxima muerte no restará.",
+                ["ItemShieldOnV2"] = "Te has tapado la calva con cinta americana. Tu próxima muerte no restará. Elegante no es, pero funciona.",
                 ["ItemShieldUsed"] = "La cinta americana ha protegido tu calva: esta muerte no resta.",
-                ["ItemBatteryOn"] = "Maquinilla en marcha: x{0} durante {1} min.",
-                ["ItemBatteryOff"] = "Se le ha acabado la pila a la maquinilla.",
-                ["CarneNothing"] = "No llevas ninguna tarjeta de un color que te falte.",
-                ["CarneDelivered"] = "Has entregado {0} tarjeta(s): +{1}.",
-                ["CarneCompleted"] = "<color=#f0c040>{0}</color> ha completado el CARNÉ DE CALVO y gana +{1}.",
+                ["ItemBatteryOnV2"] = "Maquinilla en marcha: x{0} durante {1} min. Bzzzz.",
+                ["ItemBatteryOffV2"] = "Se le ha acabado la pila a la maquinilla. Vuelves a pelarte a mano, como los pobres.",
+                ["CarneNothingV2"] = "No llevas ninguna tarjeta de un color que te falte. Las repes, a tu primo.",
+                ["CarneDeliveredV2"] = "Has entregado {0} tarjeta(s): +{1}. El funcionario ni te ha mirado.",
+                ["CarneCompletedV2"] = "<color=#f0c040>{0}</color> ha completado el CARNÉ DE CALVO y gana +{1}. El Ministerio de Alopecia está orgulloso. Su madre, no tanto.",
                 ["ReasonItemUse"] = "objeto: {0}",
                 ["ReasonCarne"] = "carné de calvo",
-                ["SupremeBaldness"] = "<color=#f0c040>{0} HA ALCANZADO LA CALVICIE SUPREMA</color>",
-                ["TitleUp"] = "<color=#f0c040>{0}</color> asciende a <color=#f0c040>{1}</color>",
+                ["SupremeBaldnessV2"] = "<color=#f0c040>{0} HA ALCANZADO LA CALVICIE SUPREMA</color>. Tiene la cabeza tan pulida que las gaviotas se peinan mirándose en ella y los pilotos la usan para aterrizar de noche. Peludos del mundo: de rodillas, que a partir de hoy hasta vuestra madre se la frota para pedir un deseo.",
+                ["TitleUpV2"] = "<color=#f0c040>{0}</color> asciende a <color=#f0c040>{1}</color>. Su peluquero ya ha pedido el paro.",
                 ["TitleDrop"] = "<color=#e05050>A {0} le está saliendo pelo</color> (ahora es {1})",
-                ["NoPermission"] = "No tienes permiso para usar este comando.",
+                ["NoPermissionV2"] = "No tienes permiso para usar este comando. Buen intento, listo.",
                 ["AdminUsage"] = "Uso: /calvoadmin set <jugador> <valor> | /calvoadmin reset <jugador> | /calvoadmin debug on|off | /calvoadmin evento <hora|champu|peludo|alopecia|parar>",
                 ["AdminInvalidValue"] = "El valor tiene que ser un número entero igual o mayor que {0}.",
                 ["PlayerNotFound"] = "No se ha encontrado ningún jugador con '{0}'.",
@@ -742,7 +741,7 @@ namespace Oxide.Plugins
                 ["NoRpAfk"] = "no se ha movido (AFK)",
                 ["NoRpPlugin"] = "Server Rewards no está cargado",
                 ["NoRpRefused"] = "Server Rewards no aceptó el pago",
-                ["RpEarned"] = "<color=#f0c040>+{0} RP</color> por lucir calva de <color=#f5d3a8>{1}</color>. Ser calvo tiene premio.",
+                ["RpEarnedV2"] = "<color=#f0c040>+{0} RP</color> por lucir calva de <color=#f5d3a8>{1}</color>. Es lo único que te va a pagar alguien en la vida por estar calvo: disfrútalo.",
                 ["ReasonPlayerKill"] = "kill a {0}",
                 ["ReasonPlayerHeadshotKill"] = "kill de headshot a {0}",
                 ["ReasonDeath"] = "muerte (-{0} %)",
@@ -763,18 +762,18 @@ namespace Oxide.Plugins
                 ["EventNameHairiestHunt"] = "Cazar al más peludo",
                 ["EventNameAlopeciaOutbreak"] = "Brote de alopecia",
                 ["EventTag"] = " [{0} x{1}]",
-                ["EventBaldHourStart"] = "<color=#f0c040>HORA DE LA CALVICIE</color>: durante {0} min todo da x{1} de calvicie. Aprovechad, que el pelo no descansa.",
-                ["EventBaldHourEnd"] = "Se acabó la Hora de la calvicie. El pelo vuelve a acechar.",
+                ["EventBaldHourStartV2"] = "<color=#f0c040>HORA DE LA CALVICIE</color>: durante {0} min todo da x{1} de calvicie. Salid a matar, que la frente no se despeja sola.",
+                ["EventBaldHourEndV2"] = "Se acabó la Hora de la calvicie. Volvéis a pelaros a precio normal.",
                 ["EventShampooRainStart"] = "<color=#e05050>LLUVIA DE CHAMPÚ</color>: durante {0} min morir resta x{1}. Con este tiempo el pelo crece que da gusto.",
                 ["EventShampooRainEnd"] = "Ha escampado. Podéis volver a morir con relativa dignidad.",
-                ["EventHuntStart"] = "<color=#f0c040>CAZAR AL MÁS PELUDO</color>: {0} es el más peludo de la isla ({1}). Quien lo mate gana +{2}. Si aguanta {3} min con su melena, gana él +{4}.",
-                ["EventHuntKilled"] = "<color=#f0c040>{0}</color> ha cazado al más peludo, {1}, y gana +{2}. La isla respira aliviada.",
-                ["EventHuntSurvived"] = "{0} ha sobrevivido a la cacería con todo su pelo y gana +{1}. Qué asco.",
-                ["EventHuntDied"] = "{0} ha muerto sin que nadie se lleve el mérito. Se acabó la cacería.",
-                ["EventHuntEscaped"] = "{0} ha huido de la isla con su melena. Se acabó la cacería.",
-                ["EventAlopeciaStart"] = "<color=#f0c040>BROTE DE ALOPECIA</color>: durante {0} min el heli, la Bradley y el Chinook dan x{1}.",
-                ["EventAlopeciaEnd"] = "El brote de alopecia remite. Por ahora.",
-                ["EventStoppedByAdmin"] = "Un admin ha cancelado el evento {0}.",
+                ["EventHuntStartV2"] = "<color=#f0c040>CAZAR AL MÁS PELUDO</color>: {0} es el más peludo de la isla ({1}). Quien lo mate gana +{2}. Si aguanta {3} min con su melena, gana él +{4}. A por él, que esa melena no se va a cortar sola.",
+                ["EventHuntKilledV2"] = "<color=#f0c040>{0}</color> ha cazado al más peludo, {1}, y gana +{2}. Corte de pelo gratis y a bocajarro.",
+                ["EventHuntSurvivedV2"] = "{0} ha sobrevivido a la cacería con todo su pelo y gana +{1}. Vergüenza os debería dar, calvos.",
+                ["EventHuntDiedV2"] = "{0}, el más peludo de la isla, la ha palmado solito, sin que nadie le meta un tiro. Se ha muerto como vivió: con el pelo en la cara y sin que nadie le haga ni puto caso. Se acabó la cacería.",
+                ["EventHuntEscapedV2"] = "{0} se ha pirado de la isla con su melena, como una rata con extensiones. Volverá cuando se le acabe el acondicionador. Se acabó la cacería.",
+                ["EventAlopeciaStartV2"] = "<color=#f0c040>BROTE DE ALOPECIA</color>: durante {0} min el heli, la Bradley y el Chinook dan x{1}. Hoy hasta el cielo se pela.",
+                ["EventAlopeciaEndV2"] = "Se acabó el brote de alopecia. El heli vuelve a pagar lo de siempre, como un funcionario.",
+                ["EventStoppedByAdminV2"] = "Un admin ha cancelado el evento {0}. Las quejas, a su peluquero.",
                 ["ReasonHuntKill"] = "cazar al más peludo ({0})",
                 ["ReasonHuntSurvived"] = "sobrevivir a la cacería",
                 ["AdminEventUsage"] = "Uso: /calvoadmin evento <hora|champu|peludo|alopecia|parar>",
@@ -1289,7 +1288,7 @@ namespace Oxide.Plugins
         {
             if (!permission.UserHasPermission(player.UserIDString, PermAdmin))
             {
-                Reply(player, "NoPermission");
+                Reply(player, "NoPermissionV2");
                 return;
             }
 
@@ -1398,7 +1397,7 @@ namespace Oxide.Plugins
 
             if (activeEvent == GlobalEvent.HairiestHunt && player != null && (ulong)player.userID == huntTargetId)
             {
-                BroadcastEvent("EventHuntEscaped", player.displayName);
+                BroadcastEvent("EventHuntEscapedV2", player.displayName);
                 EndEvent(false);
             }
         }
@@ -1440,7 +1439,7 @@ namespace Oxide.Plugins
                 case GlobalEvent.BaldHour:
                     if (!events.BaldHour.Enabled) return false;
                     minutes = events.BaldHour.DurationMinutes;
-                    BroadcastEvent("EventBaldHourStart", minutes, events.BaldHour.Multiplier);
+                    BroadcastEvent("EventBaldHourStartV2", minutes, events.BaldHour.Multiplier);
                     break;
                 case GlobalEvent.ShampooRain:
                     if (!events.ShampooRain.Enabled) return false;
@@ -1457,12 +1456,12 @@ namespace Oxide.Plugins
                     BasePlayer target = hairiest[random.Next(hairiest.Count)];
                     huntTargetId = (ulong)target.userID;
                     minutes = hunt.DurationMinutes;
-                    BroadcastEvent("EventHuntStart", target.displayName, FormatBaldness(lowest), FormatBaldness(hunt.KillerBonus), minutes, FormatBaldness(hunt.SurvivorBonus));
+                    BroadcastEvent("EventHuntStartV2", target.displayName, FormatBaldness(lowest), FormatBaldness(hunt.KillerBonus), minutes, FormatBaldness(hunt.SurvivorBonus));
                     break;
                 case GlobalEvent.AlopeciaOutbreak:
                     if (!events.AlopeciaOutbreak.Enabled) return false;
                     minutes = events.AlopeciaOutbreak.DurationMinutes;
-                    BroadcastEvent("EventAlopeciaStart", minutes, events.AlopeciaOutbreak.Multiplier);
+                    BroadcastEvent("EventAlopeciaStartV2", minutes, events.AlopeciaOutbreak.Multiplier);
                     break;
                 default:
                     return false;
@@ -1492,7 +1491,7 @@ namespace Oxide.Plugins
                 switch (ended)
                 {
                     case GlobalEvent.BaldHour:
-                        BroadcastEvent("EventBaldHourEnd");
+                        BroadcastEvent("EventBaldHourEndV2");
                         break;
                     case GlobalEvent.ShampooRain:
                         BroadcastEvent("EventShampooRainEnd");
@@ -1501,13 +1500,13 @@ namespace Oxide.Plugins
                         if (storedData.Players.TryGetValue(huntTargetId, out PlayerData target))
                         {
                             long bonus = config.GlobalEvents.HairiestHunt.SurvivorBonus;
-                            BroadcastEvent("EventHuntSurvived", target.Name, FormatBaldness(bonus));
+                            BroadcastEvent("EventHuntSurvivedV2", target.Name, FormatBaldness(bonus));
                             ChangeBaldness(target, bonus, true, Lang("ReasonHuntSurvived"));
                         }
 
                         break;
                     case GlobalEvent.AlopeciaOutbreak:
-                        BroadcastEvent("EventAlopeciaEnd");
+                        BroadcastEvent("EventAlopeciaEndV2");
                         break;
                 }
             }
@@ -1520,13 +1519,13 @@ namespace Oxide.Plugins
         {
             if (killer == null)
             {
-                BroadcastEvent("EventHuntDied", targetData.Name);
+                BroadcastEvent("EventHuntDiedV2", targetData.Name);
             }
             else
             {
                 long bonus = config.GlobalEvents.HairiestHunt.KillerBonus;
                 PlayerData killerData = GetOrCreateData(killer);
-                BroadcastEvent("EventHuntKilled", killerData.Name, targetData.Name, FormatBaldness(bonus));
+                BroadcastEvent("EventHuntKilledV2", killerData.Name, targetData.Name, FormatBaldness(bonus));
                 ChangeBaldness(killerData, bonus, true, Lang("ReasonHuntKill", null, targetData.Name));
             }
 
@@ -1550,7 +1549,7 @@ namespace Oxide.Plugins
                         return;
                     }
 
-                    BroadcastEvent("EventStoppedByAdmin", EventName(activeEvent));
+                    BroadcastEvent("EventStoppedByAdminV2", EventName(activeEvent));
                     EndEvent(false);
                     return;
                 default:
@@ -1914,7 +1913,7 @@ namespace Oxide.Plugins
 
             if (GiveItem(player, item.Shortname))
             {
-                Reply(player, "ItemFound", displayName ?? CursedItemName(KeyOf(item)));
+                Reply(player, "ItemFoundV2", displayName ?? CursedItemName(KeyOf(item)));
             }
         }
 
@@ -1965,7 +1964,7 @@ namespace Oxide.Plugins
             string name = CursedItemName(key);
             if (CountItem(player, item.Shortname) < 1)
             {
-                Reply(player, "ItemNone", name);
+                Reply(player, "ItemNoneV2", name);
                 return;
             }
 
@@ -1978,7 +1977,7 @@ namespace Oxide.Plugins
 
             if (key == "battery" && IsBatteryActive(data.Id))
             {
-                Reply(player, "ItemBatteryAlready", BatteryMinutesLeft(data.Id));
+                Reply(player, "ItemBatteryAlreadyV2", BatteryMinutesLeft(data.Id));
                 return;
             }
 
@@ -2007,13 +2006,13 @@ namespace Oxide.Plugins
                 case "ducttape":
                     data.HasDeathShield = true;
                     dataDirty = true;
-                    Reply(player, "ItemShieldOn");
+                    Reply(player, "ItemShieldOnV2");
                     break;
                 case "battery":
                     BatteryConfig battery = config.CursedItems.Battery;
                     ulong id = data.Id;
                     batteryUntil[id] = DateTime.UtcNow.AddMinutes(battery.Minutes);
-                    Reply(player, "ItemBatteryOn", battery.Multiplier, battery.Minutes);
+                    Reply(player, "ItemBatteryOnV2", battery.Multiplier, battery.Minutes);
                     timer.Once(battery.Minutes * 60f, () =>
                     {
                         if (!IsBatteryActive(id))
@@ -2022,7 +2021,7 @@ namespace Oxide.Plugins
                             BasePlayer owner = BasePlayer.FindByID(id);
                             if (owner != null && owner.IsConnected)
                             {
-                                Reply(owner, "ItemBatteryOff");
+                                Reply(owner, "ItemBatteryOffV2");
                             }
                         }
                     });
@@ -2050,19 +2049,19 @@ namespace Oxide.Plugins
 
             if (delivered == 0)
             {
-                Reply(player, "CarneNothing");
+                Reply(player, "CarneNothingV2");
                 return;
             }
 
             dataDirty = true;
-            Reply(player, "CarneDelivered", delivered, FormatBaldness(delivered * tags.Reward));
+            Reply(player, "CarneDeliveredV2", delivered, FormatBaldness(delivered * tags.Reward));
             GainBaldness(data, delivered * tags.Reward, Lang("ReasonCarne"));
 
             if (tags.Shortnames.All(c => data.CarneColors.Contains(c)))
             {
                 data.CarneColors.Clear();
                 data.CarnesCompleted++;
-                BroadcastEvent("CarneCompleted", data.Name, FormatBaldness(tags.CollectionBonus));
+                BroadcastEvent("CarneCompletedV2", data.Name, FormatBaldness(tags.CollectionBonus));
                 ChangeBaldness(data, tags.CollectionBonus, true, Lang("ReasonCarne"));
             }
         }
@@ -2126,7 +2125,8 @@ namespace Oxide.Plugins
         private const string ColorPoleBlue = "0.16 0.3 0.62 1";
         private const string ColorGood = "0.35 0.5 0.25 1";
         private const string ColorDisabled = "0.28 0.2 0.18 1";
-        private const int ProverbCount = 8;
+        // Proverb 6 was removed in 1.4.1; its lang key is gone, so the numbers skip it.
+        private static readonly int[] ProverbNumbers = { 1, 2, 3, 4, 5, 7, 8 };
 
         private void OpenMenu(BasePlayer player, MenuTab tab, int page)
         {
@@ -2157,7 +2157,7 @@ namespace Oxide.Plugins
             }
 
             AddText(ui, window, Lang("CalvarioTitle", userId), 26, TextAnchor.MiddleLeft, "0.03 0.915", "0.45 0.975", ColorScalp);
-            AddText(ui, window, Lang("CalvarioSubtitle", userId), 11, TextAnchor.MiddleLeft, "0.03 0.88", "0.6 0.915", ColorMuted);
+            AddText(ui, window, Lang("CalvarioSubtitleV2", userId), 11, TextAnchor.MiddleLeft, "0.03 0.88", "0.6 0.915", ColorMuted);
             AddText(ui, window, Lang("CalvarioYou", userId, FormatBaldness(data.Baldness), GetTitle(data.Baldness)), 15, TextAnchor.MiddleRight, "0.45 0.93", "0.935 0.975");
             DrawTitleProgress(ui, window, data.Baldness, userId);
             AddButton(ui, window, Lang("CalvarioClose", userId), "0.956 0.935", "0.99 0.985", ColorPoleRed, null, UiMenu, 18);
@@ -2192,7 +2192,7 @@ namespace Oxide.Plugins
             long from = baldness < current.MinBaldness ? 0 : current.MinBaldness;
             float progress = next.MinBaldness > from ? Math.Max(0f, Math.Min(1f, (baldness - from) / (float)(next.MinBaldness - from))) : 1f;
 
-            AddText(ui, window, Lang("CalvarioNext", userId, next.Name, FormatBaldness(next.MinBaldness - baldness)), 11, TextAnchor.MiddleRight, "0.45 0.898", "0.935 0.925", ColorMuted);
+            AddText(ui, window, Lang("CalvarioNextV2", userId, next.Name, FormatBaldness(next.MinBaldness - baldness)), 11, TextAnchor.MiddleRight, "0.45 0.898", "0.935 0.925", ColorMuted);
             AddPanel(ui, window, ColorCardDark, "0.62 0.884", "0.935 0.896");
             if (progress > 0f)
             {
@@ -2215,7 +2215,7 @@ namespace Oxide.Plugins
                 if (i == CursedItemKeys.Length)
                 {
                     AddText(ui, card, Lang("CalvarioWisdom", userId), 14, TextAnchor.UpperCenter, "0.05 0.7", "0.95 0.93", ColorScalp);
-                    AddText(ui, card, "\"" + Lang("CalvarioProverb" + (random.Next(ProverbCount) + 1), userId) + "\"", 14, TextAnchor.MiddleCenter, "0.07 0.1", "0.93 0.7", ColorText);
+                    AddText(ui, card, "\"" + Lang("CalvarioProverb" + ProverbNumbers[random.Next(ProverbNumbers.Length)], userId) + "\"", 14, TextAnchor.MiddleCenter, "0.07 0.1", "0.93 0.7", ColorText);
                     break;
                 }
 
@@ -2242,7 +2242,7 @@ namespace Oxide.Plugins
 
             int done = tags.Shortnames.Count(c => data.CarneColors.Contains(c));
             AddText(ui, carne, Lang("CalvarioCarneTitle", userId, done, tags.Shortnames.Count, data.CarnesCompleted), 14, TextAnchor.MiddleLeft, "0.02 0.78", "0.98 0.97", ColorScalp);
-            AddText(ui, carne, Lang("CalvarioCarneHint", userId, FormatBaldness(tags.Reward), FormatBaldness(tags.CollectionBonus)), 11, TextAnchor.MiddleLeft, "0.02 0.62", "0.98 0.78", ColorText);
+            AddText(ui, carne, Lang("CalvarioCarneHintV2", userId, FormatBaldness(tags.Reward), FormatBaldness(tags.CollectionBonus)), 11, TextAnchor.MiddleLeft, "0.02 0.62", "0.98 0.78", ColorText);
 
             bool canDeliver = false;
             int slots = Math.Max(1, tags.Shortnames.Count);
@@ -2313,8 +2313,8 @@ namespace Oxide.Plugins
 
             int myIndex = ranking.IndexOf(me);
             string footer = myIndex <= 0
-                ? Lang("CalvarioRankingFirst", userId)
-                : Lang("CalvarioRankingYou", userId, myIndex + 1, ranking.Count, FormatBaldness(ranking[myIndex - 1].Baldness - me.Baldness + 1), ranking[myIndex - 1].Name);
+                ? Lang("CalvarioRankingFirstV2", userId)
+                : Lang("CalvarioRankingYouV2", userId, myIndex + 1, ranking.Count, FormatBaldness(ranking[myIndex - 1].Baldness - me.Baldness + 1), ranking[myIndex - 1].Name);
             AddText(ui, window, footer, 14, TextAnchor.MiddleLeft, "0.03 0.1", "0.97 0.17", ColorText);
 
             AddText(ui, window, Lang("CalvarioPage", userId, page + 1, pages), 13, TextAnchor.MiddleCenter, "0.42 0.03", "0.58 0.09", ColorMuted);
@@ -2550,7 +2550,7 @@ namespace Oxide.Plugins
             SendDebug("DebugRp", data.Name, amount, GetTitle(data.Baldness));
             if (rp.NotifyPlayer)
             {
-                Reply(player, "RpEarned", amount, GetTitle(data.Baldness));
+                Reply(player, "RpEarnedV2", amount, GetTitle(data.Baldness));
             }
         }
 
@@ -2597,11 +2597,11 @@ namespace Oxide.Plugins
                 // Reaching the highest title gets its own announcement instead of the generic one.
                 if (newTier == config.Titles.Count - 1 && config.AnnounceSupremeBaldness)
                 {
-                    Broadcast("SupremeBaldness", data.Name);
+                    Broadcast("SupremeBaldnessV2", data.Name);
                 }
                 else if (config.AnnounceTitleUp)
                 {
-                    Broadcast("TitleUp", data.Name, GetTitle(newValue));
+                    Broadcast("TitleUpV2", data.Name, GetTitle(newValue));
                 }
             }
             else if (newTier < oldTier && config.AnnounceTitleDrop)
