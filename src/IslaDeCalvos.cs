@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Isla de Calvos", "Igor Monasterio", "1.5.1")]
+    [Info("Isla de Calvos", "Igor Monasterio", "1.6.0")]
     [Description("Baldness system for the Isla de Calvos Rust server: being bald is glory, hair is a curse.")]
     public class IslaDeCalvos : RustPlugin
     {
@@ -45,6 +45,15 @@ namespace Oxide.Plugins
 
         // Server Rewards (RP): optional. If it is not loaded, no RP is paid and baldness works as usual.
         [PluginReference] private Plugin ServerRewards = null;
+
+        // Economics (coins): optional, only for tier prizes and the baldness exchange.
+        [PluginReference] private Plugin Economics = null;
+
+        // Tier prizes by title index (built from the config).
+        private Dictionary<int, TierPrize> tierPrizes;
+
+        // Baldness exchange waiting for the player's CONFIRMAR. In memory only; the button carries no amounts.
+        private readonly Dictionary<ulong, PendingExchange> pendingExchanges = new Dictionary<ulong, PendingExchange>();
 
         // RP per interval by title, sorted by minimum baldness (built from the config).
         private List<KeyValuePair<long, int>> rpRates;
@@ -117,13 +126,24 @@ namespace Oxide.Plugins
             public List<TitleTier> Titles = new List<TitleTier>
             {
                 new TitleTier { MinBaldness = 1, Name = "Greñas Sucias" },
-                new TitleTier { MinBaldness = 10, Name = "Pelambrera Lamentable" },
-                new TitleTier { MinBaldness = 100, Name = "Entradas Incipientes" },
-                new TitleTier { MinBaldness = 1000, Name = "Coronilla a la Intemperie" },
-                new TitleTier { MinBaldness = 10000, Name = "Caballero de la Tonsura" },
-                new TitleTier { MinBaldness = 100000, Name = "Lord Bola de Billar" },
-                new TitleTier { MinBaldness = 1000000, Name = "Su Calvísima Majestad" }
+                new TitleTier { MinBaldness = 1000, Name = "Pelambrera Lamentable" },
+                new TitleTier { MinBaldness = 10000, Name = "Entradas Incipientes" },
+                new TitleTier { MinBaldness = 100000, Name = "Coronilla a la Intemperie" },
+                new TitleTier { MinBaldness = 1000000, Name = "Caballero de la Tonsura" },
+                new TitleTier { MinBaldness = 10000000, Name = "Lord Bola de Billar" },
+                new TitleTier { MinBaldness = 100000000, Name = "Su Calvísima Majestad" }
             };
+
+            // Paid once per player and title, the first time they reach it. All zero by default.
+            [JsonProperty("Tier prizes (title minimum baldness -> prize)", ObjectCreationHandling = ObjectCreationHandling.Replace)]
+            public Dictionary<string, TierPrize> TierPrizes = new Dictionary<string, TierPrize>
+            {
+                ["1"] = new TierPrize(), ["1000"] = new TierPrize(), ["10000"] = new TierPrize(), ["100000"] = new TierPrize(),
+                ["1000000"] = new TierPrize(), ["10000000"] = new TierPrize(), ["100000000"] = new TierPrize()
+            };
+
+            [JsonProperty("Tier prizes also for bought baldness")]
+            public bool TierPrizesForBoughtBaldness = false;
 
             [JsonProperty("NpcTiers", ObjectCreationHandling = ObjectCreationHandling.Replace)]
             public Dictionary<string, int> NpcTiers = DefaultNpcTiers();
@@ -164,6 +184,9 @@ namespace Oxide.Plugins
 
             [JsonProperty("Barber shop (HumanNPC)")]
             public BarberShopConfig BarberShop = new BarberShopConfig();
+
+            [JsonProperty("Baldness exchange (El Calvario)")]
+            public ExchangeConfig Exchange = new ExchangeConfig();
         }
 
         // El Calvario opens from a HumanNPC at the barber shop; /calvos only shows the ranking.
@@ -173,6 +196,38 @@ namespace Oxide.Plugins
             public List<ulong> CalvarioNpcIds = new List<ulong>();
 
             [JsonProperty("Max distance to the Calvario NPC to use items (meters)")] public float MaxDistance = 5f;
+        }
+
+        private class TierPrize
+        {
+            [JsonProperty("RP (Server Rewards)")] public int Rp = 0;
+            [JsonProperty("Coins (Economics)")] public long Coins = 0;
+
+            [JsonProperty("Items", ObjectCreationHandling = ObjectCreationHandling.Replace)]
+            public List<PrizeItem> Items = new List<PrizeItem>();
+
+            [JsonIgnore]
+            public bool IsEmpty => Rp <= 0 && Coins <= 0 && (Items == null || Items.All(i => i == null || i.Amount <= 0));
+        }
+
+        private class PrizeItem
+        {
+            [JsonProperty("Item shortname")] public string Shortname = string.Empty;
+            [JsonProperty("Amount")] public int Amount = 1;
+        }
+
+        // Selling baldness is cheap and buying it is expensive on purpose: baldness pays RP every 30 min forever.
+        private class ExchangeConfig
+        {
+            [JsonProperty("Enabled")] public bool Enabled = true;
+            [JsonProperty("Sell: baldness for 1 RP")] public long SellBaldnessPerRp = 100;
+            [JsonProperty("Sell: coins per 100 baldness")] public long SellCoinsPer100 = 10;
+            [JsonProperty("Buy: RP per 1 baldness")] public long BuyRpPerBaldness = 1;
+            [JsonProperty("Buy: coins per 1 baldness")] public long BuyCoinsPerBaldness = 10;
+            [JsonProperty("Minimum baldness to sell")] public long MinSell = 100;
+
+            [JsonProperty("Amounts offered (baldness)", ObjectCreationHandling = ObjectCreationHandling.Replace)]
+            public List<long> Amounts = new List<long> { 100, 1000, 10000, 100000 };
         }
 
         // Pays Server Rewards RP to bald players who stay alive, connected and not AFK.
@@ -187,6 +242,9 @@ namespace Oxide.Plugins
             [JsonProperty("Minimum movement between checks to count as active (meters)")] public float MinMoveMeters = 1f;
 
             [JsonProperty("Tell the player in chat when RP is paid")] public bool NotifyPlayer = true;
+
+            // Linear RP: floor(baldness / X), no cap. 0 = use the table below instead.
+            [JsonProperty("RP per X baldness (0 = use the table)")] public long RpPerBaldness = 100;
 
             [JsonProperty("RP per interval by title (minimum baldness -> RP)", ObjectCreationHandling = ObjectCreationHandling.Replace)]
             public Dictionary<string, int> RpByMinBaldness = new Dictionary<string, int>
@@ -290,6 +348,12 @@ namespace Oxide.Plugins
 
             [JsonProperty("Seconds the event banner stays")]
             public float BannerSeconds = 8f;
+
+            [JsonProperty("Show a banner to everyone when a player rises to a higher title")]
+            public bool ShowTitleUpBanner = true;
+
+            [JsonProperty("Seconds the title-up banner stays")]
+            public float TitleUpBannerSeconds = 6f;
         }
 
         private class GlobalEventsConfig
@@ -547,6 +611,32 @@ namespace Oxide.Plugins
                 PrintWarning($"TierRewards has no value for tier {tier}; NPCs of that tier give nothing.");
             }
 
+            config.Ui.TitleUpBannerSeconds = Math.Max(1f, config.Ui.TitleUpBannerSeconds);
+            if (config.Exchange == null) config.Exchange = new ExchangeConfig();
+            ExchangeConfig ex = config.Exchange;
+            ex.SellBaldnessPerRp = Math.Max(1, ex.SellBaldnessPerRp);
+            ex.SellCoinsPer100 = Math.Max(0, ex.SellCoinsPer100);
+            ex.BuyRpPerBaldness = Math.Max(1, ex.BuyRpPerBaldness);
+            ex.BuyCoinsPerBaldness = Math.Max(1, ex.BuyCoinsPerBaldness);
+            ex.MinSell = Math.Max(1, ex.MinSell);
+            ex.Amounts = (ex.Amounts ?? new List<long>()).Where(a => a > 0).Distinct().OrderBy(a => a).ToList();
+
+            if (config.TierPrizes == null) config.TierPrizes = new Dictionary<string, TierPrize>();
+            tierPrizes = new Dictionary<int, TierPrize>();
+            foreach (KeyValuePair<string, TierPrize> entry in config.TierPrizes)
+            {
+                if (entry.Value == null) continue;
+                int index = long.TryParse(entry.Key, NumberStyles.Integer, CultureInfo.InvariantCulture, out long min)
+                    ? config.Titles.FindIndex(t => t.MinBaldness == min) : -1;
+                if (index < 0)
+                {
+                    PrintWarning($"Tier prizes: '{entry.Key}' is not the minimum baldness of any title; ignored.");
+                    continue;
+                }
+
+                tierPrizes[index] = entry.Value;
+            }
+
             if (config.BarberShop == null) config.BarberShop = new BarberShopConfig();
             if (config.BarberShop.CalvarioNpcIds == null) config.BarberShop.CalvarioNpcIds = new List<ulong>();
             config.BarberShop.MaxDistance = Math.Max(1f, config.BarberShop.MaxDistance);
@@ -560,6 +650,7 @@ namespace Oxide.Plugins
             ServerRewardsConfig rp = config.ServerRewards;
             rp.IntervalMinutes = Math.Max(1, rp.IntervalMinutes);
             rp.MinMoveMeters = Math.Max(0f, rp.MinMoveMeters);
+            rp.RpPerBaldness = Math.Max(0, rp.RpPerBaldness);
             if (rp.RpByMinBaldness == null) rp.RpByMinBaldness = new Dictionary<string, int>();
             rpRates = new List<KeyValuePair<long, int>>();
             foreach (KeyValuePair<string, int> entry in rp.RpByMinBaldness)
@@ -616,6 +707,9 @@ namespace Oxide.Plugins
             // Server Rewards: seconds alive and connected since the last RP payout, and whether the player moved.
             public float RpSeconds;
             public bool RpMoved;
+
+            // Highest title index whose tier prize was already handled (-1 = not initialized yet).
+            public int PrizedTier = -1;
         }
 
         private void LoadData()
@@ -686,6 +780,31 @@ namespace Oxide.Plugins
             {
                 ["CalvarioTitle"] = "EL CALVARIO",
                 ["BarberName"] = "EL BARBERO",
+                ["BarberOptExchange"] = "Quiero cambiar calvicie",
+                ["BarberExIntro"] = "Aquí se compra y se vende calvicie. Vender sale barato y comprar sale caro: la calva no se regala.\nTienes {0} de calvicie · {1} RP · {2} monedas.",
+                ["BarberExSellRp"] = "Vender calvicie por RP (cada {0} de calvicie, 1 RP)",
+                ["BarberExSellCoins"] = "Vender calvicie por monedas (cada 100 de calvicie, {0} monedas)",
+                ["BarberExBuyRp"] = "Comprar calvicie con RP ({0} RP por cada 1 de calvicie)",
+                ["BarberExBuyCoins"] = "Comprar calvicie con monedas ({0} monedas por cada 1 de calvicie)",
+                ["BarberExClosed"] = "{0}  [cerrado: falta {1}]",
+                ["BarberExPickAmount"] = "¿Cuánto? Piénsatelo, que luego no hay quejas.",
+                ["BarberExSellLine"] = "Dar {0} de calvicie y llevarme {1}",
+                ["BarberExBuyLine"] = "Pagar {1} y llevarme {0} de calvicie",
+                ["BarberExTooMuch"] = "{0}  [no te llega]",
+                ["BarberExConfirmSell"] = "¿Seguro que cambias {0} de calvicie por {1}? Lo que se rapa vuelve a crecer, pero cuesta.",
+                ["BarberExConfirmBuy"] = "¿Seguro que pagas {1} por {0} de calvicie? Aquí no hay devoluciones.",
+                ["BarberExConfirm"] = "CONFIRMAR",
+                ["BarberExCancel"] = "CANCELAR",
+                ["BarberExDoneSell"] = "Hecho: -{0} de calvicie y +{1}. Te noto más peludo.",
+                ["BarberExDoneBuy"] = "Hecho: +{0} de calvicie y -{1}. Brillas que da gusto.",
+                ["BarberExNotEnough"] = "No te llega. Ni para un afeitado.",
+                ["BarberExFailed"] = "El cambio no ha salido y no se ha tocado nada. Prueba otra vez.",
+                ["UnitRp"] = "{0} RP",
+                ["UnitCoins"] = "{0} monedas",
+                ["TitleUpBanner"] = "¡{0} ya es {1}!",
+                ["TierPrize"] = "<color=#f0c040>Premio por ascender a {0}:</color> {1}. Invita la casa.",
+                ["DebugTierPrize"] = "[debug] {0}: premio de {1} · {2}",
+                ["ReasonExchange"] = "cambio en el Calvario",
                 ["BarberGreeting1"] = "Siéntate, peludo. ¿Qué te pelo hoy?",
                 ["BarberGreeting2"] = "Pasa, pasa. Esa melena no se va a arrancar sola.",
                 ["BarberGreeting3"] = "Otra vez tú. Cada día te veo más frente, así me gusta.",
@@ -1438,6 +1557,7 @@ namespace Oxide.Plugins
             {
                 lastPositions.Remove((ulong)player.userID);
                 calvarioNpcInUse.Remove((ulong)player.userID);
+                pendingExchanges.Remove((ulong)player.userID);
             }
 
             if (activeEvent == GlobalEvent.HairiestHunt && player != null && (ulong)player.userID == huntTargetId)
@@ -1746,7 +1866,12 @@ namespace Oxide.Plugins
                 return;
             }
 
-            string message = Lang(key, null, args);
+            ShowBanner(Lang(key, null, args), config.Ui.BannerSeconds);
+        }
+
+        // Big text in the middle of the screen for everyone connected.
+        private void ShowBanner(string message, float seconds)
+        {
             foreach (BasePlayer player in BasePlayer.activePlayerList)
             {
                 if (!IsRealPlayer(player) || !player.IsConnected)
@@ -1771,7 +1896,7 @@ namespace Oxide.Plugins
             }
 
             bannerTimer?.Destroy();
-            bannerTimer = timer.Once(config.Ui.BannerSeconds, () =>
+            bannerTimer = timer.Once(seconds, () =>
             {
                 bannerTimer = null;
                 foreach (BasePlayer player in BasePlayer.activePlayerList)
@@ -1825,7 +1950,24 @@ namespace Oxide.Plugins
         {
             Main,
             Items,
-            Carne
+            Carne,
+            Exchange,
+            ExchangeAmount,
+            ExchangeConfirm
+        }
+
+        private enum ExchangeMode
+        {
+            SellForRp,
+            SellForCoins,
+            BuyWithRp,
+            BuyWithCoins
+        }
+
+        private class PendingExchange
+        {
+            public ExchangeMode Mode;
+            public long Baldness;
         }
 
         // Item keys used by the menu buttons and the config.
@@ -1917,7 +2059,7 @@ namespace Oxide.Plugins
         }
 
         // Gives one item straight to the inventory, or drops it at the player's feet if it is full.
-        private bool GiveItem(BasePlayer player, string shortname)
+        private bool GiveItem(BasePlayer player, string shortname, int amount = 1)
         {
             ItemDefinition definition = FindItemDefinition(shortname);
             if (definition == null || player == null || player.inventory == null)
@@ -1925,7 +2067,7 @@ namespace Oxide.Plugins
                 return false;
             }
 
-            global::Item item = ItemManager.CreateByItemID(definition.itemid, 1);
+            global::Item item = ItemManager.CreateByItemID(definition.itemid, Math.Max(1, amount));
             if (item == null)
             {
                 return false;
@@ -2281,6 +2423,14 @@ namespace Oxide.Plugins
                 : Lang("CalvarioProverb" + ProverbNumbers[pick - BarberGreetingCount], userId);
         }
 
+        private void AddExchangeOption(List<KeyValuePair<string, string>> options, ExchangeMode mode, string text, string userId)
+        {
+            bool available = ExchangeModeAvailable(mode);
+            string plugin = mode == ExchangeMode.SellForRp || mode == ExchangeMode.BuyWithRp ? "Server Rewards" : "Economics";
+            options.Add(new KeyValuePair<string, string>(available ? text : Lang("BarberExClosed", userId, text, plugin),
+                available ? "calvos.exchange mode " + mode : null));
+        }
+
         private string TagColorName(string shortname, string userId) =>
             TagColorKeys.TryGetValue(shortname, out string key) ? Lang(key, userId) : shortname;
 
@@ -2302,6 +2452,10 @@ namespace Oxide.Plugins
                 case "carne":
                     OpenBarber(player, BarberPage.Carne, null);
                     break;
+                case "exchange":
+                    pendingExchanges.Remove((ulong)player.userID);
+                    OpenBarber(player, BarberPage.Exchange, null);
+                    break;
                 case "bye":
                     CuiHelper.DestroyUi(player, UiMenu);
                     break;
@@ -2309,6 +2463,140 @@ namespace Oxide.Plugins
                     OpenBarber(player, BarberPage.Main, BarberGreeting(player.UserIDString));
                     break;
             }
+        }
+
+        [ConsoleCommand("calvos.exchange")]
+        private void CcmdExchange(ConsoleSystem.Arg arg)
+        {
+            BasePlayer player = arg.Player();
+            string[] parts = MenuArgs(arg);
+            if (!IsRealPlayer(player) || parts.Length == 0 || !config.Exchange.Enabled || !RequireCalvarioNpc(player))
+            {
+                return;
+            }
+
+            ulong id = (ulong)player.userID;
+            switch (parts[0])
+            {
+                case "mode":
+                    if (parts.Length > 1 && Enum.TryParse(parts[1], out ExchangeMode mode) && Enum.IsDefined(typeof(ExchangeMode), mode) && ExchangeModeAvailable(mode))
+                    {
+                        pendingExchanges[id] = new PendingExchange { Mode = mode };
+                        OpenBarber(player, BarberPage.ExchangeAmount, null);
+                    }
+
+                    break;
+                case "amount":
+                    if (pendingExchanges.TryGetValue(id, out PendingExchange pending) && parts.Length > 1
+                        && long.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out long amount)
+                        && config.Exchange.Amounts.Contains(amount) && ExchangeAmountValid(pending.Mode, amount))
+                    {
+                        pending.Baldness = amount;
+                        OpenBarber(player, BarberPage.ExchangeConfirm, null);
+                    }
+
+                    break;
+                case "confirm":
+                    // The amount comes from the server-side pending exchange, never from the button.
+                    if (pendingExchanges.TryGetValue(id, out PendingExchange confirmed) && confirmed.Baldness > 0)
+                    {
+                        pendingExchanges.Remove(id);
+                        OpenBarber(player, BarberPage.Exchange, DoExchange(player, confirmed.Mode, confirmed.Baldness));
+                    }
+
+                    break;
+            }
+        }
+
+        private bool ExchangeModeAvailable(ExchangeMode mode) =>
+            mode == ExchangeMode.SellForRp || mode == ExchangeMode.BuyWithRp ? RpAvailable
+                : mode == ExchangeMode.SellForCoins ? CoinsAvailable && config.Exchange.SellCoinsPer100 > 0 : CoinsAvailable;
+
+        private bool IsSell(ExchangeMode mode) => mode == ExchangeMode.SellForRp || mode == ExchangeMode.SellForCoins;
+
+        // Selling needs whole RP/coins: at least the minimum and an exact multiple of the rate.
+        private bool ExchangeAmountValid(ExchangeMode mode, long baldness)
+        {
+            ExchangeConfig ex = config.Exchange;
+            switch (mode)
+            {
+                case ExchangeMode.SellForRp: return baldness >= ex.MinSell && baldness % ex.SellBaldnessPerRp == 0;
+                case ExchangeMode.SellForCoins: return baldness >= ex.MinSell && baldness % 100 == 0;
+                default: return baldness > 0;
+            }
+        }
+
+        // RP or coins the player gets (selling) or pays (buying) for that much baldness.
+        private long ExchangePrice(ExchangeMode mode, long baldness)
+        {
+            ExchangeConfig ex = config.Exchange;
+            switch (mode)
+            {
+                case ExchangeMode.SellForRp: return baldness / ex.SellBaldnessPerRp;
+                case ExchangeMode.SellForCoins: return baldness / 100 * ex.SellCoinsPer100;
+                case ExchangeMode.BuyWithRp: return baldness * ex.BuyRpPerBaldness;
+                default: return baldness * ex.BuyCoinsPerBaldness;
+            }
+        }
+
+        private string ExchangePriceText(ExchangeMode mode, long price, string userId) =>
+            Lang(mode == ExchangeMode.SellForRp || mode == ExchangeMode.BuyWithRp ? "UnitRp" : "UnitCoins", userId, FormatBaldness(price));
+
+        private bool CanAffordExchange(PlayerData data, ExchangeMode mode, long baldness)
+        {
+            long price = ExchangePrice(mode, baldness);
+            switch (mode)
+            {
+                case ExchangeMode.SellForRp:
+                case ExchangeMode.SellForCoins:
+                    return data.Baldness >= baldness;
+                case ExchangeMode.BuyWithRp:
+                    return price <= int.MaxValue && CheckRp(data.Id) >= price;
+                default:
+                    return CoinBalance(data.Id) >= price;
+            }
+        }
+
+        // The other plugin is paid or charged first; baldness only changes if that worked.
+        private string DoExchange(BasePlayer player, ExchangeMode mode, long baldness)
+        {
+            PlayerData data = GetOrCreateData(player);
+            string userId = player.UserIDString;
+            if (!ExchangeModeAvailable(mode) || !ExchangeAmountValid(mode, baldness))
+            {
+                return Lang("BarberExFailed", userId);
+            }
+
+            if (!CanAffordExchange(data, mode, baldness))
+            {
+                return Lang("BarberExNotEnough", userId);
+            }
+
+            long price = ExchangePrice(mode, baldness);
+            bool done;
+            switch (mode)
+            {
+                case ExchangeMode.SellForRp: done = AddRp(data.Id, price); break;
+                case ExchangeMode.SellForCoins: done = DepositCoins(data.Id, price); break;
+                case ExchangeMode.BuyWithRp: done = TakeRp(data.Id, price); break;
+                default: done = WithdrawCoins(data.Id, price); break;
+            }
+
+            if (!done)
+            {
+                return Lang("BarberExFailed", userId);
+            }
+
+            string priceText = ExchangePriceText(mode, price, userId);
+            if (IsSell(mode))
+            {
+                ChangeBaldness(data, -baldness, true, Lang("ReasonExchange"));
+                return Lang("BarberExDoneSell", userId, FormatBaldness(baldness), priceText);
+            }
+
+            // Bought baldness is not multiplied by events or the battery, and only pays tier prizes if the config says so.
+            ChangeBaldness(data, baldness, true, Lang("ReasonExchange"), true);
+            return Lang("BarberExDoneBuy", userId, FormatBaldness(baldness), priceText);
         }
 
         // Conversation box in the style of the vanilla vendors: the barber's line on top, the player's answers below.
@@ -2356,9 +2644,63 @@ namespace Oxide.Plugins
                     options.Add(new KeyValuePair<string, string>(Lang("BarberOptStamp", userId), "calvos.carne"));
                     options.Add(new KeyValuePair<string, string>(Lang("BarberOptBack", userId), "calvos.barber main"));
                     break;
+                case BarberPage.Exchange:
+                    ExchangeConfig ex = config.Exchange;
+                    if (line != null)
+                    {
+                        line += "\n";
+                    }
+
+                    line += Lang("BarberExIntro", userId, FormatBaldness(data.Baldness),
+                        RpAvailable ? FormatBaldness(CheckRp(data.Id)) : "-", CoinsAvailable ? FormatBaldness(CoinBalance(data.Id)) : "-");
+                    AddExchangeOption(options, ExchangeMode.SellForRp, Lang("BarberExSellRp", userId, FormatBaldness(ex.SellBaldnessPerRp)), userId);
+                    AddExchangeOption(options, ExchangeMode.SellForCoins, Lang("BarberExSellCoins", userId, FormatBaldness(ex.SellCoinsPer100)), userId);
+                    AddExchangeOption(options, ExchangeMode.BuyWithRp, Lang("BarberExBuyRp", userId, FormatBaldness(ex.BuyRpPerBaldness)), userId);
+                    AddExchangeOption(options, ExchangeMode.BuyWithCoins, Lang("BarberExBuyCoins", userId, FormatBaldness(ex.BuyCoinsPerBaldness)), userId);
+                    options.Add(new KeyValuePair<string, string>(Lang("BarberOptBack", userId), "calvos.barber main"));
+                    break;
+                case BarberPage.ExchangeAmount:
+                    if (!pendingExchanges.TryGetValue((ulong)player.userID, out PendingExchange amountFor))
+                    {
+                        goto case BarberPage.Exchange;
+                    }
+
+                    line = Lang("BarberExPickAmount", userId);
+                    foreach (long amount in config.Exchange.Amounts)
+                    {
+                        if (!ExchangeAmountValid(amountFor.Mode, amount))
+                        {
+                            continue;
+                        }
+
+                        string text = Lang(IsSell(amountFor.Mode) ? "BarberExSellLine" : "BarberExBuyLine", userId,
+                            FormatBaldness(amount), ExchangePriceText(amountFor.Mode, ExchangePrice(amountFor.Mode, amount), userId));
+                        bool affordable = CanAffordExchange(data, amountFor.Mode, amount);
+                        options.Add(new KeyValuePair<string, string>(affordable ? text : Lang("BarberExTooMuch", userId, text),
+                            affordable ? "calvos.exchange amount " + amount.ToString(CultureInfo.InvariantCulture) : null));
+                    }
+
+                    options.Add(new KeyValuePair<string, string>(Lang("BarberOptBack", userId), "calvos.barber exchange"));
+                    break;
+                case BarberPage.ExchangeConfirm:
+                    if (!pendingExchanges.TryGetValue((ulong)player.userID, out PendingExchange toConfirm) || toConfirm.Baldness <= 0)
+                    {
+                        goto case BarberPage.Exchange;
+                    }
+
+                    line = Lang(IsSell(toConfirm.Mode) ? "BarberExConfirmSell" : "BarberExConfirmBuy", userId, FormatBaldness(toConfirm.Baldness),
+                        ExchangePriceText(toConfirm.Mode, ExchangePrice(toConfirm.Mode, toConfirm.Baldness), userId));
+                    options.Add(new KeyValuePair<string, string>(Lang("BarberExConfirm", userId), "calvos.exchange confirm"));
+                    options.Add(new KeyValuePair<string, string>(Lang("BarberExCancel", userId), "calvos.barber exchange"));
+                    break;
                 default:
                     options.Add(new KeyValuePair<string, string>(Lang("BarberOptItems", userId), "calvos.barber items"));
                     options.Add(new KeyValuePair<string, string>(Lang("BarberOptCarne", userId), "calvos.barber carne"));
+                    if (config.Exchange.Enabled)
+                    {
+                        options.Add(new KeyValuePair<string, string>(Lang("BarberOptExchange", userId), "calvos.barber exchange"));
+                    }
+
                     options.Add(new KeyValuePair<string, string>(Lang("BarberOptBye", userId), "calvos.barber bye"));
                     break;
             }
@@ -2389,8 +2731,9 @@ namespace Oxide.Plugins
             {
                 int fromBottom = options.Count - 1 - i;
                 float y0 = 0.03f + fromBottom * (rowHeight + gap);
-                AddButton(ui, box, (i + 1) + ". " + options[i].Key, Anchor(0.03f, y0), Anchor(0.97f, y0 + rowHeight), ColorDialogOption,
-                    options[i].Value, null, 12, ColorText, TextAnchor.MiddleLeft);
+                bool enabled = options[i].Value != null;
+                AddButton(ui, box, (i + 1) + ". " + options[i].Key, Anchor(0.03f, y0), Anchor(0.97f, y0 + rowHeight),
+                    enabled ? ColorDialogOption : ColorDisabled, options[i].Value, null, 12, enabled ? ColorText : ColorMuted, TextAnchor.MiddleLeft);
             }
 
             CuiHelper.AddUi(player, ui);
@@ -2687,6 +3030,12 @@ namespace Oxide.Plugins
 
         private int GetRpRate(long baldness)
         {
+            long perX = config.ServerRewards.RpPerBaldness;
+            if (perX > 0)
+            {
+                return (int)Math.Min(int.MaxValue, Math.Max(0, baldness) / perX);
+            }
+
             int amount = 0;
             foreach (KeyValuePair<long, int> rate in rpRates)
             {
@@ -2699,7 +3048,7 @@ namespace Oxide.Plugins
             return amount;
         }
 
-        private void ChangeBaldness(PlayerData data, long delta, bool announce, string reason)
+        private void ChangeBaldness(PlayerData data, long delta, bool announce, string reason, bool bought = false)
         {
             long oldValue = data.Baldness;
             long newValue = Math.Max(MinBaldness, oldValue + delta);
@@ -2734,12 +3083,93 @@ namespace Oxide.Plugins
                 {
                     Broadcast("TitleUpV2", data.Name, GetTitle(newValue));
                 }
+
+                if (config.Ui.ShowTitleUpBanner)
+                {
+                    ShowBanner(Lang("TitleUpBanner", null, data.Name, GetTitle(newValue).ToUpperInvariant()), config.Ui.TitleUpBannerSeconds);
+                }
+
+                PayTierPrizes(data, oldTier, newTier, bought);
             }
             else if (newTier < oldTier && config.AnnounceTitleDrop)
             {
                 Broadcast("TitleDrop", data.Name, GetTitle(newValue));
             }
         }
+
+        // Pays each newly reached title's prize once. Bought baldness only counts if the config allows it.
+        private void PayTierPrizes(PlayerData data, int oldTier, int newTier, bool bought)
+        {
+            if (data.PrizedTier < 0)
+            {
+                // First tier change since 1.6.0: the titles the player already had are not paid.
+                data.PrizedTier = oldTier;
+            }
+
+            if (newTier <= data.PrizedTier)
+            {
+                return;
+            }
+
+            int from = data.PrizedTier + 1;
+            data.PrizedTier = newTier;
+            dataDirty = true;
+            if (bought && !config.TierPrizesForBoughtBaldness)
+            {
+                return;
+            }
+
+            BasePlayer player = BasePlayer.FindByID(data.Id);
+            for (int tier = from; tier <= newTier; tier++)
+            {
+                if (!tierPrizes.TryGetValue(tier, out TierPrize prize) || prize.IsEmpty)
+                {
+                    continue;
+                }
+
+                var parts = new List<string>();
+                if (prize.Rp > 0 && AddRp(data.Id, prize.Rp)) parts.Add(Lang("UnitRp", null, FormatBaldness(prize.Rp)));
+                if (prize.Coins > 0 && DepositCoins(data.Id, prize.Coins)) parts.Add(Lang("UnitCoins", null, FormatBaldness(prize.Coins)));
+                if (prize.Items != null && player != null && player.IsConnected)
+                {
+                    foreach (PrizeItem item in prize.Items)
+                    {
+                        if (item != null && item.Amount > 0 && !string.IsNullOrEmpty(item.Shortname) && GiveItem(player, item.Shortname, item.Amount))
+                        {
+                            parts.Add(item.Shortname + " x" + item.Amount);
+                        }
+                    }
+                }
+
+                SendDebug("DebugTierPrize", data.Name, config.Titles[tier].Name, parts.Count > 0 ? string.Join(", ", parts.ToArray()) : "-");
+                if (parts.Count > 0 && player != null && player.IsConnected)
+                {
+                    Reply(player, "TierPrize", config.Titles[tier].Name, string.Join(", ", parts.ToArray()));
+                }
+            }
+        }
+
+        private bool RpAvailable => ServerRewards != null && ServerRewards.IsLoaded;
+        private bool CoinsAvailable => Economics != null && Economics.IsLoaded;
+
+        // Server Rewards 2.x API: AddPoints/TakePoints(ulong, int) -> bool, CheckPoints(ulong) -> int.
+        private bool AddRp(ulong id, long amount) =>
+            RpAvailable && amount > 0 && amount <= int.MaxValue && ServerRewards.Call("AddPoints", id, (int)amount) is bool ok && ok;
+
+        private bool TakeRp(ulong id, long amount) =>
+            RpAvailable && amount > 0 && amount <= int.MaxValue && ServerRewards.Call("TakePoints", id, (int)amount) is bool ok && ok;
+
+        private long CheckRp(ulong id) => RpAvailable && ServerRewards.Call("CheckPoints", id) is int points ? points : 0;
+
+        // Economics 3.9 API: Deposit/Withdraw(string playerId, double) -> bool, Balance(string playerId) -> double.
+        private bool DepositCoins(ulong id, long amount) =>
+            CoinsAvailable && amount > 0 && Economics.Call("Deposit", id.ToString(), (double)amount) is bool ok && ok;
+
+        private bool WithdrawCoins(ulong id, long amount) =>
+            CoinsAvailable && amount > 0 && Economics.Call("Withdraw", id.ToString(), (double)amount) is bool ok && ok;
+
+        private long CoinBalance(ulong id) =>
+            CoinsAvailable && Economics.Call("Balance", id.ToString()) is double balance ? (long)Math.Floor(balance) : 0;
 
         private void DebugNoReward(PlayerData data, string reason) => SendDebug("DebugNoReward", data.Name, reason);
 
