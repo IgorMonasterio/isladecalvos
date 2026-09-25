@@ -41,7 +41,7 @@ alcance cerrado:
   Server Rewards cargado no se paga nada. Ver ARCHITECTURE §4f.
 - **Plugin 1.5.0 — La peluquería (issue #5)**, decidido por Igor: tres
   casitas con NPC de HumanNPC (Calvario → este plugin; Mercalvona → GUIShop;
-  Exchange → Server Rewards). TP con `/peluqueria` (Dynamic Command de
+  Premios Calvos → Server Rewards 2.0.8). TP con `/peluqueria` (Dynamic Command de
   NTeleportation). `/shop` y `/s` solo en sus NPC. `/calvos` solo muestra el
   ranking; los objetos se usan hablando con el barbero. El plugin solo
   escucha `OnUseNPC` de HumanNPC; lo demás es config de esos plugins.
@@ -126,8 +126,10 @@ Lee `docs/ARCHITECTURE.md` antes de tocar código.
   El contador va arriba a la derecha.
 - **Contexto del servidor** (a 2026-09-24): 1-3 jugadores, x5 gather, loot x1
   (BetterLoot), StackSizeController x5, RaidableBases (NPCs `scientistnpc_heavy`,
-  skinID 3710562502), Economics + GUIShop (monedas) y ServerRewards (RP,
-  1 RP = 10 monedas). No hay otros plugins que den recompensas por kills.
+  skinID 3710562502), Economics + GUIShop (monedas) y ServerRewards **2.0.8**
+  (RP, 1 RP = 10 monedas; sus claves de lang no son las de la v1, p. ej.
+  `Message.Notification.Unspent.NPC`). No hay otros plugins que den
+  recompensas por kills.
 - **Objetos del juego**: el tipo `Item` se escribe `global::Item`, porque
   `RustPlugin` tiene un campo llamado `Item`.
 - **Argumentos de comandos de consola**: `arg.FullString` siempre con
