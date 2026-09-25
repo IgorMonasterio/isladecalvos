@@ -551,6 +551,10 @@ namespace Oxide.Plugins
             if (config.BarberShop.CalvarioNpcIds == null) config.BarberShop.CalvarioNpcIds = new List<ulong>();
             config.BarberShop.MaxDistance = Math.Max(1f, config.BarberShop.MaxDistance);
             calvarioNpcIds = new HashSet<ulong>(config.BarberShop.CalvarioNpcIds);
+            if (calvarioNpcIds.Count == 0)
+            {
+                PrintWarning("No Calvario NPC configured (\"Calvario NPC ids\" is empty): nobody can use cursed items until the barber's HumanNPC userid is added.");
+            }
 
             if (config.ServerRewards == null) config.ServerRewards = new ServerRewardsConfig();
             ServerRewardsConfig rp = config.ServerRewards;
@@ -746,8 +750,6 @@ namespace Oxide.Plugins
                 ["CalvarioDescBlueDogTags"] = "Arrancadas a un heavy con melena. +{0}.",
                 ["CalvarioDescRedDogTags"] = "Del piloto que perdió el tupé con el helicóptero. +{0}.",
                 ["CalvarioDescGems"] = "Joya de la corona de Su Calvísima Majestad. Brilla como tu cabeza. +{0}.",
-                ["ItemFoundNoBarber"] = "Has encontrado: <color=#f0c040>{0}</color>. Úsalo desde /calvos, que en el bolsillo no hace nada.",
-                ["BarberOptRanking"] = "Ver el Salón de la fama calva",
                 ["ItemFoundV3"] = "Has encontrado: <color=#f0c040>{0}</color>. Llévalo al Calvario de la peluquería (/peluqueria), que en el bolsillo no hace nada.",
                 ["CalvarioGoToBarber"] = "Los objetos malditos se usan en el Calvario de la peluquería. Ve con /peluqueria y háblale al barbero.",
                 ["ItemNoneV2"] = "No llevas {0} encima. Ni eso.",
@@ -1319,19 +1321,10 @@ namespace Oxide.Plugins
         [ChatCommand("calvos")]
         private void CmdCalvos(BasePlayer player, string command, string[] args)
         {
-            if (!IsRealPlayer(player))
+            if (IsRealPlayer(player))
             {
-                return;
+                OpenRanking(player, 0);
             }
-
-            // Without a barber configured, /calvos opens El Calvario so the items are never stuck.
-            if (!HasBarber)
-            {
-                OpenBarber(player, BarberPage.Main, BarberGreeting(player.UserIDString));
-                return;
-            }
-
-            OpenRanking(player, 0);
         }
 
         [ChatCommand("calvoadmin")]
@@ -1967,7 +1960,7 @@ namespace Oxide.Plugins
 
             if (GiveItem(player, item.Shortname))
             {
-                Reply(player, HasBarber ? "ItemFoundV3" : "ItemFoundNoBarber", displayName ?? CursedItemName(KeyOf(item)));
+                Reply(player, "ItemFoundV3", displayName ?? CursedItemName(KeyOf(item)));
             }
         }
 
@@ -2168,16 +2161,8 @@ namespace Oxide.Plugins
         }
 
         // Items can only be used next to the Calvario NPC the player talked to; console commands can be typed anywhere.
-        // True when at least one Calvario NPC is configured; otherwise El Calvario works from /calvos, anywhere.
-        private bool HasBarber => calvarioNpcIds.Count > 0;
-
         private bool RequireCalvarioNpc(BasePlayer player)
         {
-            if (!HasBarber)
-            {
-                return true;
-            }
-
             if (calvarioNpcInUse.TryGetValue((ulong)player.userID, out BasePlayer npc) && npc != null && !npc.IsDead()
                 && Vector3.Distance(player.transform.position, npc.transform.position) <= config.BarberShop.MaxDistance)
             {
@@ -2374,11 +2359,6 @@ namespace Oxide.Plugins
                 default:
                     options.Add(new KeyValuePair<string, string>(Lang("BarberOptItems", userId), "calvos.barber items"));
                     options.Add(new KeyValuePair<string, string>(Lang("BarberOptCarne", userId), "calvos.barber carne"));
-                    if (!HasBarber)
-                    {
-                        options.Add(new KeyValuePair<string, string>(Lang("BarberOptRanking", userId), "calvos.tab ranking 0"));
-                    }
-
                     options.Add(new KeyValuePair<string, string>(Lang("BarberOptBye", userId), "calvos.barber bye"));
                     break;
             }
