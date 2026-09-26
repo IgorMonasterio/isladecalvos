@@ -13,6 +13,10 @@ entero **sin límite por arriba** (nunca baja de 0) que se guarda entre
 sesiones. Lo glorioso te deja más calvo; morir hace que te salga pelo.
 No hay cambio visual: todo son puntos, títulos y mensajes.
 
+En el juego esa cifra se llama **alopecia** ("Alopecia 25.000"); "calvicie",
+"calva" y compañía solo salen en chistes y nombres de eventos. En esta
+documentación y en el código se sigue llamando calvicie (`Baldness`).
+
 ## Cómo funciona
 
 Todos los valores se pueden cambiar en la config. Estos son los de por defecto:
@@ -199,12 +203,13 @@ del pueblo pesquero). Abajo sale un cuadro con lo que dice el barbero y tus
 respuestas numeradas:
 
 ```
- EL BARBERO                        Tu calvicie: 2.944 — Coronilla a la Intemperie
- "Siéntate, peludo. ¿Qué te pelo hoy?"
+ EL BARBERO                        Tu alopecia: 2.944 — Coronilla a la Intemperie
+ "Siéntate, peludo. ¿Qué te quito hoy, el pelo o la dignidad?"
 
-   1. Quiero usar un objeto maldito
+   1. Traigo algo maldito
    2. Vengo a sellar el Carné de Calvo
-   3. Nada, solo miraba
+   3. Vengo a vender (o comprar) calva
+   4. Nada, solo miraba
 ```
 
 - Te saluda con una de sus frases o con uno de los **refranes** de la isla.
@@ -212,6 +217,8 @@ respuestas numeradas:
   Al elegir uno, lo usa y el barbero contesta **en el cuadro** (no en el chat).
 - **2** enseña qué colores del carné tienes sellados y cuáles te faltan, con
   la opción de sellar lo que traes.
+- **3** es el [cambio de calvicie](#el-cambio-de-calvicie-plugin-160). Solo
+  sale si está activado en la config.
 
 El **Salón de la fama calva** (`/calvos`) va de barbería calva: rayas de
 poste de barbero, barra de progreso hacia tu siguiente título,
@@ -244,7 +251,7 @@ lo avisa en la consola al arrancar.
 
 ### El cambio de calvicie (plugin 1.6.0)
 
-Opción **4. Quiero cambiar calvicie** en la conversación con el barbero.
+Opción **3. Vengo a vender (o comprar) calva** en la conversación con el barbero.
 Calvicie, RP y monedas se cambian entre sí:
 
 | Operación | Por defecto |
@@ -259,7 +266,7 @@ Calvicie, RP y monedas se cambian entre sí:
 - Cantidades fijas (100, 1.000, 10.000, 100.000 de calvicie), solo enteras. Para
   vender, un mínimo de 100 y múltiplos exactos.
 - Antes de cada cambio sale una **confirmación** ("¿Seguro que cambias 1.000 de
-  calvicie por 10 RP?") con **CONFIRMAR** / **CANCELAR**. Lo que se confirma se
+  alopecia por 10 RP?…") con **CONFIRMAR** / **ME LO PIENSO**. Lo que se confirma se
   guarda en el servidor, no en el botón, y se vuelve a comprobar al confirmar.
 - Primero se paga o se cobra en Server Rewards o Economics, y solo si eso sale
   bien se toca la calvicie.
@@ -275,8 +282,8 @@ Tres casitas, cada una con un NPC de **HumanNPC**:
 | Casa | NPC | Plugin que la atiende |
 |---|---|---|
 | **El Calvario** | El Barbero | Este plugin: objetos malditos y Carné de Calvo |
-| **Mercalvona** | Tendero de Mercalvona | GUIShop (monedas) |
-| **Premios Calvos** | Cambista de Premios Calvos | Server Rewards (RP) |
+| **El Mercalvona®** | Tendero del Mercalvona | GUIShop (monedas) |
+| **Cambio de divisas** (antes Premios Calvos) | Cambista de divisas | Server Rewards (RP) |
 
 Se llega con **`/peluqueria`**, igual que `/bandit` o `/outpost`. `/shop` y
 `/s` dejan de funcionar fuera de allí, y `/calvos` solo muestra el ranking.
@@ -308,12 +315,12 @@ versión es otra, los nombres pueden cambiar un poco.
    }
    ```
    Después: `oxide.reload IslaDeCalvos`.
-3. **Mercalvona (GUIShop).** En la tienda que quieras asignar, activa
+3. **El Mercalvona (GUIShop).** En la tienda que quieras asignar, activa
    `EnableNPC` y pon el `userid` del tendero en `NpcIds`. Para que `/shop` no
    abra nada fuera de la casa, deja `"Set Default Global Shop to open": ""`
    (vacío). Es la forma que indica el propio GUIShop para desactivar las
    tiendas globales.
-4. **Premios Calvos (Server Rewards).** Mirando al cambista, `/srnpc add`. En su
+4. **Cambio de divisas (Server Rewards).** Mirando al cambista, `/srnpc add`. En su
    config, `"Use NPC dealers only": true`: así `/s` solo funciona para
    admins.
 5. **El TP (NTeleportation).** En `"Dynamic Commands"`, añade una entrada
@@ -332,11 +339,11 @@ y después `/npc name "…"`, `/npc hello "…" "…"`, `/npc use "…"` y
 `/npc_end` para terminar.
 
 ```
-# Mercalvona
-/npc name "Tendero de Mercalvona"
-/npc hello "¡Bienvenido a Mercalvona®! Precios bajos y cabezas relucientes." "Pasa, pasa. Champú no tenemos, que aquí eso es contrabando."
+# El Mercalvona
+/npc name "Tendero del Mercalvona"
+/npc hello "¡Bienvenido al Mercalvona®! Precios bajos y cabezas relucientes." "Pasa, pasa. Champú no tenemos, que aquí eso es contrabando."
 /npc use "¿Qué va a ser? Dale a la E y no toques lo que no vayas a pagar."
-/npc bye "Gracias por comprar en Mercalvona®. Vuelve con menos pelo y más cartera."
+/npc bye "Gracias por comprar en el Mercalvona®. Vuelve con menos pelo y más cartera."
 
 # El Calvario (use vacío: la E abre directamente El Calvario)
 /npc name "El Barbero"
@@ -344,9 +351,9 @@ y después `/npc name "…"`, `/npc hello "…" "…"`, `/npc use "…"` y
 /npc use reset
 /npc bye "Vuelve cuando te asome algo. Aquí no se deja crecer ni la duda."
 
-# Premios Calvos
-/npc name "Cambista de Premios Calvos"
-/npc hello "Premios Calvos: tu calva vale RP y aquí se cobra. Pasa por caja."
+# Cambio de divisas
+/npc name "Cambista de divisas"
+/npc hello "Cambio de divisas: tu calva vale RP y aquí se cobra. Pasa por caja."
 /npc use "A ver cuánto te ha pagado esa cabeza. Dale a la E."
 /npc bye "Sigue brillando, que cada media hora te cae algo."
 ```
@@ -357,7 +364,7 @@ está en el servidor con el tono de la isla y no se toca:
 ```json
 "NPCResponseOpen": "¡Bienvenido a {0}! ¿Qué te pongo? Dale a la E, que no tengo todo el día.",
 "NPCResponseClose": "Gracias por comprar en {0}. Vuelve pronto, y más pelado.",
-"GlobalShopsDisabled": "Aquí no se compra desde el sofá, señorito. Ve a Mercalvona con /peluqueria y háblale al tendero.",
+"GlobalShopsDisabled": "Aquí no se compra desde el sofá, señorito. Ve al Mercalvona con /peluqueria y háblale al tendero.",
 "Bought": "Te llevas {0} de {1}. El tendero ya está contando tus monedas.",
 "Sold": "Has vendido {0} de {1}. Con eso no te da ni para un peine."
 ```
@@ -555,7 +562,7 @@ servidor.
 1. Ten un servidor dedicado de Rust con **Oxide (uMod)** instalado.
 2. Copia `src/IslaDeCalvos.cs` en la carpeta `oxide/plugins/` del servidor.
 3. Oxide lo compila y carga solo. En la consola deberías ver algo como
-   `Loaded plugin Isla de Calvos v1.6.2 by Igor Monasterio`.
+   `Loaded plugin Isla de Calvos v1.6.3 by Igor Monasterio`.
 4. Para recargarlo tras cambiar el fichero (normalmente se recarga solo):
    `oxide.reload IslaDeCalvos`
 

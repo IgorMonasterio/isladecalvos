@@ -12,6 +12,10 @@ lo que pasa en la isla acaba teniendo que ver con el pelo o la calvicie.
   límite por arriba**, nunca por debajo de 0. Lo glorioso (matar, sobrevivir)
   la sube; morir hace que crezca el pelo (la baja).
 - Es humor: **no hay cambio visual del pelo**. Todo son puntos, títulos y mensajes.
+- **En el juego la cifra se llama alopecia** ("Alopecia 25.000"), decidido por
+  Igor. "Calvicie", "calva" y demás sinónimos solo valen para chistes y
+  nombres de eventos ("Vender calva", "Hora de la calvicie"). En el código y
+  en esta documentación sigue siendo `Baldness` / calvicie.
 - La calvicie da **RP de Server Rewards** cada 30 min: 1 RP por cada 100 de
   calvicie, sin tope (lineal desde la 1.6.0; antes, por escalones de título).
   1 RP = 10 monedas. Desde la 1.6.0 hay además un cambio de calvicie ↔ RP ↔
@@ -43,8 +47,8 @@ alcance cerrado:
   Server Rewards cargado no se paga nada. Ver ARCHITECTURE §4f.
 - **Plugin 1.5.0 — La peluquería (issue #5)**, decidido por Igor: tres
   casitas con NPC de HumanNPC (Calvario → este plugin; Mercalvona → GUIShop;
-  Premios Calvos → Server Rewards 2.0.8). TP con `/peluqueria` (Dynamic Command de
-  NTeleportation). `/shop` y `/s` solo en sus NPC. `/calvos` solo muestra el
+  Cambio de divisas, antes Premios Calvos → Server Rewards 2.0.8). TP con
+  `/peluqueria` (Dynamic Command de NTeleportation). `/shop` y `/s` solo en sus NPC. `/calvos` solo muestra el
   ranking; los objetos se usan hablando con el barbero. El plugin solo
   escucha `OnUseNPC` de HumanNPC; lo demás es config de esos plugins.
   (1.5.1: El Calvario es una conversación con el barbero, al estilo de los
@@ -53,6 +57,10 @@ alcance cerrado:
   por título (RP, monedas, objetos; una vez por jugador y título, todo a 0 por
   defecto); RP lineal (`floor(calvicie/100)`); títulos ×10 por defecto; y
   **cambio de calvicie** en el barbero, con tasas asimétricas y confirmación.
+- **Plugin 1.6.1–1.6.3** — la cifra pasa a llamarse alopecia en el juego: el
+  contador pone `ALOPECIA` (1.6.1), el Brote de alopecia se renombra a
+  Tormenta de cuchillas (1.6.2) y los textos que llamaban "calvicie" a la
+  cifra dicen "alopecia" (1.6.3). Todo con claves de lang nuevas.
 
 Decisiones de diseño de la v1.0 que no venían en la especificación inicial:
 - Toda muerte resta calvicie (PvP, NPC, entorno, suicidio), también la de un
@@ -135,12 +143,18 @@ Lee `docs/ARCHITECTURE.md` antes de tocar código.
 - **Espacio en pantalla**: abajo, entre el cinturón y las barras, lo usa el
   panel de RaidableBases; arriba en el centro, otro panel de RaidableBases.
   El contador va arriba a la derecha.
-- **Contexto del servidor** (a 2026-09-24): 1-3 jugadores, x5 gather, loot x1
+- **Contexto del servidor** (a 2026-09-26): 1-3 jugadores, x5 gather, loot x1
   (BetterLoot), StackSizeController x5, RaidableBases (NPCs `scientistnpc_heavy`,
   skinID 3710562502), Economics + GUIShop (monedas) y ServerRewards **2.0.8**
   (RP, 1 RP = 10 monedas; sus claves de lang no son las de la v1, p. ej.
   `Message.Notification.Unspent.NPC`). No hay otros plugins que den
-  recompensas por kills.
+  recompensas por kills. Tiendas de la peluquería: **el Mercalvona®**
+  (masculino: "al Mercalvona"; GUIShop, monedas) y **Cambio de divisas**
+  (Server Rewards, RP; su NPC es el "Cambista de divisas"). Economics empieza
+  en 0 monedas y los saldos no se borran en el wipe.
+- **Menú `/info`** (plugin IslaInfo): lo mantiene Jano, el Claude que
+  administra el servidor. Si un PR cambia números, mecánicas, comandos o
+  nombres de eventos, se dice en la descripción del PR para que lo actualice.
 - **Objetos del juego**: el tipo `Item` se escribe `global::Item`, porque
   `RustPlugin` tiene un campo llamado `Item`.
 - **Argumentos de comandos de consola**: `arg.FullString` siempre con
@@ -157,6 +171,8 @@ Lee `docs/ARCHITECTURE.md` antes de tocar código.
   propietarias de Rust/Oxide.
 - **Nada de emojis en textos para jugadores**: el chat de Rust no los dibuja
   (salen como `??`, comprobado en el servidor). Para resaltar, usar `<color>`.
+- **Tono** (Igor): nada de negritas (`<b>`) en textos para jugadores, y nada de
+  chistes que expliquen el cambio de nombre de la cifra.
 - **Ganancias de calvicie siempre por `GainBaldness`** (para que los eventos
   puedan multiplicarlas). `ChangeBaldness` directo solo para admin, muertes,
   premios de eventos y calvicie comprada en el cambio (esta con `bought: true`,
