@@ -126,7 +126,7 @@ Para añadir otro evento: decidir qué hook marca "participar" y cuál marca
 - **Toda ganancia de calvicie por juego pasa por `GainBaldness`**: así la Hora
   de la calvicie la multiplica en un solo sitio. Los cambios de admin y los
   premios de la cacería van directos por `ChangeBaldness`.
-- La Lluvia de champú multiplica en `OnPlayerDeath`. El Brote de alopecia, en
+- La Lluvia de champú multiplica en `OnPlayerDeath`. La Tormenta de cuchillas (antes Brote de alopecia; enum `BladeStorm`), en
   `CompleteEventTarget` (recompensa compartida).
 - Para añadir un evento: nuevo valor en el enum `GlobalEvent`, su bloque en la
   config, su `case` en `StartEvent`/`EndEvent` y sus textos en `lang`.

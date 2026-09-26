@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Isla de Calvos", "Igor Monasterio", "1.6.1")]
+    [Info("Isla de Calvos", "Igor Monasterio", "1.6.2")]
     [Description("Baldness system for the Isla de Calvos Rust server: being bald is glory, hair is a curse.")]
     public class IslaDeCalvos : RustPlugin
     {
@@ -374,7 +374,7 @@ namespace Oxide.Plugins
             public HairiestHuntConfig HairiestHunt = new HairiestHuntConfig();
 
             [JsonProperty("Alopecia outbreak (shared big-target rewards multiplied)")]
-            public AlopeciaOutbreakConfig AlopeciaOutbreak = new AlopeciaOutbreakConfig();
+            public BladeStormConfig BladeStorm = new BladeStormConfig();
         }
 
         private class BaldHourConfig
@@ -400,7 +400,7 @@ namespace Oxide.Plugins
             [JsonProperty("Minimum online players")] public int MinPlayers = 2;
         }
 
-        private class AlopeciaOutbreakConfig
+        private class BladeStormConfig
         {
             [JsonProperty("Enabled")] public bool Enabled = true;
             [JsonProperty("Duration (minutes)")] public int DurationMinutes = 60;
@@ -524,12 +524,12 @@ namespace Oxide.Plugins
             if (events.BaldHour == null) events.BaldHour = new BaldHourConfig();
             if (events.ShampooRain == null) events.ShampooRain = new ShampooRainConfig();
             if (events.HairiestHunt == null) events.HairiestHunt = new HairiestHuntConfig();
-            if (events.AlopeciaOutbreak == null) events.AlopeciaOutbreak = new AlopeciaOutbreakConfig();
+            if (events.BladeStorm == null) events.BladeStorm = new BladeStormConfig();
             events.IntervalMinutes = Math.Max(1, events.IntervalMinutes);
             events.BaldHour.DurationMinutes = Math.Max(1, events.BaldHour.DurationMinutes);
             events.ShampooRain.DurationMinutes = Math.Max(1, events.ShampooRain.DurationMinutes);
             events.HairiestHunt.DurationMinutes = Math.Max(1, events.HairiestHunt.DurationMinutes);
-            events.AlopeciaOutbreak.DurationMinutes = Math.Max(1, events.AlopeciaOutbreak.DurationMinutes);
+            events.BladeStorm.DurationMinutes = Math.Max(1, events.BladeStorm.DurationMinutes);
             events.HairiestHunt.MinPlayers = Math.Max(2, events.HairiestHunt.MinPlayers);
 
             if (config.Ui == null) config.Ui = new UiConfig();
@@ -889,7 +889,7 @@ namespace Oxide.Plugins
                 ["TitleUpV2"] = "<color=#f0c040>{0}</color> asciende a <color=#f0c040>{1}</color>. Su peluquero ya ha pedido el paro.",
                 ["TitleDrop"] = "<color=#e05050>A {0} le está saliendo pelo</color> (ahora es {1})",
                 ["NoPermissionV2"] = "No tienes permiso para usar este comando. Buen intento, listo.",
-                ["AdminUsage"] = "Uso: /calvoadmin set <jugador> <valor> | /calvoadmin reset <jugador> | /calvoadmin debug on|off | /calvoadmin evento <hora|champu|peludo|alopecia|parar>",
+                ["AdminUsageV2"] = "Uso: /calvoadmin set <jugador> <valor> | /calvoadmin reset <jugador> | /calvoadmin debug on|off | /calvoadmin evento <hora|champu|peludo|cuchillas|parar>",
                 ["AdminInvalidValue"] = "El valor tiene que ser un número entero igual o mayor que {0}.",
                 ["PlayerNotFound"] = "No se ha encontrado ningún jugador con '{0}'.",
                 ["PlayerAmbiguous"] = "Hay {0} jugadores que coinciden con '{1}'. Sé más concreto o usa el SteamID.",
@@ -923,7 +923,7 @@ namespace Oxide.Plugins
                 ["EventNameBaldHour"] = "Hora de la calvicie",
                 ["EventNameShampooRain"] = "Lluvia de champú",
                 ["EventNameHairiestHunt"] = "Cazar al más peludo",
-                ["EventNameAlopeciaOutbreak"] = "Brote de alopecia",
+                ["EventNameBladeStorm"] = "Tormenta de cuchillas",
                 ["EventTag"] = " [{0} x{1}]",
                 ["EventBaldHourStartV2"] = "<color=#f0c040>HORA DE LA CALVICIE</color>: durante {0} min todo da x{1} de calvicie. Salid a matar, que la frente no se despeja sola.",
                 ["EventBaldHourEndV2"] = "Se acabó la Hora de la calvicie. Volvéis a pelaros a precio normal.",
@@ -934,12 +934,12 @@ namespace Oxide.Plugins
                 ["EventHuntSurvivedV2"] = "{0} ha sobrevivido a la cacería con todo su pelo y gana +{1}. Vergüenza os debería dar, calvos.",
                 ["EventHuntDiedV2"] = "{0}, el más peludo de la isla, la ha palmado solito, sin que nadie le meta un tiro. Se ha muerto como vivió: con el pelo en la cara y sin que nadie le haga ni puto caso. Se acabó la cacería.",
                 ["EventHuntEscapedV2"] = "{0} se ha pirado de la isla con su melena, como una rata con extensiones. Volverá cuando se le acabe el acondicionador. Se acabó la cacería.",
-                ["EventAlopeciaStartV2"] = "<color=#f0c040>BROTE DE ALOPECIA</color>: durante {0} min el heli, la Bradley y el Chinook dan x{1}. Hoy hasta el cielo se pela.",
-                ["EventAlopeciaEndV2"] = "Se acabó el brote de alopecia. El heli vuelve a pagar lo de siempre, como un funcionario.",
+                ["EventBladeStormStart"] = "<color=#f0c040>TORMENTA DE CUCHILLAS</color>: durante {0} min el heli, la Bradley y el Chinook dan x{1}. Hoy hasta el cielo se pela.",
+                ["EventBladeStormEnd"] = "Se acabó la tormenta de cuchillas. El heli vuelve a pagar lo de siempre, como un funcionario.",
                 ["EventStoppedByAdminV2"] = "Un admin ha cancelado el evento {0}. Las quejas, a su peluquero.",
                 ["ReasonHuntKill"] = "cazar al más peludo ({0})",
                 ["ReasonHuntSurvived"] = "sobrevivir a la cacería",
-                ["AdminEventUsage"] = "Uso: /calvoadmin evento <hora|champu|peludo|alopecia|parar>",
+                ["AdminEventUsageV2"] = "Uso: /calvoadmin evento <hora|champu|peludo|cuchillas|parar>",
                 ["AdminEventBusy"] = "Ya hay un evento en marcha: {0}. Páralo antes con /calvoadmin evento parar.",
                 ["AdminEventCannotStart"] = "No se puede lanzar {0} ahora (¿pocos jugadores conectados o desactivado en la config?).",
                 ["AdminEventNone"] = "No hay ningún evento en marcha.",
@@ -1351,10 +1351,10 @@ namespace Oxide.Plugins
                 return;
             }
 
-            if (activeEvent == GlobalEvent.AlopeciaOutbreak)
+            if (activeEvent == GlobalEvent.BladeStorm)
             {
-                reward *= config.GlobalEvents.AlopeciaOutbreak.Multiplier;
-                prefab += EventTag(GlobalEvent.AlopeciaOutbreak, config.GlobalEvents.AlopeciaOutbreak.Multiplier);
+                reward *= config.GlobalEvents.BladeStorm.Multiplier;
+                prefab += EventTag(GlobalEvent.BladeStorm, config.GlobalEvents.BladeStorm.Multiplier);
             }
 
             PayEventReward(new RewardEvent
@@ -1457,7 +1457,7 @@ namespace Oxide.Plugins
 
             if (args.Length < 2)
             {
-                Reply(player, "AdminUsage");
+                Reply(player, "AdminUsageV2");
                 return;
             }
 
@@ -1489,7 +1489,7 @@ namespace Oxide.Plugins
             }
             else
             {
-                Reply(player, "AdminUsage");
+                Reply(player, "AdminUsageV2");
                 return;
             }
 
@@ -1528,7 +1528,7 @@ namespace Oxide.Plugins
                     Reply(player, "DebugOff");
                     break;
                 default:
-                    Reply(player, "AdminUsage");
+                    Reply(player, "AdminUsageV2");
                     break;
             }
         }
@@ -1543,7 +1543,7 @@ namespace Oxide.Plugins
             BaldHour,
             ShampooRain,
             HairiestHunt,
-            AlopeciaOutbreak
+            BladeStorm
         }
 
         private readonly System.Random random = new System.Random();
@@ -1575,7 +1575,7 @@ namespace Oxide.Plugins
                 return false;
             }
 
-            var candidates = new List<GlobalEvent> { GlobalEvent.BaldHour, GlobalEvent.ShampooRain, GlobalEvent.HairiestHunt, GlobalEvent.AlopeciaOutbreak };
+            var candidates = new List<GlobalEvent> { GlobalEvent.BaldHour, GlobalEvent.ShampooRain, GlobalEvent.HairiestHunt, GlobalEvent.BladeStorm };
             while (candidates.Count > 0)
             {
                 GlobalEvent pick = candidates[random.Next(candidates.Count)];
@@ -1623,10 +1623,10 @@ namespace Oxide.Plugins
                     minutes = hunt.DurationMinutes;
                     BroadcastEvent("EventHuntStartV2", target.displayName, FormatBaldness(lowest), FormatBaldness(hunt.KillerBonus), minutes, FormatBaldness(hunt.SurvivorBonus));
                     break;
-                case GlobalEvent.AlopeciaOutbreak:
-                    if (!events.AlopeciaOutbreak.Enabled) return false;
-                    minutes = events.AlopeciaOutbreak.DurationMinutes;
-                    BroadcastEvent("EventAlopeciaStartV2", minutes, events.AlopeciaOutbreak.Multiplier);
+                case GlobalEvent.BladeStorm:
+                    if (!events.BladeStorm.Enabled) return false;
+                    minutes = events.BladeStorm.DurationMinutes;
+                    BroadcastEvent("EventBladeStormStart", minutes, events.BladeStorm.Multiplier);
                     break;
                 default:
                     return false;
@@ -1670,8 +1670,8 @@ namespace Oxide.Plugins
                         }
 
                         break;
-                    case GlobalEvent.AlopeciaOutbreak:
-                        BroadcastEvent("EventAlopeciaEndV2");
+                    case GlobalEvent.BladeStorm:
+                        BroadcastEvent("EventBladeStormEnd");
                         break;
                 }
             }
@@ -1706,7 +1706,8 @@ namespace Oxide.Plugins
                 case "champu":
                 case "champú": requested = GlobalEvent.ShampooRain; break;
                 case "peludo": requested = GlobalEvent.HairiestHunt; break;
-                case "alopecia": requested = GlobalEvent.AlopeciaOutbreak; break;
+                case "cuchillas":
+                case "alopecia": requested = GlobalEvent.BladeStorm; break;
                 case "parar":
                     if (activeEvent == GlobalEvent.None)
                     {
@@ -1718,7 +1719,7 @@ namespace Oxide.Plugins
                     EndEvent(false);
                     return;
                 default:
-                    Reply(player, "AdminEventUsage");
+                    Reply(player, "AdminEventUsageV2");
                     return;
             }
 

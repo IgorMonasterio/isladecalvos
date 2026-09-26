@@ -25,7 +25,8 @@ alcance cerrado:
 - **v1.0** — sistema de calvicie: puntos, títulos, ranking, anti-farmeo, comandos.
   Implementada (issue #2).
 - **v1.1** — eventos globales (issue #3): Hora de la calvicie, Lluvia de
-  champú, Cazar al más peludo y Brote de alopecia. Uno al azar cada hora.
+  champú, Cazar al más peludo y Tormenta de cuchillas (hasta la 1.6.1, Brote
+  de alopecia). Uno al azar cada hora.
   Implementada.
 - **v1.2 (plugin 1.2.0)** — en pantalla: contador de calvicie fijo abajo a la
   derecha con popup `+X`/`-X`, y los eventos globales en un cartel grande en
