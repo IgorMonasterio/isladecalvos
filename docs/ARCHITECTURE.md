@@ -271,6 +271,10 @@ Para añadir otro evento: decidir qué hook marca "participar" y cuál marca
   prefijo `Calvario*`. La 1.6.3 renombró así los 17 textos que llamaban
   "calvicie" a la cifra, que en el juego se llama alopecia
   (`BarberExIntroV2`, `CalvarioYouV2`, `EventBaldHourStartV3`…).
+- Nombres de eventos: `EventName(GlobalEvent)` busca `"EventName" + valor +
+  "V2"` (p. ej. `EventNameHairiestHuntV2`). Si vuelve a cambiar un nombre, se
+  sube el sufijo en ese método y en las cuatro claves a la vez.
+- El tono y el vocabulario de los textos están en `docs/TONO.md`.
 - Refranes del Calvario: `CalvarioProverb<n>`, con los números en
   `ProverbNumbers`. El 6 se quitó en la 1.4.1 y no se reutiliza: su clave
   vieja sigue en los ficheros desplegados hasta que Oxide la borra al cargar.
