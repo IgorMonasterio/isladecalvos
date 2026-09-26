@@ -126,7 +126,7 @@ Para añadir otro evento: decidir qué hook marca "participar" y cuál marca
 - **Toda ganancia de calvicie por juego pasa por `GainBaldness`**: así la Hora
   de la calvicie la multiplica en un solo sitio. Los cambios de admin y los
   premios de la cacería van directos por `ChangeBaldness`.
-- La Lluvia de champú multiplica en `OnPlayerDeath`. El Brote de alopecia, en
+- La Lluvia de champú multiplica en `OnPlayerDeath`. La Tormenta de cuchillas (antes Brote de alopecia; enum `BladeStorm`), en
   `CompleteEventTarget` (recompensa compartida).
 - Para añadir un evento: nuevo valor en el enum `GlobalEvent`, su bloque en la
   config, su `case` en `StartEvent`/`EndEvent` y sus textos en `lang`.
@@ -219,7 +219,8 @@ Para añadir otro evento: decidir qué hook marca "participar" y cuál marca
   avisa en la consola y nadie puede usar objetos.
 - Los cadáveres (`*.corpse`) mueren al desollarlos. `IsPossibleNpc` los
   descarta para que no salgan en el log de NPC sin tier.
-- Mercalvona (GUIShop), Premios Calvos (Server Rewards) y el TP `/peluqueria`
+- El Mercalvona (GUIShop), Cambio de divisas (Server Rewards; antes Premios
+  Calvos) y el TP `/peluqueria`
   (NTeleportation, "Dynamic Commands") son configuración de esos plugins; el
   plugin no los llama. Los pasos están en el README.
 
@@ -267,7 +268,17 @@ Para añadir otro evento: decidir qué hook marca "participar" y cuál marca
   las que ya no se registran. Nunca pisa un texto que ya existe. Para que un
   texto nuevo llegue solo, se renombra su clave. Convención desde la 1.4.1:
   sufijo `V2`, `V3`… (`TitleUp` → `TitleUpV2`). La 1.3.1 lo hizo con el
-  prefijo `Calvario*`.
+  prefijo `Calvario*`. La 1.6.3 renombró así los 17 textos que llamaban
+  "calvicie" a la cifra, que en el juego se llama alopecia
+  (`BarberExIntroV2`, `CalvarioYouV2`, `EventBaldHourStartV3`…).
+- Nombres de eventos: `EventName(GlobalEvent)` busca `"EventName" + valor +
+  "V2"` (p. ej. `EventNameHairiestHuntV2`). Si vuelve a cambiar un nombre, se
+  sube el sufijo en ese método y en las cuatro claves a la vez.
+- El tono y el vocabulario de los textos están en `docs/TONO.md`.
+- Colores de la casa (1.6.5): en los textos, `<color=#e0a526>` (dorado) para
+  comandos y cifras buenas y `<color=#e0662f>` (óxido) para lo que duele; en
+  la interfaz, `ColorGold`, `ColorRust` y `ColorMuted` (gris `#9a9288`). Los
+  fondos, el poste de barbero y las medallas del podio no cambian.
 - Refranes del Calvario: `CalvarioProverb<n>`, con los números en
   `ProverbNumbers`. El 6 se quitó en la 1.4.1 y no se reutiliza: su clave
   vieja sigue en los ficheros desplegados hasta que Oxide la borra al cargar.

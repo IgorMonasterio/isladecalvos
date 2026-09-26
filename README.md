@@ -7,28 +7,33 @@ Hecho para **uMod/Oxide** en C#. Sin dependencias de otros plugins.
 
 ## La premisa
 
-En Isla de Calvos **ser calvo es la gloria** y **el pelo es una maldición** que
-vuelve a crecer. Cada jugador tiene una **puntuación de calvicie**: un número
-entero **sin límite por arriba** (nunca baja de 0) que se guarda entre
-sesiones. Lo glorioso te deja más calvo; morir hace que te salga pelo.
+En Isla de Calvos **el pelo está sobrevalorado y el futuro es calvo**.
+El pelo es una maldición que vuelve a crecer. Cada jugador tiene un **nivel de
+alopecia**: un número entero **sin límite por arriba** (nunca baja de 0) que se
+guarda entre sesiones. Matar y sobrevivir te dejan más calvo; morir hace que te
+salga pelo.
 No hay cambio visual: todo son puntos, títulos y mensajes.
+
+"Calvicie", "calva" y compañía solo salen en chistes y nombres de eventos. En
+el código la cifra sigue siendo `Baldness`, y las claves de la config están en
+inglés. Los textos para jugadores siguen [docs/TONO.md](docs/TONO.md).
 
 ## Cómo funciona
 
 Todos los valores se pueden cambiar en la config. Estos son los de por defecto:
 
-| Qué pasa | Calvicie |
+| Qué pasa | Alopecia |
 |---|---|
 | Matas a otro jugador (headshot o no) | **+1.000** |
 | Matas a un NPC | según su tier, de **+1** (T1) a **+1.000** (T20) |
 | Cada 30 min vivo y conectado | **+100** |
-| Mueres, sea como sea (PvP, headshot, NPC, caída, suicidio…) | **−10 % de tu calvicie** (redondeado hacia arriba) |
+| Mueres, sea como sea (PvP, headshot, NPC, caída, suicidio…) | **−10 % de tu alopecia** (redondeado hacia arriba) |
 
 Siempre son números enteros.
 
 **Anti-farmeo:**
-- Matar a un jugador **dormido (sleeper) o desconectado** no da calvicie.
-- **Cooldown por víctima**: matar al mismo jugador solo da calvicie una vez
+- Matar a un jugador **dormido (sleeper) o desconectado** no da alopecia.
+- **Cooldown por víctima**: matar al mismo jugador solo da alopecia una vez
   cada 30 min.
 - Suicidio = muerte normal, sin premio.
 
@@ -39,11 +44,11 @@ derribó.
 ### NPCs por tiers
 
 Cada NPC tiene un **tier del 1 (fácil) al 20 (difícil)** según su
-`ShortPrefabName`, y cada tier da una calvicie fija (config `NpcTiers` y
+`ShortPrefabName`, y cada tier da una alopecia fija (config `NpcTiers` y
 `TierRewards`). Recompensas por defecto: curva creciente de ×1,44 por tier,
 de 1 a 1.000.
 
-| Tier | Calvicie | NPCs |
+| Tier | Alopecia | NPCs |
 |---|---|---|
 | 1 | +1 | chicken |
 | 2 | +2 | zombie |
@@ -106,7 +111,7 @@ tiene el servidor):
 | 10.000.000 | Lord Bola de Billar |
 | 100.000.000 | Su Calvísima Majestad |
 
-Con 0 puntos también eres Greñas Sucias.
+Con 0 de alopecia también eres Greñas Sucias.
 
 **Anuncios globales** (se pueden desactivar):
 - Al subir de título: `{jugador} asciende a {título}. Su peluquero ya ha pedido el paro.`
@@ -123,19 +128,20 @@ eventos globales. Las bajadas siguen solo en el chat.
 objetos. Por defecto todo está a 0. Se cobra **una sola vez por jugador y
 título**: bajar y volver a subir no paga otra vez. A los jugadores que ya
 existían se les apunta como cobrado el título que tenían la primera vez que
-cambian de título. La calvicie **comprada** en el cambio no cobra premios,
+cambian de título. La alopecia **comprada** en el cambio no cobra premios,
 salvo que se active en la config.
 
-Los mensajes van resaltados con color y llevan como **icono** el avatar de la
-cuenta de Steam de la isla. Para cambiar el icono, cambia el avatar de esa
+Los mensajes van resaltados con los colores de la casa: dorado para cifras
+buenas y comandos, y óxido para lo que duele (ver [docs/TONO.md](docs/TONO.md)).
+Llevan como **icono** el avatar de la cuenta de Steam de la isla. Para cambiar el icono, cambia el avatar de esa
 cuenta en Steam o pon otro SteamID64 en la config. Si acabas de cambiar el
 avatar, los clientes pueden tardar en verlo (Steam lo cachea). **No uses emojis en los textos**: el
 chat de Rust no los dibuja y salen como `??`.
 
-### RP de Server Rewards por calvicie (plugin 1.4.0, lineal desde la 1.6.0)
+### RP de Server Rewards por alopecia (plugin 1.4.0, lineal desde la 1.6.0)
 
 Ser calvo da de comer. Cada **30 minutos vivo, conectado y despierto**, el
-plugin paga **RP de Server Rewards**: **1 RP por cada 100 de calvicie**, sin
+plugin paga **RP de Server Rewards**: **1 RP por cada 100 de alopecia**, sin
 tope (100 → 1, 3.900 → 39, 2.000.000 → 20.000). Se calcula en entero largo y
 se limita al máximo que admite Server Rewards (2.147.483.647).
 
@@ -147,20 +153,21 @@ escalones por título de la 1.4.0.
 - Cuenta el título que tengas **en el momento del pago**. Morir no reinicia
   el reloj de los RP, pero los minutos muerto o dormido no cuentan.
 - El jugador ve en el chat `+X RP por lucir calva de {título}`.
-- Los RP no se multiplican con eventos ni con la pila, y no tocan la calvicie.
+- Los RP no se multiplican con eventos ni con la pila, y no tocan la alopecia.
 - Si **Server Rewards** no está cargado, no se paga nada y se avisa una vez
-  en la consola. La calvicie sigue funcionando igual.
+  en la consola. La alopecia sigue funcionando igual.
 
 **Estadísticas** por jugador: kills, muertes y kills de headshot (solo contra
-jugadores). Las kills cuentan aunque no den calvicie (sleeper o cooldown).
+jugadores). Las kills cuentan aunque no den alopecia (sleeper o cooldown).
 
 ## En pantalla
 
-- **Contador de calvicie**, siempre visible en la **esquina superior
-  derecha**: `CALVICIE 1.174` y tu título debajo. Se actualiza con cada
-  cambio. (Abajo chocaba con el panel de RaidableBases.)
-- Al ganar puntos sale debajo un **`+18`** en amarillo durante 2,5 s; al
-  perderlos, un **`-117`** en rojo.
+- **Contador de alopecia**, siempre visible en la **esquina superior
+  derecha**: `ALOPECIA 1.174` y tu título debajo (desde la 1.6.1; antes
+  ponía `CALVICIE`). Se actualiza con cada cambio. (Abajo chocaba con el
+  panel de RaidableBases.)
+- Al ganar alopecia sale debajo un **`+18`** en dorado durante 2,5 s; al
+  perderla, un **`-117`** en óxido.
 - Los **eventos globales** salen además en un **cartel grande en el centro
   de la pantalla** durante 8 s (y en el chat, como siempre).
 - La posición del contador, los tiempos y activar o desactivar cada cosa se
@@ -176,10 +183,10 @@ terminar.
 
 | Evento | Qué hace | Duración |
 |---|---|---|
-| **Hora de la calvicie** | Todo lo que da calvicie da **el doble**: kills, NPCs, supervivencia y objetivos compartidos. | 30 min |
+| **Hora de la calvicie** | Todo lo que da alopecia da **el doble**: kills, NPCs, supervivencia y objetivos compartidos. | 30 min |
 | **Lluvia de champú** | Morir resta **el doble** (−20 %). | 20 min |
-| **Cazar al más peludo** | Se anuncia al jugador conectado con **menos calvicie**. Quien lo mate gana **+2.000** además de la kill normal. Si aguanta los 20 min, él gana **+1.000**. Si muere por otra cosa o se desconecta, se acaba sin premio. Hacen falta al menos 2 jugadores conectados. | 20 min |
-| **Brote de alopecia** | Heli, Bradley y Chinook dan **el triple**. | 60 min |
+| **Cacería del peludo** | Se anuncia al jugador conectado con **menos alopecia**. Quien lo mate gana **+2.000** además de la kill normal. Si aguanta los 20 min, él gana **+1.000**. Si muere por otra cosa o se desconecta, se acaba sin premio. Hacen falta al menos 2 jugadores conectados. | 20 min |
+| **Tormenta de cuchillas** | Heli, Bradley y Chinook dan **el triple**. (Hasta la 1.6.1 se llamaba *Brote de alopecia*; se renombró para no chocar con el contador.) | 60 min |
 
 Si toca la cacería y solo hay un jugador conectado, se elige otro evento.
 Todo (intervalo, duraciones, multiplicadores, premios, activar o desactivar
@@ -198,12 +205,13 @@ del pueblo pesquero). Abajo sale un cuadro con lo que dice el barbero y tus
 respuestas numeradas:
 
 ```
- EL BARBERO                        Tu calvicie: 2.944 — Coronilla a la Intemperie
- "Siéntate, peludo. ¿Qué te pelo hoy?"
+ EL BARBERO                        Tu alopecia: 2.944 — Coronilla a la Intemperie
+ "Siéntate, peludo. ¿Qué te quito hoy, el pelo o la dignidad?"
 
-   1. Quiero usar un objeto maldito
+   1. Traigo algo maldito
    2. Vengo a sellar el Carné de Calvo
-   3. Nada, solo miraba
+   3. Vengo a vender (o comprar) calva
+   4. Nada, solo miraba
 ```
 
 - Te saluda con una de sus frases o con uno de los **refranes** de la isla.
@@ -211,6 +219,8 @@ respuestas numeradas:
   Al elegir uno, lo usa y el barbero contesta **en el cuadro** (no en el chat).
 - **2** enseña qué colores del carné tienes sellados y cuáles te faltan, con
   la opción de sellar lo que traes.
+- **3** es el [cambio de alopecia](#el-cambio-de-alopecia-plugin-160). Solo
+  sale si está activado en la config.
 
 El **Salón de la fama calva** (`/calvos`) va de barbería calva: rayas de
 poste de barbero, barra de progreso hacia tu siguiente título,
@@ -241,27 +251,27 @@ el premio del carné completo no se multiplican.
 Si un nombre interno no existe en la versión de Rust del servidor, el plugin
 lo avisa en la consola al arrancar.
 
-### El cambio de calvicie (plugin 1.6.0)
+### El cambio de alopecia (plugin 1.6.0)
 
-Opción **4. Quiero cambiar calvicie** en la conversación con el barbero.
-Calvicie, RP y monedas se cambian entre sí:
+Opción **3. Vengo a vender (o comprar) calva** en la conversación con el barbero.
+Alopecia, RP y monedas se cambian entre sí:
 
 | Operación | Por defecto |
 |---|---|
-| Vender calvicie por RP | 100 de calvicie → 1 RP |
-| Vender calvicie por monedas | 100 de calvicie → 10 monedas |
-| Comprar calvicie con RP | 1 RP → 1 de calvicie |
-| Comprar calvicie con monedas | 10 monedas → 1 de calvicie |
+| Vender alopecia por RP | 100 de alopecia → 1 RP |
+| Vender alopecia por monedas | 100 de alopecia → 10 monedas |
+| Comprar alopecia con RP | 1 RP → 1 de alopecia |
+| Comprar alopecia con monedas | 10 monedas → 1 de alopecia |
 
-- Las tasas son **asimétricas a propósito**: la calvicie paga RP cada 30 min
+- Las tasas son **asimétricas a propósito**: la alopecia paga RP cada 30 min
   para siempre, y si comprarla fuera barato sería una máquina de hacer dinero.
-- Cantidades fijas (100, 1.000, 10.000, 100.000 de calvicie), solo enteras. Para
+- Cantidades fijas (100, 1.000, 10.000, 100.000 de alopecia), solo enteras. Para
   vender, un mínimo de 100 y múltiplos exactos.
 - Antes de cada cambio sale una **confirmación** ("¿Seguro que cambias 1.000 de
-  calvicie por 10 RP?") con **CONFIRMAR** / **CANCELAR**. Lo que se confirma se
+  alopecia por 10 RP?…") con **CONFIRMAR** / **ME LO PIENSO**. Lo que se confirma se
   guarda en el servidor, no en el botón, y se vuelve a comprobar al confirmar.
 - Primero se paga o se cobra en Server Rewards o Economics, y solo si eso sale
-  bien se toca la calvicie.
+  bien se toca la alopecia.
 - Vender puede bajarte de título (se anuncia en el chat, como cualquier
   bajada). Lo comprado sube de título normal, pero ni se multiplica con
   eventos o la pila ni cobra premios de título.
@@ -274,8 +284,8 @@ Tres casitas, cada una con un NPC de **HumanNPC**:
 | Casa | NPC | Plugin que la atiende |
 |---|---|---|
 | **El Calvario** | El Barbero | Este plugin: objetos malditos y Carné de Calvo |
-| **Mercalvona** | Tendero de Mercalvona | GUIShop (monedas) |
-| **Premios Calvos** | Cambista de Premios Calvos | Server Rewards (RP) |
+| **El Mercalvona®** | Tendero del Mercalvona | GUIShop (monedas) |
+| **Cambio de divisas** (antes Premios Calvos) | Cambista de divisas | Server Rewards (RP) |
 
 Se llega con **`/peluqueria`**, igual que `/bandit` o `/outpost`. `/shop` y
 `/s` dejan de funcionar fuera de allí, y `/calvos` solo muestra el ranking.
@@ -307,12 +317,12 @@ versión es otra, los nombres pueden cambiar un poco.
    }
    ```
    Después: `oxide.reload IslaDeCalvos`.
-3. **Mercalvona (GUIShop).** En la tienda que quieras asignar, activa
+3. **El Mercalvona (GUIShop).** En la tienda que quieras asignar, activa
    `EnableNPC` y pon el `userid` del tendero en `NpcIds`. Para que `/shop` no
    abra nada fuera de la casa, deja `"Set Default Global Shop to open": ""`
    (vacío). Es la forma que indica el propio GUIShop para desactivar las
    tiendas globales.
-4. **Premios Calvos (Server Rewards).** Mirando al cambista, `/srnpc add`. En su
+4. **Cambio de divisas (Server Rewards).** Mirando al cambista, `/srnpc add`. En su
    config, `"Use NPC dealers only": true`: así `/s` solo funciona para
    admins.
 5. **El TP (NTeleportation).** En `"Dynamic Commands"`, añade una entrada
@@ -331,11 +341,11 @@ y después `/npc name "…"`, `/npc hello "…" "…"`, `/npc use "…"` y
 `/npc_end` para terminar.
 
 ```
-# Mercalvona
-/npc name "Tendero de Mercalvona"
-/npc hello "¡Bienvenido a Mercalvona®! Precios bajos y cabezas relucientes." "Pasa, pasa. Champú no tenemos, que aquí eso es contrabando."
+# El Mercalvona
+/npc name "Tendero del Mercalvona"
+/npc hello "¡Bienvenido al Mercalvona®! Precios bajos y cabezas relucientes." "Pasa, pasa. Champú no tenemos, que aquí eso es contrabando."
 /npc use "¿Qué va a ser? Dale a la E y no toques lo que no vayas a pagar."
-/npc bye "Gracias por comprar en Mercalvona®. Vuelve con menos pelo y más cartera."
+/npc bye "Gracias por comprar en el Mercalvona®. Vuelve con menos pelo y más cartera."
 
 # El Calvario (use vacío: la E abre directamente El Calvario)
 /npc name "El Barbero"
@@ -343,9 +353,9 @@ y después `/npc name "…"`, `/npc hello "…" "…"`, `/npc use "…"` y
 /npc use reset
 /npc bye "Vuelve cuando te asome algo. Aquí no se deja crecer ni la duda."
 
-# Premios Calvos
-/npc name "Cambista de Premios Calvos"
-/npc hello "Premios Calvos: tu calva vale RP y aquí se cobra. Pasa por caja."
+# Cambio de divisas
+/npc name "Cambista de divisas"
+/npc hello "Cambio de divisas: tu calva vale RP y aquí se cobra. Pasa por caja."
 /npc use "A ver cuánto te ha pagado esa cabeza. Dale a la E."
 /npc bye "Sigue brillando, que cada media hora te cae algo."
 ```
@@ -356,7 +366,7 @@ está en el servidor con el tono de la isla y no se toca:
 ```json
 "NPCResponseOpen": "¡Bienvenido a {0}! ¿Qué te pongo? Dale a la E, que no tengo todo el día.",
 "NPCResponseClose": "Gracias por comprar en {0}. Vuelve pronto, y más pelado.",
-"GlobalShopsDisabled": "Aquí no se compra desde el sofá, señorito. Ve a Mercalvona con /peluqueria y háblale al tendero.",
+"GlobalShopsDisabled": "Aquí no se compra desde el sofá, señorito. Ve al Mercalvona con /peluqueria y háblale al tendero.",
 "Bought": "Te llevas {0} de {1}. El tendero ya está contando tus monedas.",
 "Sold": "Has vendido {0} de {1}. Con eso no te da ni para un peine."
 ```
@@ -374,11 +384,11 @@ está en el servidor con el tono de la isla y no se toca:
 | Comando | Quién | Qué hace |
 |---|---|---|
 | `/calvos` | Todos | Abre el **Salón de la fama calva**: ranking de todo el servidor, de 10 en 10, con tu posición. Se cierra con la **X**. Los objetos se usan hablando con el barbero de la peluquería. |
-| `/calvoadmin set <jugador> <valor>` | Admin | Fija la calvicie de un jugador (entero, 0 o más). |
-| `/calvoadmin reset <jugador>` | Admin | Pone la calvicie de un jugador a 0. |
-| `/calvoadmin evento <hora\|champu\|peludo\|alopecia>` | Admin | Lanza ese evento ya, sin esperar a la hora. Para probar. |
+| `/calvoadmin set <jugador> <valor>` | Admin | Fija la alopecia de un jugador (entero, 0 o más). |
+| `/calvoadmin reset <jugador>` | Admin | Pone la alopecia de un jugador a 0. |
+| `/calvoadmin evento <hora\|champu\|peludo\|cuchillas>` | Admin | Lanza ese evento ya, sin esperar a la hora. Para probar. (`alopecia` sigue valiendo para la Tormenta de cuchillas.) |
 | `/calvoadmin evento parar` | Admin | Cancela el evento en marcha. |
-| `/calvoadmin debug on\|off` | Admin | Muestra en tu chat cada cambio de calvicie (de cualquier jugador) con su motivo: NPC, tier, valor… También avisa cuando algo **no** da calvicie y por qué. Para probar. Se apaga al recargar el plugin. |
+| `/calvoadmin debug on\|off` | Admin | Muestra en tu chat cada cambio de alopecia (de cualquier jugador) con su motivo: NPC, tier, valor… También avisa cuando algo **no** da alopecia y por qué. Para probar. Se apaga al recargar el plugin. |
 
 `<jugador>` puede ser el SteamID o el nombre (o parte del nombre). Funciona
 también con jugadores desconectados que ya tengan datos. Los cambios de admin
@@ -401,20 +411,20 @@ plugin. Después de editarla: `oxide.reload IslaDeCalvos`.
 
 | Opción | Por defecto | Qué hace |
 |---|---|---|
-| `Baldness gained per player kill` | 1000 | Calvicie por kill. |
-| `Baldness gained per headshot kill (instead of the normal kill reward)` | 1000 | Calvicie por kill de headshot. |
-| `Baldness gained per survival interval` | 100 | Calvicie por sobrevivir. |
+| `Baldness gained per player kill` | 1000 | Alopecia por kill. |
+| `Baldness gained per headshot kill (instead of the normal kill reward)` | 1000 | Alopecia por kill de headshot. |
+| `Baldness gained per survival interval` | 100 | Alopecia por sobrevivir. |
 | `Survival interval (minutes alive and connected)` | 30 | Cada cuántos minutos se gana. |
-| `Baldness lost on death (% of current baldness)` | 10 | Porcentaje de tu calvicie que pierdes al morir. |
-| `Deaths caused by NPCs lower baldness` | true | Si morir a manos de un NPC resta calvicie. |
+| `Baldness lost on death (% of current baldness)` | 10 | Porcentaje de tu alopecia que pierdes al morir. |
+| `Deaths caused by NPCs lower baldness` | true | Si morir a manos de un NPC resta alopecia. |
 | `Kill cooldown per victim (minutes)` | 30 | Anti-farmeo por víctima (0 = sin cooldown). |
 | `Announce when a player reaches the highest title` | true | Anuncio de calvicie suprema. |
 | `Announce when a player rises to a higher title` | true | Anuncio de subida de título. |
 | `Announce when a player drops to a lower title` | true | Anuncio de bajada de título. |
 | `Reset baldness on map wipe (stats are kept)` | false | Si el wipe pone a todos a 0. |
 | `Titles (minimum baldness -> title)` | ver tabla | Lista de títulos y desde cuántos puntos se consiguen. |
-| `NpcTiers` | ver tabla | `"<shortprefabname>": <tier>` para cada NPC que da calvicie. |
-| `TierRewards` | curva 1 … 1000 | `"<tier>": <calvicie>` para los tiers 1-20. Números enteros. |
+| `NpcTiers` | ver tabla | `"<shortprefabname>": <tier>` para cada NPC que da alopecia. |
+| `TierRewards` | curva 1 … 1000 | `"<tier>": <alopecia>` para los tiers 1-20. Números enteros. |
 | `DisabledNpcs` | bandit guard y sentries | NPCs que están en `NpcTiers` pero no dan nada. |
 | `SharedRewardTargets` | heli, Bradley, CH47 | Objetivos con recompensa compartida. Tienen que estar también en `NpcTiers`. |
 | `Shared reward: teammate radius from the target (meters)` | 300 | Distancia máxima de los compañeros de equipo al objetivo. |
@@ -469,7 +479,7 @@ nombre interno y su probabilidad):
 }
 ```
 
-Bloque de RP (valores por defecto). Las claves son la calvicie mínima, igual
+Bloque de RP (valores por defecto). Las claves son la alopecia mínima, igual
 que los títulos:
 
 ```json
@@ -490,7 +500,7 @@ que los títulos:
 ```
 
 Bloques de premios por título y del cambio (valores por defecto). Las claves de
-los premios son la calvicie mínima de cada título:
+los premios son la alopecia mínima de cada título:
 
 ```json
 "Tier prizes (title minimum baldness -> prize)": {
@@ -537,6 +547,9 @@ Bloque de eventos globales (valores por defecto):
 }
 ```
 
+El bloque `Alopecia outbreak` es la **Tormenta de cuchillas**: la clave
+conserva el nombre antiguo para que no se pierdan los valores ya guardados.
+
 Los textos de los mensajes se editan en `oxide/lang/es/IslaDeCalvos.json` y
 `oxide/lang/en/IslaDeCalvos.json`. Los dos están en español por defecto: la
 mayoría de jugadores tienen el cliente en inglés, y Oxide les mostraría el
@@ -551,7 +564,7 @@ servidor.
 1. Ten un servidor dedicado de Rust con **Oxide (uMod)** instalado.
 2. Copia `src/IslaDeCalvos.cs` en la carpeta `oxide/plugins/` del servidor.
 3. Oxide lo compila y carga solo. En la consola deberías ver algo como
-   `Loaded plugin Isla de Calvos v1.6.0 by Igor Monasterio`.
+   `Loaded plugin Isla de Calvos v1.6.5 by Igor Monasterio`.
 4. Para recargarlo tras cambiar el fichero (normalmente se recarga solo):
    `oxide.reload IslaDeCalvos`
 
