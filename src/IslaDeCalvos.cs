@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Isla de Calvos", "Igor Monasterio", "1.6.5")]
+    [Info("Isla de Calvos", "Igor Monasterio", "1.6.6")]
     [Description("Baldness system for the Isla de Calvos Rust server: being bald is glory, hair is a curse.")]
     public class IslaDeCalvos : RustPlugin
     {
@@ -786,11 +786,11 @@ namespace Oxide.Plugins
                 ["BarberExSellCoinsV2"] = "Vender calva por monedas (cada 100 de alopecia, {0} monedas)",
                 ["BarberExBuyRpV3"] = "Comprar calva con RP ({0} RP cada 1 de alopecia)",
                 ["BarberExBuyCoinsV2"] = "Comprar calva con monedas ({0} monedas cada 1 de alopecia)",
-                ["BarberExClosedV2"] = "{0}  [cerrado: falta {1}]",
+                ["BarberExClosedV3"] = "{0}  [cerrado: falta {1}. Vuelve cuando el jefe lo arregle]",
                 ["BarberExPickAmount"] = "¿Cuánto? Piénsatelo bien, que luego lloras.",
                 ["BarberExSellLineV2"] = "Dar {0} de alopecia y llevarme {1}",
                 ["BarberExBuyLineV2"] = "Pagar {1} y llevarme {0} de alopecia",
-                ["BarberExTooMuchV2"] = "{0}  [no te llega]",
+                ["BarberExTooMuchV3"] = "{0}  [no te llega, tieso]",
                 ["BarberExConfirmSellV2"] = "¿Seguro que cambias {0} de alopecia por {1}? Te va a volver a salir pelo, y eso no se paga con nada.",
                 ["BarberExConfirmBuyV2"] = "¿Seguro que pagas {1} por {0} de alopecia? Aquí no hay devoluciones ni hoja de reclamaciones.",
                 ["BarberExConfirm"] = "CONFIRMAR",
@@ -873,7 +873,7 @@ namespace Oxide.Plugins
                 ["CalvarioGoToBarberV2"] = "Los objetos malditos se usan en el Calvario de la peluquería. Ve con <color=#e0a526>/peluqueria</color> y háblale al barbero.",
                 ["ItemNoneV2"] = "No llevas {0} encima. Ni eso.",
                 ["ItemShieldAlready"] = "Ya llevas la calva tapada con cinta. Muere primero.",
-                ["ItemBatteryAlreadyV3"] = "La maquinilla ya está en marcha: quedan {0} min. Más rápido no va.",
+                ["ItemBatteryAlreadyV4"] = "La maquinilla ya está en marcha (quedan {0} min). Más rápido no va a ir, que es una maquinilla, no un Fórmula 1.",
                 ["ItemBleachWinV2"] = "La lejía te ha abrasado el cuero cabelludo: +{0}. Escuece, pero brilla.",
                 ["ItemBleachFail"] = "La lejía te ha dejado un mechón rebelde. Vergüenza: -{0}.",
                 ["ItemShieldOnV2"] = "Te has tapado la calva con cinta americana. Tu próxima muerte no restará. Elegante no es, pero funciona.",
@@ -885,11 +885,11 @@ namespace Oxide.Plugins
                 ["CarneCompletedV3"] = "<color=#e0a526>{0}</color> ha completado el CARNÉ DE CALVO y gana +{1}. El Ministerio de Alopecia está orgulloso. Su madre, no tanto.",
                 ["ReasonItemUse"] = "objeto: {0}",
                 ["ReasonCarne"] = "carné de calvo",
-                ["SupremeBaldnessV4"] = "<color=#e0a526>{0} HA ALCANZADO LA CALVICIE SUPREMA</color>. Los pilotos ya usan su cabeza para aterrizar de noche.",
+                ["SupremeBaldnessV5"] = "<color=#e0a526>{0} HA ALCANZADO LA CALVICIE SUPREMA</color>. Tiene la cabeza tan pulida que las gaviotas se peinan mirándose en ella y los pilotos la usan para aterrizar de noche. Peludos del mundo: de rodillas, que a partir de hoy hasta vuestra madre se la frota para pedir un deseo.",
                 ["TitleUpV3"] = "<color=#e0a526>{0}</color> asciende a <color=#e0a526>{1}</color>. Su peluquero ya ha pedido el paro.",
                 ["TitleDropV2"] = "<color=#e0662f>A {0} le está saliendo pelo</color> (ahora es {1})",
-                ["NoPermissionV3"] = "No tienes permiso para usar este comando.",
-                ["AdminUsageV2"] = "Uso: /calvoadmin set <jugador> <valor> | /calvoadmin reset <jugador> | /calvoadmin debug on|off | /calvoadmin evento <hora|champu|peludo|cuchillas|parar>",
+                ["NoPermissionV4"] = "No tienes permiso para usar este comando. Buen intento, figura.",
+                ["AdminUsageV3"] = "Uso: /calvoadmin set <jugador> <valor> | /calvoadmin reset <jugador> | /calvoadmin debug on|off | /calvoadmin evento <hora|champu|peludo|alopecia|parar>",
                 ["AdminInvalidValue"] = "El valor tiene que ser un número entero igual o mayor que {0}.",
                 ["PlayerNotFound"] = "No se ha encontrado ningún jugador con '{0}'.",
                 ["PlayerAmbiguous"] = "Hay {0} jugadores que coinciden con '{1}'. Sé más concreto o usa el SteamID.",
@@ -920,10 +920,10 @@ namespace Oxide.Plugins
                 ["NoRewardNpcUnlisted"] = "NPC {0} no está en NpcTiers",
                 ["NoRewardTierMissing"] = "NPC {0} (T{1}) sin valor en TierRewards",
                 ["NoRewardNpcDeath"] = "muerte por NPC (desactivado en la config)",
-                ["EventNameBaldHourV2"] = "Hora de la calvicie",
-                ["EventNameShampooRainV2"] = "Lluvia de champú",
-                ["EventNameHairiestHuntV2"] = "Cacería del peludo",
-                ["EventNameBladeStormV2"] = "Tormenta de cuchillas",
+                ["EventNameBaldHourV3"] = "Hora de la calvicie",
+                ["EventNameShampooRainV3"] = "Lluvia de champú",
+                ["EventNameHairiestHuntV3"] = "Cacería del peludo",
+                ["EventNameBladeStormV3"] = "Brote de alopecia",
                 ["EventTag"] = " [{0} x{1}]",
                 ["EventBaldHourStartV4"] = "<color=#e0a526>HORA DE LA CALVICIE</color>: durante {0} min todo da x{1} de alopecia. Salid a matar, que la frente no se despeja sola.",
                 ["EventBaldHourEndV2"] = "Se acabó la Hora de la calvicie. Volvéis a pelaros a precio normal.",
@@ -932,14 +932,14 @@ namespace Oxide.Plugins
                 ["EventHuntStartV4"] = "<color=#e0a526>CACERÍA DEL PELUDO</color>: {0} es el más peludo de la isla ({1}). Quien lo mate gana +{2}. Si aguanta {3} min, gana él +{4}. A por él, que esa melena no se va a cortar sola.",
                 ["EventHuntKilledV3"] = "<color=#e0a526>{0}</color> ha cazado al más peludo, {1}, y gana +{2}. Corte de pelo gratis y a bocajarro.",
                 ["EventHuntSurvivedV2"] = "{0} ha sobrevivido a la cacería con todo su pelo y gana +{1}. Vergüenza os debería dar, calvos.",
-                ["EventHuntDiedV3"] = "{0}, el más peludo de la isla, la ha palmado solito, sin que nadie le haga ni puto caso. Se acabó la cacería.",
-                ["EventHuntEscapedV3"] = "{0} se ha pirado de la isla con su melena, como una rata con extensiones. Se acabó la cacería.",
-                ["EventBladeStormStartV2"] = "<color=#e0a526>TORMENTA DE CUCHILLAS</color>: durante {0} min el heli, la Bradley y el Chinook dan x{1}. Hoy hasta el cielo se pela.",
-                ["EventBladeStormEnd"] = "Se acabó la tormenta de cuchillas. El heli vuelve a pagar lo de siempre, como un funcionario.",
+                ["EventHuntDiedV4"] = "{0}, el más peludo de la isla, la ha palmado solito, sin que nadie le meta un tiro. Se ha muerto como vivió: con el pelo en la cara y sin que nadie le haga ni puto caso. Se acabó la cacería.",
+                ["EventHuntEscapedV4"] = "{0} se ha pirado de la isla con su melena, como una rata con extensiones. Volverá cuando se le acabe el acondicionador. Se acabó la cacería.",
+                ["EventBladeStormStartV3"] = "<color=#e0a526>BROTE DE ALOPECIA</color>: durante {0} min el heli, la Bradley y el Chinook dan x{1}. Hoy hasta el cielo se pela.",
+                ["EventBladeStormEndV2"] = "Se acabó el brote de alopecia. El heli vuelve a pagar lo de siempre, como un funcionario.",
                 ["EventStoppedByAdminV2"] = "Un admin ha cancelado el evento {0}. Las quejas, a su peluquero.",
                 ["ReasonHuntKillV2"] = "cacería del peludo ({0})",
                 ["ReasonHuntSurvived"] = "sobrevivir a la cacería",
-                ["AdminEventUsageV2"] = "Uso: /calvoadmin evento <hora|champu|peludo|cuchillas|parar>",
+                ["AdminEventUsageV3"] = "Uso: /calvoadmin evento <hora|champu|peludo|alopecia|parar>",
                 ["AdminEventBusy"] = "Ya hay un evento en marcha: {0}. Páralo antes con /calvoadmin evento parar.",
                 ["AdminEventCannotStart"] = "No se puede lanzar {0} ahora (¿pocos jugadores conectados o desactivado en la config?).",
                 ["AdminEventNone"] = "No hay ningún evento en marcha.",
@@ -1451,13 +1451,13 @@ namespace Oxide.Plugins
         {
             if (!permission.UserHasPermission(player.UserIDString, PermAdmin))
             {
-                Reply(player, "NoPermissionV3");
+                Reply(player, "NoPermissionV4");
                 return;
             }
 
             if (args.Length < 2)
             {
-                Reply(player, "AdminUsageV2");
+                Reply(player, "AdminUsageV3");
                 return;
             }
 
@@ -1489,7 +1489,7 @@ namespace Oxide.Plugins
             }
             else
             {
-                Reply(player, "AdminUsageV2");
+                Reply(player, "AdminUsageV3");
                 return;
             }
 
@@ -1528,7 +1528,7 @@ namespace Oxide.Plugins
                     Reply(player, "DebugOff");
                     break;
                 default:
-                    Reply(player, "AdminUsageV2");
+                    Reply(player, "AdminUsageV3");
                     break;
             }
         }
@@ -1562,7 +1562,7 @@ namespace Oxide.Plugins
 
             if (activeEvent == GlobalEvent.HairiestHunt && player != null && (ulong)player.userID == huntTargetId)
             {
-                BroadcastEvent("EventHuntEscapedV3", player.displayName);
+                BroadcastEvent("EventHuntEscapedV4", player.displayName);
                 EndEvent(false);
             }
         }
@@ -1626,7 +1626,7 @@ namespace Oxide.Plugins
                 case GlobalEvent.BladeStorm:
                     if (!events.BladeStorm.Enabled) return false;
                     minutes = events.BladeStorm.DurationMinutes;
-                    BroadcastEvent("EventBladeStormStartV2", minutes, events.BladeStorm.Multiplier);
+                    BroadcastEvent("EventBladeStormStartV3", minutes, events.BladeStorm.Multiplier);
                     break;
                 default:
                     return false;
@@ -1671,7 +1671,7 @@ namespace Oxide.Plugins
 
                         break;
                     case GlobalEvent.BladeStorm:
-                        BroadcastEvent("EventBladeStormEnd");
+                        BroadcastEvent("EventBladeStormEndV2");
                         break;
                 }
             }
@@ -1684,7 +1684,7 @@ namespace Oxide.Plugins
         {
             if (killer == null)
             {
-                BroadcastEvent("EventHuntDiedV3", targetData.Name);
+                BroadcastEvent("EventHuntDiedV4", targetData.Name);
             }
             else
             {
@@ -1706,8 +1706,8 @@ namespace Oxide.Plugins
                 case "champu":
                 case "champú": requested = GlobalEvent.ShampooRain; break;
                 case "peludo": requested = GlobalEvent.HairiestHunt; break;
-                case "cuchillas":
-                case "alopecia": requested = GlobalEvent.BladeStorm; break;
+                case "alopecia":
+                case "cuchillas": requested = GlobalEvent.BladeStorm; break;
                 case "parar":
                     if (activeEvent == GlobalEvent.None)
                     {
@@ -1719,7 +1719,7 @@ namespace Oxide.Plugins
                     EndEvent(false);
                     return;
                 default:
-                    Reply(player, "AdminEventUsageV2");
+                    Reply(player, "AdminEventUsageV3");
                     return;
             }
 
@@ -1735,7 +1735,7 @@ namespace Oxide.Plugins
             }
         }
 
-        private string EventName(GlobalEvent globalEvent) => Lang("EventName" + globalEvent + "V2");
+        private string EventName(GlobalEvent globalEvent) => Lang("EventName" + globalEvent + "V3");
 
         private string EventTag(GlobalEvent globalEvent, int multiplier) => Lang("EventTag", null, EventName(globalEvent), multiplier);
 
@@ -2166,7 +2166,7 @@ namespace Oxide.Plugins
 
             if (key == "battery" && IsBatteryActive(data.Id))
             {
-                return Lang("ItemBatteryAlreadyV3", player.UserIDString, BatteryMinutesLeft(data.Id));
+                return Lang("ItemBatteryAlreadyV4", player.UserIDString, BatteryMinutesLeft(data.Id));
             }
 
             if (!TakeItem(player, item.Shortname))
@@ -2430,7 +2430,7 @@ namespace Oxide.Plugins
         {
             bool available = ExchangeModeAvailable(mode);
             string plugin = mode == ExchangeMode.SellForRp || mode == ExchangeMode.BuyWithRp ? "Server Rewards" : "Economics";
-            options.Add(new KeyValuePair<string, string>(available ? text : Lang("BarberExClosedV2", userId, text, plugin),
+            options.Add(new KeyValuePair<string, string>(available ? text : Lang("BarberExClosedV3", userId, text, plugin),
                 available ? "calvos.exchange mode " + mode : null));
         }
 
@@ -2679,7 +2679,7 @@ namespace Oxide.Plugins
                         string text = Lang(IsSell(amountFor.Mode) ? "BarberExSellLineV2" : "BarberExBuyLineV2", userId,
                             FormatBaldness(amount), ExchangePriceText(amountFor.Mode, ExchangePrice(amountFor.Mode, amount), userId));
                         bool affordable = CanAffordExchange(data, amountFor.Mode, amount);
-                        options.Add(new KeyValuePair<string, string>(affordable ? text : Lang("BarberExTooMuchV2", userId, text),
+                        options.Add(new KeyValuePair<string, string>(affordable ? text : Lang("BarberExTooMuchV3", userId, text),
                             affordable ? "calvos.exchange amount " + amount.ToString(CultureInfo.InvariantCulture) : null));
                     }
 
@@ -3080,7 +3080,7 @@ namespace Oxide.Plugins
                 // Reaching the highest title gets its own announcement instead of the generic one.
                 if (newTier == config.Titles.Count - 1 && config.AnnounceSupremeBaldness)
                 {
-                    Broadcast("SupremeBaldnessV4", data.Name);
+                    Broadcast("SupremeBaldnessV5", data.Name);
                 }
                 else if (config.AnnounceTitleUp)
                 {
