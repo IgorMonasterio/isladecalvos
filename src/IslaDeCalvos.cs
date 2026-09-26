@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Isla de Calvos", "Igor Monasterio", "1.6.0")]
+    [Info("Isla de Calvos", "Igor Monasterio", "1.6.1")]
     [Description("Baldness system for the Isla de Calvos Rust server: being bald is glory, hair is a curse.")]
     public class IslaDeCalvos : RustPlugin
     {
@@ -78,7 +78,7 @@ namespace Oxide.Plugins
         #region Configuration
 
         // Bump when a release must overwrite values already saved in existing config files.
-        private const int CurrentConfigVersion = 131;
+        private const int CurrentConfigVersion = 161;
 
         private class Configuration
         {
@@ -337,7 +337,7 @@ namespace Oxide.Plugins
             [JsonProperty("Counter anchor min")] public string CounterAnchorMin = "1 1";
             [JsonProperty("Counter anchor max")] public string CounterAnchorMax = "1 1";
             // Top-right corner of the screen (the bottom area is used by RaidableBases' status panel).
-            [JsonProperty("Counter offset min")] public string CounterOffsetMin = "-212 -58";
+            [JsonProperty("Counter offset min")] public string CounterOffsetMin = "-262 -58";
             [JsonProperty("Counter offset max")] public string CounterOffsetMax = "-16 -22";
 
             [JsonProperty("Seconds the +X / -X popup stays")]
@@ -544,6 +544,14 @@ namespace Oxide.Plugins
                 config.Ui.CounterOffsetMin = uiDefaults.CounterOffsetMin;
                 config.Ui.CounterOffsetMax = uiDefaults.CounterOffsetMax;
                 PrintWarning("Config updated to 1.3.1: baldness counter moved to the top-right corner.");
+            }
+
+            // 1.6.1: the counter label is now "NIVEL DE ALOPECIA", so the box grows 50 px to the left.
+            // Only when it still has the 1.3.1 default, so an admin's own position is kept.
+            if (config.ConfigVersion < 161 && config.Ui.CounterOffsetMin == "-212 -58")
+            {
+                config.Ui.CounterOffsetMin = new UiConfig().CounterOffsetMin;
+                PrintWarning("Config updated to 1.6.1: baldness counter widened for the new label.");
             }
 
             config.ConfigVersion = CurrentConfigVersion;
@@ -944,7 +952,7 @@ namespace Oxide.Plugins
                 ["AdminEventCannotStart"] = "No se puede lanzar {0} ahora (¿pocos jugadores conectados o desactivado en la config?).",
                 ["AdminEventNone"] = "No hay ningún evento en marcha.",
                 ["BatteryTag"] = " [pila x{0}]",
-                ["HudCounter"] = "<size=11><color=#b8b8b8>CALVICIE</color></size>  <color=#f0c040>{0}</color>\n<size=10><color=#d8d8d8>{1}</color></size>"
+                ["HudCounterV2"] = "<size=11><color=#b8b8b8>NIVEL DE ALOPECIA</color></size>  <color=#f0c040>{0}</color>\n<size=10><color=#d8d8d8>{1}</color></size>"
             };
 
             // Spanish is registered as the default ("en") set too: Oxide assigns each player the language
@@ -1799,7 +1807,7 @@ namespace Oxide.Plugins
             {
                 Text =
                 {
-                    Text = Lang("HudCounter", player.UserIDString, FormatBaldness(data.Baldness), GetTitle(data.Baldness)),
+                    Text = Lang("HudCounterV2", player.UserIDString, FormatBaldness(data.Baldness), GetTitle(data.Baldness)),
                     FontSize = 14,
                     Align = TextAnchor.MiddleCenter,
                     Color = "1 1 1 1"
