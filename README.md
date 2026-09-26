@@ -157,8 +157,9 @@ jugadores). Las kills cuentan aunque no den calvicie (sleeper o cooldown).
 ## En pantalla
 
 - **Contador de calvicie**, siempre visible en la **esquina superior
-  derecha**: `CALVICIE 1.174` y tu título debajo. Se actualiza con cada
-  cambio. (Abajo chocaba con el panel de RaidableBases.)
+  derecha**: `NIVEL DE ALOPECIA 1.174` y tu título debajo (desde la 1.6.1;
+  antes ponía `CALVICIE`). Se actualiza con cada cambio. (Abajo chocaba con el
+  panel de RaidableBases.)
 - Al ganar puntos sale debajo un **`+18`** en amarillo durante 2,5 s; al
   perderlos, un **`-117`** en rojo.
 - Los **eventos globales** salen además en un **cartel grande en el centro
@@ -447,7 +448,7 @@ Bloque de pantalla (valores por defecto):
   "Show baldness counter": true,
   "Counter anchor min": "1 1",
   "Counter anchor max": "1 1",
-  "Counter offset min": "-212 -58",
+  "Counter offset min": "-262 -58",
   "Counter offset max": "-16 -22",
   "Seconds the +X / -X popup stays": 2.5,
   "Show event banner in the middle of the screen": true,
@@ -518,7 +519,9 @@ En `"On-screen UI"` hay dos opciones nuevas:
 `"Seconds the title-up banner stays": 6.0`.
 
 La config lleva además un `Config version (do not edit)`. Sirve para que una
-actualización pueda corregir valores ya guardados (la 1.3.1 mueve el contador
+actualización pueda corregir valores ya guardados (la 1.6.1 ensancha el contador
+50 px para que quepa "NIVEL DE ALOPECIA", solo si seguía en su posición por
+defecto; la 1.3.1 mueve el contador
 a la esquina superior derecha una sola vez). No lo toques.
 
 Bloque de eventos globales (valores por defecto):
@@ -551,7 +554,7 @@ servidor.
 1. Ten un servidor dedicado de Rust con **Oxide (uMod)** instalado.
 2. Copia `src/IslaDeCalvos.cs` en la carpeta `oxide/plugins/` del servidor.
 3. Oxide lo compila y carga solo. En la consola deberías ver algo como
-   `Loaded plugin Isla de Calvos v1.6.0 by Igor Monasterio`.
+   `Loaded plugin Isla de Calvos v1.6.1 by Igor Monasterio`.
 4. Para recargarlo tras cambiar el fichero (normalmente se recarga solo):
    `oxide.reload IslaDeCalvos`
 
