@@ -275,6 +275,10 @@ Para añadir otro evento: decidir qué hook marca "participar" y cuál marca
   "V2"` (p. ej. `EventNameHairiestHuntV2`). Si vuelve a cambiar un nombre, se
   sube el sufijo en ese método y en las cuatro claves a la vez.
 - El tono y el vocabulario de los textos están en `docs/TONO.md`.
+- Colores de la casa (1.6.5): en los textos, `<color=#e0a526>` (dorado) para
+  comandos y cifras buenas y `<color=#e0662f>` (óxido) para lo que duele; en
+  la interfaz, `ColorGold`, `ColorRust` y `ColorMuted` (gris `#9a9288`). Los
+  fondos, el poste de barbero y las medallas del podio no cambian.
 - Refranes del Calvario: `CalvarioProverb<n>`, con los números en
   `ProverbNumbers`. El 6 se quitó en la 1.4.1 y no se reutiliza: su clave
   vieja sigue en los ficheros desplegados hasta que Oxide la borra al cargar.

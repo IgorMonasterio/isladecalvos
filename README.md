@@ -131,8 +131,9 @@ existían se les apunta como cobrado el título que tenían la primera vez que
 cambian de título. La alopecia **comprada** en el cambio no cobra premios,
 salvo que se active en la config.
 
-Los mensajes van resaltados con color y llevan como **icono** el avatar de la
-cuenta de Steam de la isla. Para cambiar el icono, cambia el avatar de esa
+Los mensajes van resaltados con los colores de la casa: dorado para cifras
+buenas y comandos, y óxido para lo que duele (ver [docs/TONO.md](docs/TONO.md)).
+Llevan como **icono** el avatar de la cuenta de Steam de la isla. Para cambiar el icono, cambia el avatar de esa
 cuenta en Steam o pon otro SteamID64 en la config. Si acabas de cambiar el
 avatar, los clientes pueden tardar en verlo (Steam lo cachea). **No uses emojis en los textos**: el
 chat de Rust no los dibuja y salen como `??`.
@@ -165,8 +166,8 @@ jugadores). Las kills cuentan aunque no den alopecia (sleeper o cooldown).
   derecha**: `ALOPECIA 1.174` y tu título debajo (desde la 1.6.1; antes
   ponía `CALVICIE`). Se actualiza con cada cambio. (Abajo chocaba con el
   panel de RaidableBases.)
-- Al ganar puntos sale debajo un **`+18`** en amarillo durante 2,5 s; al
-  perderlos, un **`-117`** en rojo.
+- Al ganar alopecia sale debajo un **`+18`** en dorado durante 2,5 s; al
+  perderla, un **`-117`** en óxido.
 - Los **eventos globales** salen además en un **cartel grande en el centro
   de la pantalla** durante 8 s (y en el chat, como siempre).
 - La posición del contador, los tiempos y activar o desactivar cada cosa se
@@ -563,7 +564,7 @@ servidor.
 1. Ten un servidor dedicado de Rust con **Oxide (uMod)** instalado.
 2. Copia `src/IslaDeCalvos.cs` en la carpeta `oxide/plugins/` del servidor.
 3. Oxide lo compila y carga solo. En la consola deberías ver algo como
-   `Loaded plugin Isla de Calvos v1.6.4 by Igor Monasterio`.
+   `Loaded plugin Isla de Calvos v1.6.5 by Igor Monasterio`.
 4. Para recargarlo tras cambiar el fichero (normalmente se recarga solo):
    `oxide.reload IslaDeCalvos`
 

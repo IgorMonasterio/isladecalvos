@@ -67,6 +67,8 @@ alcance cerrado:
   se repasan contra él: fuera "la gloria", las muletillas repetidas y los
   chistes en botones y textos de admin; la cacería pasa a llamarse Cacería del
   peludo; remates dobles recortados.
+- **Plugin 1.6.5** — colores de la casa de TONO.md en textos e interfaz
+  (dorado `#e0a526`, óxido `#e0662f`, gris `#9a9288`), confirmado por Igor.
 
 Decisiones de diseño de la v1.0 que no venían en la especificación inicial:
 - Toda muerte resta alopecia (PvP, NPC, entorno, suicidio), también la de un
