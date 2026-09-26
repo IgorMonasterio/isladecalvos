@@ -1,16 +1,22 @@
 # TONO.md — cómo se escribe en la Isla de Calvos
 
-Guía de estilo de **todo** texto que vea un jugador del server: mensajes del plugin,
-menús, carteles, NPCs, chat del Gran Calvo Jano, novedades, traducciones de plugins
-de terceros. Si escribes o traduces algo que va a leer un jugador, **lee esto antes**.
-Lo decide Igor; si algo no está aquí, pregúntale.
+Guía de estilo de **todo** texto que vea un jugador del server, no solo de este mod.
+Vale para:
+
+- los plugins de la casa (Isla de Calvos, el menú `/info`, la peluquería, el Gran Calvo Jano…);
+- los plugins de terceros que ya tenemos, traducidos y retocados;
+- los que vayamos trayendo de repositorios de mods (uMod, Codefling, GitHub…);
+- menús, carteles, NPCs, novedades y el chat.
+
+Si escribes o traduces algo que va a leer un jugador, **lee esto antes**. Lo decide
+Igor; si algo no está aquí, pregúntale.
 
 ## El tono en una frase
 
 Humor de colega español, **seco, sarcástico y vacilón**, con la pulla al final. Se
 mete con el jugador (con su pelo, su puntería, su vida social, su madre con cariño),
 nunca con nadie de verdad. Todo acaba girando alrededor de la calva: el pelo está
-sobrevalorado y el futuro es calvo.
+sobrevalorado, el futuro es calvo.
 
 ## Cómo se construye una frase
 
@@ -48,13 +54,13 @@ Y frases que ha puesto o elegido Igor después:
 - "Diógenes." (a secas, al que llena la mochila)
 - "¿Vas de jefe, piltrafilla?"
 - "¿Duele?"
-- "El pelo está sobrevalorado. El futuro es calvo."
+- "El pelo está sobrevalorado, el futuro es calvo."
 - "Empiezas con 0 monedas, pelado como tu madre te trajo al mundo."
 
 ## Lo que NO (vetado por Igor)
 
 - **"Ser calvo es gloria"**, "la gloria…": le chirría. El lema es "el pelo está
-  sobrevalorado / el futuro es calvo".
+  sobrevalorado, el futuro es calvo".
 - **Chistes que explican un cambio**: "(Antes lo llamábamos calvicie, pero con bata
   blanca suena más serio)". Si algo cambia de nombre, se usa el nombre nuevo y ya.
 - **Frases grandilocuentes o poéticas**: "Sí, puedes comprar el cielo".
@@ -107,3 +113,19 @@ cuchillas.
 - Se respetan **todos** los marcadores (`{0}`, `{1}`…) y las etiquetas de color.
 - Longitud parecida a la original: los botones y los paneles tienen el sitio que tienen.
 - Textos de admin, ayudas de sintaxis y botones: claros, sin chiste.
+- Se usa el vocabulario oficial de arriba aunque el plugin diga otra cosa
+  (su "Shop" es el Mercalvona®; sus "points", RP…).
+
+## Traer un plugin nuevo de un repositorio de mods
+
+1. **Leer el código antes de instalarlo**: qué hace, a qué se conecta, qué comandos y
+   permisos añade. Nada que no se entienda.
+2. Instalarlo, dejar que genere su config y su lang, y ajustar la config a lo que
+   quiera Igor.
+3. **Traducir todo lo que ve el jugador** con esta guía, en `oxide/lang/es`, `es-ES`
+   y también `en`: el cliente de Rust suele ir en inglés y así todos lo ven en español.
+4. Guardar la traducción en un fichero fuente propio, para poder volver a generarla y
+   desplegarla si una actualización del plugin la pisa.
+5. Oxide no sobrescribe claves de lang que ya existen: para cambiar un texto
+   desplegado, descargar el plugin, subir el lang y volver a cargarlo.
+6. Contarlo en el menú `/info` (pestaña del plugin y BAJO EL CAPÓ) y en las novedades.
