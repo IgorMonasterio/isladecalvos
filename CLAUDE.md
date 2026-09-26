@@ -31,8 +31,9 @@ alcance cerrado:
 - **v1.0** — sistema de alopecia: puntos, títulos, ranking, anti-farmeo, comandos.
   Implementada (issue #2).
 - **v1.1** — eventos globales (issue #3): Hora de la calvicie, Lluvia de
-  champú, Cacería del peludo (hasta la 1.6.3, Cazar al más peludo) y Tormenta
-  de cuchillas (hasta la 1.6.1, Brote de alopecia). Uno al azar cada hora.
+  champú, Cacería del peludo (hasta la 1.6.3, Cazar al más peludo) y Brote de
+  alopecia (de la 1.6.2 a la 1.6.5 se llamó Tormenta de cuchillas). Uno al
+  azar cada hora.
   Implementada.
 - **v1.2 (plugin 1.2.0)** — en pantalla: contador de alopecia fijo abajo a la
   derecha con popup `+X`/`-X`, y los eventos globales en un cartel grande en
@@ -69,6 +70,9 @@ alcance cerrado:
   peludo; remates dobles recortados.
 - **Plugin 1.6.5** — colores de la casa de TONO.md en textos e interfaz
   (dorado `#e0a526`, óxido `#e0662f`, gris `#9a9288`), confirmado por Igor.
+- **Plugin 1.6.6** — TONO.md afinado ("repasar no es podar"): vuelve el nombre
+  Brote de alopecia y vuelven los remates que se quitaron en la 1.6.4, con las
+  coletillas cambiadas (tieso, Fórmula 1, figura). La gloria sigue fuera.
 
 Decisiones de diseño de la v1.0 que no venían en la especificación inicial:
 - Toda muerte resta alopecia (PvP, NPC, entorno, suicidio), también la de un

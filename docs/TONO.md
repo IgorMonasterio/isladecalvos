@@ -1,24 +1,32 @@
 # TONO.md — cómo se escribe en la Isla de Calvos
 
-Guía de estilo de **todo** texto que vea un jugador del server: mensajes del plugin,
-menús, carteles, NPCs, chat del Gran Calvo Jano, novedades, traducciones de plugins
-de terceros. Si escribes o traduces algo que va a leer un jugador, **lee esto antes**.
-Lo decide Igor; si algo no está aquí, pregúntale.
+Guía de estilo de **todo** texto que vea un jugador del server, no solo de este mod.
+Vale para:
+
+- los plugins de la casa (Isla de Calvos, el menú `/info`, la peluquería, el Gran Calvo Jano…);
+- los plugins de terceros que ya tenemos, traducidos y retocados;
+- los que vayamos trayendo de repositorios de mods (uMod, Codefling, GitHub…);
+- menús, carteles, NPCs, novedades y el chat.
+
+Si escribes o traduces algo que va a leer un jugador, **lee esto antes**. Lo decide
+Igor; si algo no está aquí, pregúntale.
 
 ## El tono en una frase
 
 Humor de colega español, **seco, sarcástico y vacilón**, con la pulla al final. Se
 mete con el jugador (con su pelo, su puntería, su vida social, su madre con cariño),
 nunca con nadie de verdad. Todo acaba girando alrededor de la calva: el pelo está
-sobrevalorado y el futuro es calvo.
+sobrevalorado, el futuro es calvo.
 
 ## Cómo se construye una frase
 
 1. **Primero el dato útil**, claro y exacto: qué hace, qué comando, cuánto cuesta.
-2. **Después el remate**, corto y al final. Un solo chiste por frase.
+2. **Después el remate**, corto y al final. Normalmente uno por frase; los anuncios
+   grandes (subir de título, calvicie suprema, eventos) pueden llevar más si todos funcionan.
 3. El chiste **nunca tapa la información**. Si hay que elegir, gana el dato.
 4. Frases cortas. Si se puede decir con menos palabras, se dice con menos.
-5. **No se explica el chiste**, ni se pone entre paréntesis, ni se remata dos veces.
+5. **No se explica el chiste.** Nada de aclaraciones del tipo "(antes lo llamábamos…)".
+   Un paréntesis que ES el chiste, como "(poco)", está bien.
 6. Mejor seco y corto que largo y forzado. Una frase sin chiste está bien;
    un chiste flojo metido a presión, no.
 
@@ -48,19 +56,19 @@ Y frases que ha puesto o elegido Igor después:
 - "Diógenes." (a secas, al que llena la mochila)
 - "¿Vas de jefe, piltrafilla?"
 - "¿Duele?"
-- "El pelo está sobrevalorado. El futuro es calvo."
+- "El pelo está sobrevalorado, el futuro es calvo."
 - "Empiezas con 0 monedas, pelado como tu madre te trajo al mundo."
 
 ## Lo que NO (vetado por Igor)
 
 - **"Ser calvo es gloria"**, "la gloria…": le chirría. El lema es "el pelo está
-  sobrevalorado / el futuro es calvo".
+  sobrevalorado, el futuro es calvo".
 - **Chistes que explican un cambio**: "(Antes lo llamábamos calvicie, pero con bata
   blanca suena más serio)". Si algo cambia de nombre, se usa el nombre nuevo y ya.
 - **Frases grandilocuentes o poéticas**: "Sí, puedes comprar el cielo".
-- **Coletillas repetidas.** Cada muletilla, como mucho una vez en todo el server:
-  listo, pelado, genio, fiera, cobarde, okupa, inventado, "como las amistades de
-  verdad"… Antes de usar una, busca si ya está.
+- **Coletillas repetidas**: la misma muletilla en muchos textos cansa (listo, pelado,
+  genio, fiera, cobarde, okupa, inventado, "como las amistades de verdad"…). Antes de
+  usar una, busca si ya está. Si sobra, **se cambia por otra palabra; el remate se queda**.
 - **Tono de asistente amable, coaching motivacional o frase de taza.**
 - **Negritas** en el texto (`<b>`): no hacen falta. Solo los títulos de sección de un
   menú pueden ir en negrita. Para resaltar, color.
@@ -90,8 +98,8 @@ Títulos (de menos a más): Greñas Sucias · Pelambrera Lamentable · Entradas
 Incipientes · Coronilla a la Intemperie · Caballero de la Tonsura · Lord Bola de
 Billar · Su Calvísima Majestad.
 
-Eventos: Hora de la calvicie · Lluvia de champú · Cacería del peludo · Tormenta de
-cuchillas.
+Eventos: Hora de la calvicie · Lluvia de champú · Cacería del peludo · Brote de
+alopecia (es un nombre de evento: ahí "alopecia" no es la cifra y no choca con el contador).
 
 ## Formato
 
@@ -101,9 +109,37 @@ cuchillas.
 - Colores de la casa: dorado `#e0a526` para comandos y cifras buenas, óxido `#e0662f`
   para lo que duele (pérdidas, avisos) y gris `#9a9288` para notas al pie.
 
+## Repasar textos que ya existen
+
+**Repasar no es podar.** Un chiste que funciona no se quita ni se acorta. Al repasar
+solo se toca:
+
+- lo que da un dato mal o con el vocabulario viejo (por ejemplo, "calvicie" para la cifra);
+- lo vetado (la gloria, los chistes que explican un cambio…);
+- una coletilla repetida, cambiándola por otra palabra sin perder el remate;
+- un chiste claramente flojo, y en ese caso se **propone** otro; no se borra sin más.
+
+Ante la duda, se deja como está y se le pregunta a Igor.
+
 ## Traducir un plugin de terceros
 
 - No se traduce palabra por palabra: se adapta al tono, con el dato intacto.
 - Se respetan **todos** los marcadores (`{0}`, `{1}`…) y las etiquetas de color.
 - Longitud parecida a la original: los botones y los paneles tienen el sitio que tienen.
 - Textos de admin, ayudas de sintaxis y botones: claros, sin chiste.
+- Se usa el vocabulario oficial de arriba aunque el plugin diga otra cosa
+  (su "Shop" es el Mercalvona®; sus "points", RP…).
+
+## Traer un plugin nuevo de un repositorio de mods
+
+1. **Leer el código antes de instalarlo**: qué hace, a qué se conecta, qué comandos y
+   permisos añade. Nada que no se entienda.
+2. Instalarlo, dejar que genere su config y su lang, y ajustar la config a lo que
+   quiera Igor.
+3. **Traducir todo lo que ve el jugador** con esta guía, en `oxide/lang/es`, `es-ES`
+   y también `en`: el cliente de Rust suele ir en inglés y así todos lo ven en español.
+4. Guardar la traducción en un fichero fuente propio, para poder volver a generarla y
+   desplegarla si una actualización del plugin la pisa.
+5. Oxide no sobrescribe claves de lang que ya existen: para cambiar un texto
+   desplegado, descargar el plugin, subir el lang y volver a cargarlo.
+6. Contarlo en el menú `/info` (pestaña del plugin y BAJO EL CAPÓ) y en las novedades.

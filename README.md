@@ -186,7 +186,7 @@ terminar.
 | **Hora de la calvicie** | Todo lo que da alopecia da **el doble**: kills, NPCs, supervivencia y objetivos compartidos. | 30 min |
 | **Lluvia de champú** | Morir resta **el doble** (−20 %). | 20 min |
 | **Cacería del peludo** | Se anuncia al jugador conectado con **menos alopecia**. Quien lo mate gana **+2.000** además de la kill normal. Si aguanta los 20 min, él gana **+1.000**. Si muere por otra cosa o se desconecta, se acaba sin premio. Hacen falta al menos 2 jugadores conectados. | 20 min |
-| **Tormenta de cuchillas** | Heli, Bradley y Chinook dan **el triple**. (Hasta la 1.6.1 se llamaba *Brote de alopecia*; se renombró para no chocar con el contador.) | 60 min |
+| **Brote de alopecia** | Heli, Bradley y Chinook dan **el triple**. | 60 min |
 
 Si toca la cacería y solo hay un jugador conectado, se elige otro evento.
 Todo (intervalo, duraciones, multiplicadores, premios, activar o desactivar
@@ -386,7 +386,7 @@ está en el servidor con el tono de la isla y no se toca:
 | `/calvos` | Todos | Abre el **Salón de la fama calva**: ranking de todo el servidor, de 10 en 10, con tu posición. Se cierra con la **X**. Los objetos se usan hablando con el barbero de la peluquería. |
 | `/calvoadmin set <jugador> <valor>` | Admin | Fija la alopecia de un jugador (entero, 0 o más). |
 | `/calvoadmin reset <jugador>` | Admin | Pone la alopecia de un jugador a 0. |
-| `/calvoadmin evento <hora\|champu\|peludo\|cuchillas>` | Admin | Lanza ese evento ya, sin esperar a la hora. Para probar. (`alopecia` sigue valiendo para la Tormenta de cuchillas.) |
+| `/calvoadmin evento <hora\|champu\|peludo\|alopecia>` | Admin | Lanza ese evento ya, sin esperar a la hora. Para probar. (`cuchillas` también vale para el Brote de alopecia.) |
 | `/calvoadmin evento parar` | Admin | Cancela el evento en marcha. |
 | `/calvoadmin debug on\|off` | Admin | Muestra en tu chat cada cambio de alopecia (de cualquier jugador) con su motivo: NPC, tier, valor… También avisa cuando algo **no** da alopecia y por qué. Para probar. Se apaga al recargar el plugin. |
 
@@ -547,8 +547,7 @@ Bloque de eventos globales (valores por defecto):
 }
 ```
 
-El bloque `Alopecia outbreak` es la **Tormenta de cuchillas**: la clave
-conserva el nombre antiguo para que no se pierdan los valores ya guardados.
+El bloque `Alopecia outbreak` es el **Brote de alopecia**.
 
 Los textos de los mensajes se editan en `oxide/lang/es/IslaDeCalvos.json` y
 `oxide/lang/en/IslaDeCalvos.json`. Los dos están en español por defecto: la
@@ -564,7 +563,7 @@ servidor.
 1. Ten un servidor dedicado de Rust con **Oxide (uMod)** instalado.
 2. Copia `src/IslaDeCalvos.cs` en la carpeta `oxide/plugins/` del servidor.
 3. Oxide lo compila y carga solo. En la consola deberías ver algo como
-   `Loaded plugin Isla de Calvos v1.6.5 by Igor Monasterio`.
+   `Loaded plugin Isla de Calvos v1.6.6 by Igor Monasterio`.
 4. Para recargarlo tras cambiar el fichero (normalmente se recarga solo):
    `oxide.reload IslaDeCalvos`
 
