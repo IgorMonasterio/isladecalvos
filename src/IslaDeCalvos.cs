@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Isla de Calvos", "Igor Monasterio", "1.6.2")]
+    [Info("Isla de Calvos", "Igor Monasterio", "1.6.3")]
     [Description("Baldness system for the Isla de Calvos Rust server: being bald is glory, hair is a curse.")]
     public class IslaDeCalvos : RustPlugin
     {
@@ -781,22 +781,22 @@ namespace Oxide.Plugins
                 ["CalvarioTitle"] = "EL CALVARIO",
                 ["BarberName"] = "EL BARBERO",
                 ["BarberOptExchange"] = "Vengo a vender (o comprar) calva",
-                ["BarberExIntro"] = "Aquí la calva se compra y se vende. Vender sale barato y comprar sale caro: esto es un negocio, no una ONG.\nTienes {0} de calvicie · {1} RP · {2} monedas.",
-                ["BarberExSellRp"] = "Vender calva por RP (cada {0} de calvicie, 1 RP)",
-                ["BarberExSellCoins"] = "Vender calva por monedas (cada 100 de calvicie, {0} monedas)",
-                ["BarberExBuyRp"] = "Comprar calva con RP ({0} RP cada 1 de calvicie; la gloria no sale barata)",
-                ["BarberExBuyCoins"] = "Comprar calva con monedas ({0} monedas cada 1 de calvicie)",
+                ["BarberExIntroV2"] = "Aquí la calva se compra y se vende. Vender sale barato y comprar sale caro: esto es un negocio, no una ONG.\nTienes {0} de alopecia · {1} RP · {2} monedas.",
+                ["BarberExSellRpV2"] = "Vender calva por RP (cada {0} de alopecia, 1 RP)",
+                ["BarberExSellCoinsV2"] = "Vender calva por monedas (cada 100 de alopecia, {0} monedas)",
+                ["BarberExBuyRpV2"] = "Comprar calva con RP ({0} RP cada 1 de alopecia; la gloria no sale barata)",
+                ["BarberExBuyCoinsV2"] = "Comprar calva con monedas ({0} monedas cada 1 de alopecia)",
                 ["BarberExClosed"] = "{0}  [cerrado: falta {1}. Vuelve cuando el jefe lo arregle]",
                 ["BarberExPickAmount"] = "¿Cuánto? Piénsatelo bien, que luego lloras.",
-                ["BarberExSellLine"] = "Dar {0} de calvicie y llevarme {1}",
-                ["BarberExBuyLine"] = "Pagar {1} y llevarme {0} de calvicie",
+                ["BarberExSellLineV2"] = "Dar {0} de alopecia y llevarme {1}",
+                ["BarberExBuyLineV2"] = "Pagar {1} y llevarme {0} de alopecia",
                 ["BarberExTooMuch"] = "{0}  [no te llega, pelao]",
-                ["BarberExConfirmSell"] = "¿Seguro que cambias {0} de calvicie por {1}? Te va a volver a salir pelo, y eso no se paga con nada.",
-                ["BarberExConfirmBuy"] = "¿Seguro que pagas {1} por {0} de calvicie? Aquí no hay devoluciones ni hoja de reclamaciones.",
+                ["BarberExConfirmSellV2"] = "¿Seguro que cambias {0} de alopecia por {1}? Te va a volver a salir pelo, y eso no se paga con nada.",
+                ["BarberExConfirmBuyV2"] = "¿Seguro que pagas {1} por {0} de alopecia? Aquí no hay devoluciones ni hoja de reclamaciones.",
                 ["BarberExConfirm"] = "CONFIRMAR",
                 ["BarberExCancel"] = "ME LO PIENSO",
-                ["BarberExDoneSell"] = "Hecho: -{0} de calvicie y +{1}. Ya te asoma pelusilla, traidor.",
-                ["BarberExDoneBuy"] = "Hecho: +{0} de calvicie y -{1}. Brillas como una bola de billar recién encerada.",
+                ["BarberExDoneSellV2"] = "Hecho: -{0} de alopecia y +{1}. Ya te asoma pelusilla, traidor.",
+                ["BarberExDoneBuyV2"] = "Hecho: +{0} de alopecia y -{1}. Brillas como una bola de billar recién encerada.",
                 ["BarberExNotEnough"] = "No te llega. Ni para un afeitado de barrio.",
                 ["BarberExFailed"] = "Algo ha petado y no se ha tocado nada. Prueba otra vez, que la maquinilla tiene sus días.",
                 ["UnitRp"] = "{0} RP",
@@ -832,7 +832,7 @@ namespace Oxide.Plugins
                 ["TagColorWhite"] = "blanco",
                 ["TagColorYellow"] = "amarillo",
                 ["CalvarioSubtitleV2"] = "Clínica de alopecia voluntaria  ·  Se entra con pelo y se sale con dignidad",
-                ["CalvarioYou"] = "Tu calvicie: <color=#f5d3a8>{0}</color>  —  {1}",
+                ["CalvarioYouV2"] = "Tu alopecia: <color=#f5d3a8>{0}</color>  —  {1}",
                 ["CalvarioNextV2"] = "Hacia <color=#f5d3a8>{0}</color>: te faltan {1}. Sigue matando, que no se pela solo.",
                 ["CalvarioTop"] = "Cima capilar alcanzada. Ya no queda nada que arrancar.",
                 ["CalvarioTabRanking"] = "SALÓN DE LA FAMA CALVA",
@@ -893,12 +893,12 @@ namespace Oxide.Plugins
                 ["AdminInvalidValue"] = "El valor tiene que ser un número entero igual o mayor que {0}.",
                 ["PlayerNotFound"] = "No se ha encontrado ningún jugador con '{0}'.",
                 ["PlayerAmbiguous"] = "Hay {0} jugadores que coinciden con '{1}'. Sé más concreto o usa el SteamID.",
-                ["AdminSet"] = "Calvicie de {0} fijada en {1}.",
-                ["AdminReset"] = "Calvicie de {0} reseteada a {1}.",
-                ["DebugOn"] = "Debug activado: verás en el chat cada cambio de calvicie y su motivo.",
+                ["AdminSetV2"] = "Alopecia de {0} fijada en {1}.",
+                ["AdminResetV2"] = "Alopecia de {0} reseteada a {1}.",
+                ["DebugOnV2"] = "Debug activado: verás en el chat cada cambio de alopecia y su motivo.",
                 ["DebugOff"] = "Debug desactivado.",
                 ["DebugChange"] = "[debug] {0}: {1} → {2} ({3}{4}) · {5}",
-                ["DebugNoReward"] = "[debug] {0}: sin calvicie · {1}",
+                ["DebugNoRewardV2"] = "[debug] {0}: sin alopecia · {1}",
                 ["DebugRp"] = "[debug] {0}: +{1} RP ({2})",
                 ["DebugNoRp"] = "[debug] {0}: sin RP · {1}",
                 ["NoRpAfk"] = "no se ha movido (AFK)",
@@ -925,7 +925,7 @@ namespace Oxide.Plugins
                 ["EventNameHairiestHunt"] = "Cazar al más peludo",
                 ["EventNameBladeStorm"] = "Tormenta de cuchillas",
                 ["EventTag"] = " [{0} x{1}]",
-                ["EventBaldHourStartV2"] = "<color=#f0c040>HORA DE LA CALVICIE</color>: durante {0} min todo da x{1} de calvicie. Salid a matar, que la frente no se despeja sola.",
+                ["EventBaldHourStartV3"] = "<color=#f0c040>HORA DE LA CALVICIE</color>: durante {0} min todo da x{1} de alopecia. Salid a matar, que la frente no se despeja sola.",
                 ["EventBaldHourEndV2"] = "Se acabó la Hora de la calvicie. Volvéis a pelaros a precio normal.",
                 ["EventShampooRainStart"] = "<color=#e05050>LLUVIA DE CHAMPÚ</color>: durante {0} min morir resta x{1}. Con este tiempo el pelo crece que da gusto.",
                 ["EventShampooRainEnd"] = "Ha escampado. Podéis volver a morir con relativa dignidad.",
@@ -1510,7 +1510,7 @@ namespace Oxide.Plugins
 
             // Admin changes are silent: no global announcements.
             ChangeBaldness(target, value - target.Baldness, false, Lang("ReasonAdmin"));
-            Reply(player, action == "set" ? "AdminSet" : "AdminReset", target.Name, FormatBaldness(target.Baldness));
+            Reply(player, action == "set" ? "AdminSetV2" : "AdminResetV2", target.Name, FormatBaldness(target.Baldness));
             Puts($"{player.displayName} ({player.UserIDString}) {action} baldness of {target.Name} ({matches[0].Key}) to {target.Baldness}.");
         }
 
@@ -1521,7 +1521,7 @@ namespace Oxide.Plugins
             {
                 case "on":
                     debugAdmins.Add(id);
-                    Reply(player, "DebugOn");
+                    Reply(player, "DebugOnV2");
                     break;
                 case "off":
                     debugAdmins.Remove(id);
@@ -1604,7 +1604,7 @@ namespace Oxide.Plugins
                 case GlobalEvent.BaldHour:
                     if (!events.BaldHour.Enabled) return false;
                     minutes = events.BaldHour.DurationMinutes;
-                    BroadcastEvent("EventBaldHourStartV2", minutes, events.BaldHour.Multiplier);
+                    BroadcastEvent("EventBaldHourStartV3", minutes, events.BaldHour.Multiplier);
                     break;
                 case GlobalEvent.ShampooRain:
                     if (!events.ShampooRain.Enabled) return false;
@@ -2367,7 +2367,7 @@ namespace Oxide.Plugins
 
             AddText(ui, window, Lang("CalvarioTitle", userId), 26, TextAnchor.MiddleLeft, "0.03 0.915", "0.45 0.975", ColorScalp);
             AddText(ui, window, Lang("CalvarioSubtitleV2", userId), 11, TextAnchor.MiddleLeft, "0.03 0.88", "0.6 0.915", ColorMuted);
-            AddText(ui, window, Lang("CalvarioYou", userId, FormatBaldness(data.Baldness), GetTitle(data.Baldness)), 15, TextAnchor.MiddleRight, "0.45 0.93", "0.935 0.975");
+            AddText(ui, window, Lang("CalvarioYouV2", userId, FormatBaldness(data.Baldness), GetTitle(data.Baldness)), 15, TextAnchor.MiddleRight, "0.45 0.93", "0.935 0.975");
             DrawTitleProgress(ui, window, data.Baldness, userId);
             AddButton(ui, window, Lang("CalvarioClose", userId), "0.956 0.935", "0.99 0.985", ColorPoleRed, null, UiMenu, 18);
 
@@ -2592,12 +2592,12 @@ namespace Oxide.Plugins
             if (IsSell(mode))
             {
                 ChangeBaldness(data, -baldness, true, Lang("ReasonExchange"));
-                return Lang("BarberExDoneSell", userId, FormatBaldness(baldness), priceText);
+                return Lang("BarberExDoneSellV2", userId, FormatBaldness(baldness), priceText);
             }
 
             // Bought baldness is not multiplied by events or the battery, and only pays tier prizes if the config says so.
             ChangeBaldness(data, baldness, true, Lang("ReasonExchange"), true);
-            return Lang("BarberExDoneBuy", userId, FormatBaldness(baldness), priceText);
+            return Lang("BarberExDoneBuyV2", userId, FormatBaldness(baldness), priceText);
         }
 
         // Conversation box in the style of the vanilla vendors: the barber's line on top, the player's answers below.
@@ -2652,12 +2652,12 @@ namespace Oxide.Plugins
                         line += "\n";
                     }
 
-                    line += Lang("BarberExIntro", userId, FormatBaldness(data.Baldness),
+                    line += Lang("BarberExIntroV2", userId, FormatBaldness(data.Baldness),
                         RpAvailable ? FormatBaldness(CheckRp(data.Id)) : "-", CoinsAvailable ? FormatBaldness(CoinBalance(data.Id)) : "-");
-                    AddExchangeOption(options, ExchangeMode.SellForRp, Lang("BarberExSellRp", userId, FormatBaldness(ex.SellBaldnessPerRp)), userId);
-                    AddExchangeOption(options, ExchangeMode.SellForCoins, Lang("BarberExSellCoins", userId, FormatBaldness(ex.SellCoinsPer100)), userId);
-                    AddExchangeOption(options, ExchangeMode.BuyWithRp, Lang("BarberExBuyRp", userId, FormatBaldness(ex.BuyRpPerBaldness)), userId);
-                    AddExchangeOption(options, ExchangeMode.BuyWithCoins, Lang("BarberExBuyCoins", userId, FormatBaldness(ex.BuyCoinsPerBaldness)), userId);
+                    AddExchangeOption(options, ExchangeMode.SellForRp, Lang("BarberExSellRpV2", userId, FormatBaldness(ex.SellBaldnessPerRp)), userId);
+                    AddExchangeOption(options, ExchangeMode.SellForCoins, Lang("BarberExSellCoinsV2", userId, FormatBaldness(ex.SellCoinsPer100)), userId);
+                    AddExchangeOption(options, ExchangeMode.BuyWithRp, Lang("BarberExBuyRpV2", userId, FormatBaldness(ex.BuyRpPerBaldness)), userId);
+                    AddExchangeOption(options, ExchangeMode.BuyWithCoins, Lang("BarberExBuyCoinsV2", userId, FormatBaldness(ex.BuyCoinsPerBaldness)), userId);
                     options.Add(new KeyValuePair<string, string>(Lang("BarberOptBack", userId), "calvos.barber main"));
                     break;
                 case BarberPage.ExchangeAmount:
@@ -2674,7 +2674,7 @@ namespace Oxide.Plugins
                             continue;
                         }
 
-                        string text = Lang(IsSell(amountFor.Mode) ? "BarberExSellLine" : "BarberExBuyLine", userId,
+                        string text = Lang(IsSell(amountFor.Mode) ? "BarberExSellLineV2" : "BarberExBuyLineV2", userId,
                             FormatBaldness(amount), ExchangePriceText(amountFor.Mode, ExchangePrice(amountFor.Mode, amount), userId));
                         bool affordable = CanAffordExchange(data, amountFor.Mode, amount);
                         options.Add(new KeyValuePair<string, string>(affordable ? text : Lang("BarberExTooMuch", userId, text),
@@ -2689,7 +2689,7 @@ namespace Oxide.Plugins
                         goto case BarberPage.Exchange;
                     }
 
-                    line = Lang(IsSell(toConfirm.Mode) ? "BarberExConfirmSell" : "BarberExConfirmBuy", userId, FormatBaldness(toConfirm.Baldness),
+                    line = Lang(IsSell(toConfirm.Mode) ? "BarberExConfirmSellV2" : "BarberExConfirmBuyV2", userId, FormatBaldness(toConfirm.Baldness),
                         ExchangePriceText(toConfirm.Mode, ExchangePrice(toConfirm.Mode, toConfirm.Baldness), userId));
                     options.Add(new KeyValuePair<string, string>(Lang("BarberExConfirm", userId), "calvos.exchange confirm"));
                     options.Add(new KeyValuePair<string, string>(Lang("BarberExCancel", userId), "calvos.barber exchange"));
@@ -2721,7 +2721,7 @@ namespace Oxide.Plugins
             }, UiMenu);
 
             AddText(ui, box, Lang("BarberName", userId), 18, TextAnchor.MiddleLeft, "0.03 0.88", "0.5 0.98", ColorScalp);
-            AddText(ui, box, Lang("CalvarioYou", userId, FormatBaldness(data.Baldness), GetTitle(data.Baldness)), 12, TextAnchor.MiddleRight, "0.5 0.88", "0.93 0.98", ColorMuted);
+            AddText(ui, box, Lang("CalvarioYouV2", userId, FormatBaldness(data.Baldness), GetTitle(data.Baldness)), 12, TextAnchor.MiddleRight, "0.5 0.88", "0.93 0.98", ColorMuted);
             AddButton(ui, box, Lang("CalvarioClose", userId), "0.945 0.9", "0.99 0.98", ColorPoleRed, null, UiMenu, 14);
             AddPanel(ui, box, ColorScalp, "0.03 0.872", "0.97 0.876");
             AddText(ui, box, line ?? string.Empty, 14, TextAnchor.UpperLeft, "0.03 0.5", "0.97 0.855", ColorText);
@@ -3172,7 +3172,7 @@ namespace Oxide.Plugins
         private long CoinBalance(ulong id) =>
             CoinsAvailable && Economics.Call("Balance", id.ToString()) is double balance ? (long)Math.Floor(balance) : 0;
 
-        private void DebugNoReward(PlayerData data, string reason) => SendDebug("DebugNoReward", data.Name, reason);
+        private void DebugNoReward(PlayerData data, string reason) => SendDebug("DebugNoRewardV2", data.Name, reason);
 
         private void SendDebug(string key, params object[] args)
         {
