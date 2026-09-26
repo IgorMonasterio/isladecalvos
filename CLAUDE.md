@@ -7,7 +7,7 @@ lo que pasa en la isla acaba teniendo que ver con el pelo o la calvicie.
 
 ## Premisa (lore)
 
-- **El pelo está sobrevalorado; el futuro es de los calvos.** El pelo es una
+- **El pelo está sobrevalorado; el futuro es calvo.** El pelo es una
   maldición que vuelve a crecer.
 - Cada jugador tiene un **nivel de alopecia**: entero persistente, **sin
   límite por arriba**, nunca por debajo de 0. Matar y sobrevivir lo suben;

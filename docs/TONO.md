@@ -10,7 +10,7 @@ Lo decide Igor; si algo no está aquí, pregúntale.
 Humor de colega español, **seco, sarcástico y vacilón**, con la pulla al final. Se
 mete con el jugador (con su pelo, su puntería, su vida social, su madre con cariño),
 nunca con nadie de verdad. Todo acaba girando alrededor de la calva: el pelo está
-sobrevalorado y el futuro es de los calvos.
+sobrevalorado y el futuro es calvo.
 
 ## Cómo se construye una frase
 
@@ -48,13 +48,13 @@ Y frases que ha puesto o elegido Igor después:
 - "Diógenes." (a secas, al que llena la mochila)
 - "¿Vas de jefe, piltrafilla?"
 - "¿Duele?"
-- "El pelo está sobrevalorado. El futuro es de los calvos."
+- "El pelo está sobrevalorado. El futuro es calvo."
 - "Empiezas con 0 monedas, pelado como tu madre te trajo al mundo."
 
 ## Lo que NO (vetado por Igor)
 
 - **"Ser calvo es gloria"**, "la gloria…": le chirría. El lema es "el pelo está
-  sobrevalorado / el futuro es de los calvos".
+  sobrevalorado / el futuro es calvo".
 - **Chistes que explican un cambio**: "(Antes lo llamábamos calvicie, pero con bata
   blanca suena más serio)". Si algo cambia de nombre, se usa el nombre nuevo y ya.
 - **Frases grandilocuentes o poéticas**: "Sí, puedes comprar el cielo".

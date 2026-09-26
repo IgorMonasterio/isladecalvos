@@ -7,7 +7,7 @@ Hecho para **uMod/Oxide** en C#. Sin dependencias de otros plugins.
 
 ## La premisa
 
-En Isla de Calvos **el pelo está sobrevalorado y el futuro es de los calvos**.
+En Isla de Calvos **el pelo está sobrevalorado y el futuro es calvo**.
 El pelo es una maldición que vuelve a crecer. Cada jugador tiene un **nivel de
 alopecia**: un número entero **sin límite por arriba** (nunca baja de 0) que se
 guarda entre sesiones. Matar y sobrevivir te dejan más calvo; morir hace que te
