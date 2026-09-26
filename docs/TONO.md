@@ -21,10 +21,12 @@ sobrevalorado, el futuro es calvo.
 ## Cómo se construye una frase
 
 1. **Primero el dato útil**, claro y exacto: qué hace, qué comando, cuánto cuesta.
-2. **Después el remate**, corto y al final. Un solo chiste por frase.
+2. **Después el remate**, corto y al final. Normalmente uno por frase; los anuncios
+   grandes (subir de título, calvicie suprema, eventos) pueden llevar más si todos funcionan.
 3. El chiste **nunca tapa la información**. Si hay que elegir, gana el dato.
 4. Frases cortas. Si se puede decir con menos palabras, se dice con menos.
-5. **No se explica el chiste**, ni se pone entre paréntesis, ni se remata dos veces.
+5. **No se explica el chiste.** Nada de aclaraciones del tipo "(antes lo llamábamos…)".
+   Un paréntesis que ES el chiste, como "(poco)", está bien.
 6. Mejor seco y corto que largo y forzado. Una frase sin chiste está bien;
    un chiste flojo metido a presión, no.
 
@@ -64,9 +66,9 @@ Y frases que ha puesto o elegido Igor después:
 - **Chistes que explican un cambio**: "(Antes lo llamábamos calvicie, pero con bata
   blanca suena más serio)". Si algo cambia de nombre, se usa el nombre nuevo y ya.
 - **Frases grandilocuentes o poéticas**: "Sí, puedes comprar el cielo".
-- **Coletillas repetidas.** Cada muletilla, como mucho una vez en todo el server:
-  listo, pelado, genio, fiera, cobarde, okupa, inventado, "como las amistades de
-  verdad"… Antes de usar una, busca si ya está.
+- **Coletillas repetidas**: la misma muletilla en muchos textos cansa (listo, pelado,
+  genio, fiera, cobarde, okupa, inventado, "como las amistades de verdad"…). Antes de
+  usar una, busca si ya está. Si sobra, **se cambia por otra palabra; el remate se queda**.
 - **Tono de asistente amable, coaching motivacional o frase de taza.**
 - **Negritas** en el texto (`<b>`): no hacen falta. Solo los títulos de sección de un
   menú pueden ir en negrita. Para resaltar, color.
@@ -96,8 +98,8 @@ Títulos (de menos a más): Greñas Sucias · Pelambrera Lamentable · Entradas
 Incipientes · Coronilla a la Intemperie · Caballero de la Tonsura · Lord Bola de
 Billar · Su Calvísima Majestad.
 
-Eventos: Hora de la calvicie · Lluvia de champú · Cacería del peludo · Tormenta de
-cuchillas.
+Eventos: Hora de la calvicie · Lluvia de champú · Cacería del peludo · Brote de
+alopecia (es un nombre de evento: ahí "alopecia" no es la cifra y no choca con el contador).
 
 ## Formato
 
@@ -106,6 +108,18 @@ cuchillas.
 - Comandos exactos, tal cual se escriben (`/peluqueria`, sin tilde).
 - Colores de la casa: dorado `#e0a526` para comandos y cifras buenas, óxido `#e0662f`
   para lo que duele (pérdidas, avisos) y gris `#9a9288` para notas al pie.
+
+## Repasar textos que ya existen
+
+**Repasar no es podar.** Un chiste que funciona no se quita ni se acorta. Al repasar
+solo se toca:
+
+- lo que da un dato mal o con el vocabulario viejo (por ejemplo, "calvicie" para la cifra);
+- lo vetado (la gloria, los chistes que explican un cambio…);
+- una coletilla repetida, cambiándola por otra palabra sin perder el remate;
+- un chiste claramente flojo, y en ese caso se **propone** otro; no se borra sin más.
+
+Ante la duda, se deja como está y se le pregunta a Igor.
 
 ## Traducir un plugin de terceros
 
