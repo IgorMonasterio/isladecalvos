@@ -126,7 +126,7 @@ Para añadir otro evento: decidir qué hook marca "participar" y cuál marca
 - **Toda ganancia de calvicie por juego pasa por `GainBaldness`**: así la Hora
   de la calvicie la multiplica en un solo sitio. Los cambios de admin y los
   premios de la cacería van directos por `ChangeBaldness`.
-- La Lluvia de champú multiplica en `OnPlayerDeath`. La Tormenta de cuchillas (antes Brote de alopecia; enum `BladeStorm`), en
+- La Lluvia de champú multiplica en `OnPlayerDeath`. El Brote de alopecia (enum `BladeStorm`, de cuando se llamó Tormenta de cuchillas), en
   `CompleteEventTarget` (recompensa compartida).
 - Para añadir un evento: nuevo valor en el enum `GlobalEvent`, su bloque en la
   config, su `case` en `StartEvent`/`EndEvent` y sus textos en `lang`.
@@ -272,7 +272,7 @@ Para añadir otro evento: decidir qué hook marca "participar" y cuál marca
   "calvicie" a la cifra, que en el juego se llama alopecia
   (`BarberExIntroV2`, `CalvarioYouV2`, `EventBaldHourStartV3`…).
 - Nombres de eventos: `EventName(GlobalEvent)` busca `"EventName" + valor +
-  "V2"` (p. ej. `EventNameHairiestHuntV2`). Si vuelve a cambiar un nombre, se
+  "V3"` (p. ej. `EventNameHairiestHuntV3`). Si vuelve a cambiar un nombre, se
   sube el sufijo en ese método y en las cuatro claves a la vez.
 - El tono y el vocabulario de los textos están en `docs/TONO.md`.
 - Colores de la casa (1.6.5): en los textos, `<color=#e0a526>` (dorado) para
