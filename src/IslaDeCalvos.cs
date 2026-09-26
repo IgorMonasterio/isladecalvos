@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Isla de Calvos", "Igor Monasterio", "1.6.4")]
+    [Info("Isla de Calvos", "Igor Monasterio", "1.6.5")]
     [Description("Baldness system for the Isla de Calvos Rust server: being bald is glory, hair is a curse.")]
     public class IslaDeCalvos : RustPlugin
     {
@@ -802,7 +802,7 @@ namespace Oxide.Plugins
                 ["UnitRp"] = "{0} RP",
                 ["UnitCoins"] = "{0} monedas",
                 ["TitleUpBanner"] = "¡{0} ya es {1}! Gafas de sol, que deslumbra.",
-                ["TierPrize"] = "<color=#f0c040>Premio por ascender a {0}:</color> {1}. Invita la casa, que tú no tienes ni para peine.",
+                ["TierPrizeV2"] = "<color=#e0a526>Premio por ascender a {0}:</color> {1}. Invita la casa, que tú no tienes ni para peine.",
                 ["DebugTierPrize"] = "[debug] {0}: premio de {1} · {2}",
                 ["ReasonExchange"] = "cambio en el Calvario",
                 ["BarberGreetingV2_1"] = "Siéntate, peludo. ¿Qué te quito hoy, el pelo o la dignidad?",
@@ -832,8 +832,8 @@ namespace Oxide.Plugins
                 ["TagColorWhite"] = "blanco",
                 ["TagColorYellow"] = "amarillo",
                 ["CalvarioSubtitleV2"] = "Clínica de alopecia voluntaria  ·  Se entra con pelo y se sale con dignidad",
-                ["CalvarioYouV2"] = "Tu alopecia: <color=#f5d3a8>{0}</color>  —  {1}",
-                ["CalvarioNextV2"] = "Hacia <color=#f5d3a8>{0}</color>: te faltan {1}. Sigue matando, que no se pela solo.",
+                ["CalvarioYouV3"] = "Tu alopecia: <color=#e0a526>{0}</color>  —  {1}",
+                ["CalvarioNextV3"] = "Hacia <color=#e0a526>{0}</color>: te faltan {1}. Sigue matando, que no se pela solo.",
                 ["CalvarioTop"] = "Cima capilar alcanzada. Ya no queda nada que arrancar.",
                 ["CalvarioTabRanking"] = "SALÓN DE LA FAMA CALVA",
                 ["CalvarioClose"] = "X",
@@ -849,7 +849,7 @@ namespace Oxide.Plugins
                 ["CalvarioCarneHintV2"] = "Una tarjeta de cada color: +{0} por sello y +{1} al completar el carné. Las repetidas, para cambiarlas en el patio.",
                 ["CalvarioRankingEmpty"] = "Aún no hay nadie en el salón. La isla está llena de pelo.",
                 ["CalvarioRankingLine"] = "{0}.  {1}",
-                ["CalvarioRankingYouV2"] = "Tu puesto: <color=#f5d3a8>{0}º</color> de {1}. Te faltan <color=#f5d3a8>{2}</color> para adelantar a {3}. Venga, que ese tiene hasta cejas.",
+                ["CalvarioRankingYouV3"] = "Tu puesto: <color=#e0a526>{0}º</color> de {1}. Te faltan <color=#e0a526>{2}</color> para adelantar a {3}. Venga, que ese tiene hasta cejas.",
                 ["CalvarioRankingFirstV2"] = "Eres la cabeza más brillante de la isla. Los demás se peinan mirándose en ti.",
                 ["CalvarioPrev"] = "< ANTERIOR",
                 ["CalvarioNextPage"] = "SIGUIENTE >",
@@ -869,8 +869,8 @@ namespace Oxide.Plugins
                 ["CalvarioDescBlueDogTags"] = "Arrancadas a un heavy con melena. +{0}.",
                 ["CalvarioDescRedDogTags"] = "Del piloto que perdió el tupé con el helicóptero. +{0}.",
                 ["CalvarioDescGems"] = "Joya de la corona de Su Calvísima Majestad. Brilla como tu cabeza. +{0}.",
-                ["ItemFoundV3"] = "Has encontrado: <color=#f0c040>{0}</color>. Llévalo al Calvario de la peluquería (/peluqueria), que en el bolsillo no hace nada.",
-                ["CalvarioGoToBarber"] = "Los objetos malditos se usan en el Calvario de la peluquería. Ve con /peluqueria y háblale al barbero.",
+                ["ItemFoundV4"] = "Has encontrado: <color=#e0a526>{0}</color>. Llévalo al Calvario de la peluquería (<color=#e0a526>/peluqueria</color>), que en el bolsillo no hace nada.",
+                ["CalvarioGoToBarberV2"] = "Los objetos malditos se usan en el Calvario de la peluquería. Ve con <color=#e0a526>/peluqueria</color> y háblale al barbero.",
                 ["ItemNoneV2"] = "No llevas {0} encima. Ni eso.",
                 ["ItemShieldAlready"] = "Ya llevas la calva tapada con cinta. Muere primero.",
                 ["ItemBatteryAlreadyV3"] = "La maquinilla ya está en marcha: quedan {0} min. Más rápido no va.",
@@ -882,12 +882,12 @@ namespace Oxide.Plugins
                 ["ItemBatteryOffV2"] = "Se le ha acabado la pila a la maquinilla. Vuelves a pelarte a mano, como los pobres.",
                 ["CarneNothingV2"] = "No llevas ninguna tarjeta de un color que te falte. Las repes, a tu primo.",
                 ["CarneDeliveredV2"] = "Has entregado {0} tarjeta(s): +{1}. El funcionario ni te ha mirado.",
-                ["CarneCompletedV2"] = "<color=#f0c040>{0}</color> ha completado el CARNÉ DE CALVO y gana +{1}. El Ministerio de Alopecia está orgulloso. Su madre, no tanto.",
+                ["CarneCompletedV3"] = "<color=#e0a526>{0}</color> ha completado el CARNÉ DE CALVO y gana +{1}. El Ministerio de Alopecia está orgulloso. Su madre, no tanto.",
                 ["ReasonItemUse"] = "objeto: {0}",
                 ["ReasonCarne"] = "carné de calvo",
-                ["SupremeBaldnessV3"] = "<color=#f0c040>{0} HA ALCANZADO LA CALVICIE SUPREMA</color>. Los pilotos ya usan su cabeza para aterrizar de noche.",
-                ["TitleUpV2"] = "<color=#f0c040>{0}</color> asciende a <color=#f0c040>{1}</color>. Su peluquero ya ha pedido el paro.",
-                ["TitleDrop"] = "<color=#e05050>A {0} le está saliendo pelo</color> (ahora es {1})",
+                ["SupremeBaldnessV4"] = "<color=#e0a526>{0} HA ALCANZADO LA CALVICIE SUPREMA</color>. Los pilotos ya usan su cabeza para aterrizar de noche.",
+                ["TitleUpV3"] = "<color=#e0a526>{0}</color> asciende a <color=#e0a526>{1}</color>. Su peluquero ya ha pedido el paro.",
+                ["TitleDropV2"] = "<color=#e0662f>A {0} le está saliendo pelo</color> (ahora es {1})",
                 ["NoPermissionV3"] = "No tienes permiso para usar este comando.",
                 ["AdminUsageV2"] = "Uso: /calvoadmin set <jugador> <valor> | /calvoadmin reset <jugador> | /calvoadmin debug on|off | /calvoadmin evento <hora|champu|peludo|cuchillas|parar>",
                 ["AdminInvalidValue"] = "El valor tiene que ser un número entero igual o mayor que {0}.",
@@ -904,7 +904,7 @@ namespace Oxide.Plugins
                 ["NoRpAfk"] = "no se ha movido (AFK)",
                 ["NoRpPlugin"] = "Server Rewards no está cargado",
                 ["NoRpRefused"] = "Server Rewards no aceptó el pago",
-                ["RpEarnedV2"] = "<color=#f0c040>+{0} RP</color> por lucir calva de <color=#f5d3a8>{1}</color>. Es lo único que te va a pagar alguien en la vida por estar calvo: disfrútalo.",
+                ["RpEarnedV3"] = "<color=#e0a526>+{0} RP</color> por lucir calva de <color=#e0a526>{1}</color>. Es lo único que te va a pagar alguien en la vida por estar calvo: disfrútalo.",
                 ["ReasonPlayerKill"] = "kill a {0}",
                 ["ReasonPlayerHeadshotKill"] = "kill de headshot a {0}",
                 ["ReasonDeath"] = "muerte (-{0} %)",
@@ -925,16 +925,16 @@ namespace Oxide.Plugins
                 ["EventNameHairiestHuntV2"] = "Cacería del peludo",
                 ["EventNameBladeStormV2"] = "Tormenta de cuchillas",
                 ["EventTag"] = " [{0} x{1}]",
-                ["EventBaldHourStartV3"] = "<color=#f0c040>HORA DE LA CALVICIE</color>: durante {0} min todo da x{1} de alopecia. Salid a matar, que la frente no se despeja sola.",
+                ["EventBaldHourStartV4"] = "<color=#e0a526>HORA DE LA CALVICIE</color>: durante {0} min todo da x{1} de alopecia. Salid a matar, que la frente no se despeja sola.",
                 ["EventBaldHourEndV2"] = "Se acabó la Hora de la calvicie. Volvéis a pelaros a precio normal.",
-                ["EventShampooRainStart"] = "<color=#e05050>LLUVIA DE CHAMPÚ</color>: durante {0} min morir resta x{1}. Con este tiempo el pelo crece que da gusto.",
+                ["EventShampooRainStartV2"] = "<color=#e0662f>LLUVIA DE CHAMPÚ</color>: durante {0} min morir resta x{1}. Con este tiempo el pelo crece que da gusto.",
                 ["EventShampooRainEnd"] = "Ha escampado. Podéis volver a morir con relativa dignidad.",
-                ["EventHuntStartV3"] = "<color=#f0c040>CACERÍA DEL PELUDO</color>: {0} es el más peludo de la isla ({1}). Quien lo mate gana +{2}. Si aguanta {3} min, gana él +{4}. A por él, que esa melena no se va a cortar sola.",
-                ["EventHuntKilledV2"] = "<color=#f0c040>{0}</color> ha cazado al más peludo, {1}, y gana +{2}. Corte de pelo gratis y a bocajarro.",
+                ["EventHuntStartV4"] = "<color=#e0a526>CACERÍA DEL PELUDO</color>: {0} es el más peludo de la isla ({1}). Quien lo mate gana +{2}. Si aguanta {3} min, gana él +{4}. A por él, que esa melena no se va a cortar sola.",
+                ["EventHuntKilledV3"] = "<color=#e0a526>{0}</color> ha cazado al más peludo, {1}, y gana +{2}. Corte de pelo gratis y a bocajarro.",
                 ["EventHuntSurvivedV2"] = "{0} ha sobrevivido a la cacería con todo su pelo y gana +{1}. Vergüenza os debería dar, calvos.",
                 ["EventHuntDiedV3"] = "{0}, el más peludo de la isla, la ha palmado solito, sin que nadie le haga ni puto caso. Se acabó la cacería.",
                 ["EventHuntEscapedV3"] = "{0} se ha pirado de la isla con su melena, como una rata con extensiones. Se acabó la cacería.",
-                ["EventBladeStormStart"] = "<color=#f0c040>TORMENTA DE CUCHILLAS</color>: durante {0} min el heli, la Bradley y el Chinook dan x{1}. Hoy hasta el cielo se pela.",
+                ["EventBladeStormStartV2"] = "<color=#e0a526>TORMENTA DE CUCHILLAS</color>: durante {0} min el heli, la Bradley y el Chinook dan x{1}. Hoy hasta el cielo se pela.",
                 ["EventBladeStormEnd"] = "Se acabó la tormenta de cuchillas. El heli vuelve a pagar lo de siempre, como un funcionario.",
                 ["EventStoppedByAdminV2"] = "Un admin ha cancelado el evento {0}. Las quejas, a su peluquero.",
                 ["ReasonHuntKillV2"] = "cacería del peludo ({0})",
@@ -944,7 +944,7 @@ namespace Oxide.Plugins
                 ["AdminEventCannotStart"] = "No se puede lanzar {0} ahora (¿pocos jugadores conectados o desactivado en la config?).",
                 ["AdminEventNone"] = "No hay ningún evento en marcha.",
                 ["BatteryTag"] = " [pila x{0}]",
-                ["HudCounterV2"] = "<size=11><color=#b8b8b8>ALOPECIA</color></size>  <color=#f0c040>{0}</color>\n<size=10><color=#d8d8d8>{1}</color></size>"
+                ["HudCounterV3"] = "<size=11><color=#9a9288>ALOPECIA</color></size>  <color=#e0a526>{0}</color>\n<size=10><color=#d8d8d8>{1}</color></size>"
             };
 
             // Spanish is registered as the default ("en") set too: Oxide assigns each player the language
@@ -1604,12 +1604,12 @@ namespace Oxide.Plugins
                 case GlobalEvent.BaldHour:
                     if (!events.BaldHour.Enabled) return false;
                     minutes = events.BaldHour.DurationMinutes;
-                    BroadcastEvent("EventBaldHourStartV3", minutes, events.BaldHour.Multiplier);
+                    BroadcastEvent("EventBaldHourStartV4", minutes, events.BaldHour.Multiplier);
                     break;
                 case GlobalEvent.ShampooRain:
                     if (!events.ShampooRain.Enabled) return false;
                     minutes = events.ShampooRain.DurationMinutes;
-                    BroadcastEvent("EventShampooRainStart", minutes, events.ShampooRain.Multiplier);
+                    BroadcastEvent("EventShampooRainStartV2", minutes, events.ShampooRain.Multiplier);
                     break;
                 case GlobalEvent.HairiestHunt:
                     HairiestHuntConfig hunt = events.HairiestHunt;
@@ -1621,12 +1621,12 @@ namespace Oxide.Plugins
                     BasePlayer target = hairiest[random.Next(hairiest.Count)];
                     huntTargetId = (ulong)target.userID;
                     minutes = hunt.DurationMinutes;
-                    BroadcastEvent("EventHuntStartV3", target.displayName, FormatBaldness(lowest), FormatBaldness(hunt.KillerBonus), minutes, FormatBaldness(hunt.SurvivorBonus));
+                    BroadcastEvent("EventHuntStartV4", target.displayName, FormatBaldness(lowest), FormatBaldness(hunt.KillerBonus), minutes, FormatBaldness(hunt.SurvivorBonus));
                     break;
                 case GlobalEvent.BladeStorm:
                     if (!events.BladeStorm.Enabled) return false;
                     minutes = events.BladeStorm.DurationMinutes;
-                    BroadcastEvent("EventBladeStormStart", minutes, events.BladeStorm.Multiplier);
+                    BroadcastEvent("EventBladeStormStartV2", minutes, events.BladeStorm.Multiplier);
                     break;
                 default:
                     return false;
@@ -1690,7 +1690,7 @@ namespace Oxide.Plugins
             {
                 long bonus = config.GlobalEvents.HairiestHunt.KillerBonus;
                 PlayerData killerData = GetOrCreateData(killer);
-                BroadcastEvent("EventHuntKilledV2", killerData.Name, targetData.Name, FormatBaldness(bonus));
+                BroadcastEvent("EventHuntKilledV3", killerData.Name, targetData.Name, FormatBaldness(bonus));
                 ChangeBaldness(killerData, bonus, true, Lang("ReasonHuntKillV2", null, targetData.Name));
             }
 
@@ -1800,7 +1800,7 @@ namespace Oxide.Plugins
             {
                 Text =
                 {
-                    Text = Lang("HudCounterV2", player.UserIDString, FormatBaldness(data.Baldness), GetTitle(data.Baldness)),
+                    Text = Lang("HudCounterV3", player.UserIDString, FormatBaldness(data.Baldness), GetTitle(data.Baldness)),
                     FontSize = 14,
                     Align = TextAnchor.MiddleCenter,
                     Color = "1 1 1 1"
@@ -1835,7 +1835,7 @@ namespace Oxide.Plugins
                     Text = (delta > 0 ? "+" : string.Empty) + FormatBaldness(delta),
                     FontSize = 18,
                     Align = TextAnchor.MiddleCenter,
-                    Color = delta > 0 ? "0.94 0.75 0.25 1" : "0.88 0.31 0.31 1",
+                    Color = delta > 0 ? ColorGold : ColorRust,
                     FadeIn = 0.2f
                 },
                 RectTransform = { AnchorMin = ui.CounterAnchorMin, AnchorMax = ui.CounterAnchorMax, OffsetMin = popupMin, OffsetMax = popupMax },
@@ -2103,7 +2103,7 @@ namespace Oxide.Plugins
 
             if (GiveItem(player, item.Shortname))
             {
-                Reply(player, "ItemFoundV3", displayName ?? CursedItemName(KeyOf(item)));
+                Reply(player, "ItemFoundV4", displayName ?? CursedItemName(KeyOf(item)));
             }
         }
 
@@ -2243,7 +2243,7 @@ namespace Oxide.Plugins
             {
                 data.CarneColors.Clear();
                 data.CarnesCompleted++;
-                BroadcastEvent("CarneCompletedV2", data.Name, FormatBaldness(tags.CollectionBonus));
+                BroadcastEvent("CarneCompletedV3", data.Name, FormatBaldness(tags.CollectionBonus));
                 ChangeBaldness(data, tags.CollectionBonus, true, Lang("ReasonCarne"));
             }
 
@@ -2314,7 +2314,7 @@ namespace Oxide.Plugins
 
             calvarioNpcInUse.Remove((ulong)player.userID);
             CuiHelper.DestroyUi(player, UiMenu);
-            Reply(player, "CalvarioGoToBarber");
+            Reply(player, "CalvarioGoToBarberV2");
             return false;
         }
 
@@ -2327,7 +2327,9 @@ namespace Oxide.Plugins
         private const string ColorCardDark = "0.26 0.17 0.14 1";
         private const string ColorScalp = "0.96 0.83 0.66 1";
         private const string ColorText = "0.88 0.82 0.75 1";
-        private const string ColorMuted = "0.62 0.54 0.47 1";
+        private const string ColorMuted = "0.604 0.573 0.533 1"; // #9a9288, house gray for footnotes
+        private const string ColorGold = "0.878 0.647 0.149 1"; // #e0a526, house gold for commands and good figures
+        private const string ColorRust = "0.878 0.4 0.184 1"; // #e0662f, house rust for losses and warnings
         private const string ColorPoleRed = "0.72 0.14 0.14 1";
         private const string ColorPoleWhite = "0.93 0.9 0.85 1";
         private const string ColorPoleBlue = "0.16 0.3 0.62 1";
@@ -2367,7 +2369,7 @@ namespace Oxide.Plugins
 
             AddText(ui, window, Lang("CalvarioTitle", userId), 26, TextAnchor.MiddleLeft, "0.03 0.915", "0.45 0.975", ColorScalp);
             AddText(ui, window, Lang("CalvarioSubtitleV2", userId), 11, TextAnchor.MiddleLeft, "0.03 0.88", "0.6 0.915", ColorMuted);
-            AddText(ui, window, Lang("CalvarioYouV2", userId, FormatBaldness(data.Baldness), GetTitle(data.Baldness)), 15, TextAnchor.MiddleRight, "0.45 0.93", "0.935 0.975");
+            AddText(ui, window, Lang("CalvarioYouV3", userId, FormatBaldness(data.Baldness), GetTitle(data.Baldness)), 15, TextAnchor.MiddleRight, "0.45 0.93", "0.935 0.975");
             DrawTitleProgress(ui, window, data.Baldness, userId);
             AddButton(ui, window, Lang("CalvarioClose", userId), "0.956 0.935", "0.99 0.985", ColorPoleRed, null, UiMenu, 18);
 
@@ -2393,7 +2395,7 @@ namespace Oxide.Plugins
             long from = baldness < current.MinBaldness ? 0 : current.MinBaldness;
             float progress = next.MinBaldness > from ? Math.Max(0f, Math.Min(1f, (baldness - from) / (float)(next.MinBaldness - from))) : 1f;
 
-            AddText(ui, window, Lang("CalvarioNextV2", userId, next.Name, FormatBaldness(next.MinBaldness - baldness)), 11, TextAnchor.MiddleRight, "0.45 0.898", "0.935 0.925", ColorMuted);
+            AddText(ui, window, Lang("CalvarioNextV3", userId, next.Name, FormatBaldness(next.MinBaldness - baldness)), 11, TextAnchor.MiddleRight, "0.45 0.898", "0.935 0.925", ColorMuted);
             AddPanel(ui, window, ColorCardDark, "0.62 0.884", "0.935 0.896");
             if (progress > 0f)
             {
@@ -2721,7 +2723,7 @@ namespace Oxide.Plugins
             }, UiMenu);
 
             AddText(ui, box, Lang("BarberName", userId), 18, TextAnchor.MiddleLeft, "0.03 0.88", "0.5 0.98", ColorScalp);
-            AddText(ui, box, Lang("CalvarioYouV2", userId, FormatBaldness(data.Baldness), GetTitle(data.Baldness)), 12, TextAnchor.MiddleRight, "0.5 0.88", "0.93 0.98", ColorMuted);
+            AddText(ui, box, Lang("CalvarioYouV3", userId, FormatBaldness(data.Baldness), GetTitle(data.Baldness)), 12, TextAnchor.MiddleRight, "0.5 0.88", "0.93 0.98", ColorMuted);
             AddButton(ui, box, Lang("CalvarioClose", userId), "0.945 0.9", "0.99 0.98", ColorPoleRed, null, UiMenu, 14);
             AddPanel(ui, box, ColorScalp, "0.03 0.872", "0.97 0.876");
             AddText(ui, box, line ?? string.Empty, 14, TextAnchor.UpperLeft, "0.03 0.5", "0.97 0.855", ColorText);
@@ -2776,14 +2778,14 @@ namespace Oxide.Plugins
 
                 string nameColor = index < medals.Length ? medals[index] : "1 1 1 1";
                 AddText(ui, row, Lang("CalvarioRankingLine", userId, index + 1, entry.Name), 14, TextAnchor.MiddleLeft, "0.02 0", "0.5 1", nameColor);
-                AddText(ui, row, FormatBaldness(entry.Baldness), 14, TextAnchor.MiddleRight, "0.5 0", "0.68 1", ColorScalp);
+                AddText(ui, row, FormatBaldness(entry.Baldness), 14, TextAnchor.MiddleRight, "0.5 0", "0.68 1", ColorGold);
                 AddText(ui, row, GetTitle(entry.Baldness), 13, TextAnchor.MiddleRight, "0.68 0", "0.98 1", ColorText);
             }
 
             int myIndex = ranking.IndexOf(me);
             string footer = myIndex <= 0
                 ? Lang("CalvarioRankingFirstV2", userId)
-                : Lang("CalvarioRankingYouV2", userId, myIndex + 1, ranking.Count, FormatBaldness(ranking[myIndex - 1].Baldness - me.Baldness + 1), ranking[myIndex - 1].Name);
+                : Lang("CalvarioRankingYouV3", userId, myIndex + 1, ranking.Count, FormatBaldness(ranking[myIndex - 1].Baldness - me.Baldness + 1), ranking[myIndex - 1].Name);
             AddText(ui, window, footer, 14, TextAnchor.MiddleLeft, "0.03 0.1", "0.97 0.17", ColorText);
 
             AddText(ui, window, Lang("CalvarioPage", userId, page + 1, pages), 13, TextAnchor.MiddleCenter, "0.42 0.03", "0.58 0.09", ColorMuted);
@@ -3025,7 +3027,7 @@ namespace Oxide.Plugins
             SendDebug("DebugRp", data.Name, amount, GetTitle(data.Baldness));
             if (rp.NotifyPlayer)
             {
-                Reply(player, "RpEarnedV2", amount, GetTitle(data.Baldness));
+                Reply(player, "RpEarnedV3", amount, GetTitle(data.Baldness));
             }
         }
 
@@ -3078,11 +3080,11 @@ namespace Oxide.Plugins
                 // Reaching the highest title gets its own announcement instead of the generic one.
                 if (newTier == config.Titles.Count - 1 && config.AnnounceSupremeBaldness)
                 {
-                    Broadcast("SupremeBaldnessV3", data.Name);
+                    Broadcast("SupremeBaldnessV4", data.Name);
                 }
                 else if (config.AnnounceTitleUp)
                 {
-                    Broadcast("TitleUpV2", data.Name, GetTitle(newValue));
+                    Broadcast("TitleUpV3", data.Name, GetTitle(newValue));
                 }
 
                 if (config.Ui.ShowTitleUpBanner)
@@ -3094,7 +3096,7 @@ namespace Oxide.Plugins
             }
             else if (newTier < oldTier && config.AnnounceTitleDrop)
             {
-                Broadcast("TitleDrop", data.Name, GetTitle(newValue));
+                Broadcast("TitleDropV2", data.Name, GetTitle(newValue));
             }
         }
 
@@ -3145,7 +3147,7 @@ namespace Oxide.Plugins
                 SendDebug("DebugTierPrize", data.Name, config.Titles[tier].Name, parts.Count > 0 ? string.Join(", ", parts.ToArray()) : "-");
                 if (parts.Count > 0 && player != null && player.IsConnected)
                 {
-                    Reply(player, "TierPrize", config.Titles[tier].Name, string.Join(", ", parts.ToArray()));
+                    Reply(player, "TierPrizeV2", config.Titles[tier].Name, string.Join(", ", parts.ToArray()));
                 }
             }
         }
