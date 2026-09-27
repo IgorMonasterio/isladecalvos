@@ -897,7 +897,7 @@ namespace Oxide.Plugins
                 ["CarneCompletedV3"] = "<color=#e0a526>{0}</color> ha completado el CARNÉ DE CALVO y gana +{1}. El Ministerio de Alopecia está orgulloso. Su madre, no tanto.",
                 ["ReasonItemUse"] = "objeto: {0}",
                 ["ReasonCarne"] = "carné de calvo",
-                ["SupremeBaldnessV5"] = "<color=#e0a526>{0} HA ALCANZADO LA CALVICIE SUPREMA</color>. Tiene la cabeza tan pulida que las gaviotas se peinan mirándose en ella y los pilotos la usan para aterrizar de noche. Peludos del mundo: de rodillas, que a partir de hoy hasta vuestra madre se la frota para pedir un deseo.",
+                ["SupremeBaldnessV6"] = "<color=#e0a526>{0} HA ALCANZADO LA CALVICIE SUPREMA</color>. Ya no tienes que preocuparte por el champú.",
                 ["TitleUpV3"] = "<color=#e0a526>{0}</color> asciende a <color=#e0a526>{1}</color>. Su peluquero ya ha pedido el paro.",
                 ["TitleDropV2"] = "<color=#e0662f>A {0} le está saliendo pelo</color> (ahora es {1})",
                 ["NoPermissionV4"] = "No tienes permiso para usar este comando. Buen intento, figura.",
@@ -919,7 +919,7 @@ namespace Oxide.Plugins
                 ["NoRpCap"] = "saldo de RP al tope de Server Rewards",
                 ["RpEarnedV3"] = "<color=#e0a526>+{0} RP</color> por lucir calva de <color=#e0a526>{1}</color>. Es lo único que te va a pagar alguien en la vida por estar calvo: disfrútalo.",
                 ["ReasonPlayerKill"] = "kill a {0}",
-                ["ReasonPlayerHeadshotKill"] = "kill de headshot a {0}",
+                ["ReasonPlayerHeadshotKillV2"] = "rapado por headshot a {0}",
                 ["ReasonDeath"] = "muerte (-{0} %)",
                 ["ReasonHeadshotDeath"] = "muerte por headshot (-{0} %)",
                 ["ReasonSurvival"] = "supervivencia",
@@ -927,7 +927,7 @@ namespace Oxide.Plugins
                 ["ReasonEventParticipant"] = "evento {0} (T{1}), le hizo daño",
                 ["ReasonEventTeammate"] = "evento {0} (T{1}), compañero de equipo cerca",
                 ["ReasonAdmin"] = "admin",
-                ["NoRewardSleeper"] = "víctima dormida o desconectada ({0})",
+                ["NoRewardSleeperV2"] = "víctima dormida o desconectada ({0}). Has sido muy valiente, enhorabuena.",
                 ["NoRewardCooldown"] = "cooldown con {0}",
                 ["NoRewardNpcDisabled"] = "NPC {0} desactivado en la config",
                 ["NoRewardNpcUnlisted"] = "NPC {0} no está en NpcTiers",
@@ -941,10 +941,10 @@ namespace Oxide.Plugins
                 ["EventBaldHourStartV4"] = "<color=#e0a526>HORA DE LA CALVICIE</color>: durante {0} min todo da x{1} de alopecia. Salid a matar, que la frente no se despeja sola.",
                 ["EventBaldHourEndV2"] = "Se acabó la Hora de la calvicie. Volvéis a pelaros a precio normal.",
                 ["EventShampooRainStartV2"] = "<color=#e0662f>LLUVIA DE CHAMPÚ</color>: durante {0} min morir resta x{1}. Con este tiempo el pelo crece que da gusto.",
-                ["EventShampooRainEnd"] = "Ha escampado. Podéis volver a morir con relativa dignidad.",
+                ["EventShampooRainEndV2"] = "Ha escampado. Ya podéis palmar tranquilos.",
                 ["EventHuntStartV4"] = "<color=#e0a526>CACERÍA DEL PELUDO</color>: {0} es el más peludo de la isla ({1}). Quien lo mate gana +{2}. Si aguanta {3} min, gana él +{4}. A por él, que esa melena no se va a cortar sola.",
-                ["EventHuntKilledV3"] = "<color=#e0a526>{0}</color> ha cazado al más peludo, {1}, y gana +{2}. Corte de pelo gratis y a bocajarro.",
-                ["EventHuntSurvivedV2"] = "{0} ha sobrevivido a la cacería con todo su pelo y gana +{1}. Vergüenza os debería dar, calvos.",
+                ["EventHuntKilledV4"] = "{0} ha cazado al más peludo, {1}, y gana +{2}. Gracias por este gran servicio a la comunidad.",
+                ["EventHuntSurvivedV3"] = "{0} ha sobrevivido a la cacería con todo su pelo y gana +{1}. Paquetes.",
                 ["EventHuntDiedV4"] = "{0}, el más peludo de la isla, la ha palmado solito, sin que nadie le meta un tiro. Se ha muerto como vivió: con el pelo en la cara y sin que nadie le haga ni puto caso. Se acabó la cacería.",
                 ["EventHuntEscapedV4"] = "{0} se ha pirado de la isla con su melena, como una rata con extensiones. Volverá cuando se le acabe el acondicionador. Se acabó la cacería.",
                 ["EventBladeStormStartV3"] = "<color=#e0a526>BROTE DE ALOPECIA</color>: durante {0} min el heli, la Bradley y el Chinook dan x{1}. Hoy hasta el cielo se pela.",
@@ -1261,7 +1261,7 @@ namespace Oxide.Plugins
             }
 
             GainBaldness(killerData, headshot ? config.HeadshotKillReward : config.KillReward,
-                Lang(headshot ? "ReasonPlayerHeadshotKill" : "ReasonPlayerKill", null, victimData.Name));
+                Lang(headshot ? "ReasonPlayerHeadshotKillV2" : "ReasonPlayerKill", null, victimData.Name));
         }
 
         #endregion
@@ -1742,13 +1742,13 @@ namespace Oxide.Plugins
                         BroadcastEvent("EventBaldHourEndV2");
                         break;
                     case GlobalEvent.ShampooRain:
-                        BroadcastEvent("EventShampooRainEnd");
+                        BroadcastEvent("EventShampooRainEndV2");
                         break;
                     case GlobalEvent.HairiestHunt:
                         if (storedData.Players.TryGetValue(huntTargetId, out PlayerData target))
                         {
                             long bonus = config.GlobalEvents.HairiestHunt.SurvivorBonus;
-                            BroadcastEvent("EventHuntSurvivedV2", target.Name, FormatBaldness(bonus));
+                            BroadcastEvent("EventHuntSurvivedV3", target.Name, FormatBaldness(bonus));
                             ChangeBaldness(target, bonus, true, Lang("ReasonHuntSurvived"));
                         }
 
@@ -1773,7 +1773,7 @@ namespace Oxide.Plugins
             {
                 long bonus = config.GlobalEvents.HairiestHunt.KillerBonus;
                 PlayerData killerData = GetOrCreateData(killer);
-                BroadcastEvent("EventHuntKilledV3", killerData.Name, targetData.Name, FormatBaldness(bonus));
+                BroadcastEvent("EventHuntKilledV4", killerData.Name, targetData.Name, FormatBaldness(bonus));
                 ChangeBaldness(killerData, bonus, true, Lang("ReasonHuntKillV2", null, targetData.Name));
             }
 
@@ -3032,7 +3032,7 @@ namespace Oxide.Plugins
             // Killing sleepers or disconnected players is not glorious.
             if (victim.IsSleeping() || !victim.IsConnected)
             {
-                DebugNoReward(killerData, Lang("NoRewardSleeper", null, victimName));
+                DebugNoReward(killerData, Lang("NoRewardSleeperV2", null, victimName));
                 return false;
             }
 
@@ -3222,7 +3222,7 @@ namespace Oxide.Plugins
                 // Reaching the highest title gets its own announcement instead of the generic one.
                 if (newTier == config.Titles.Count - 1 && config.AnnounceSupremeBaldness)
                 {
-                    Broadcast("SupremeBaldnessV5", data.Name);
+                    Broadcast("SupremeBaldnessV6", data.Name);
                 }
                 else if (config.AnnounceTitleUp)
                 {
