@@ -111,7 +111,9 @@ tiene el servidor):
 | 10.000.000 | Lord Bola de Billar |
 | 100.000.000 | Su Calvísima Majestad |
 
-Con 0 de alopecia también eres Greñas Sucias.
+Con 0 de alopecia el contador y el ranking también te llaman Greñas Sucias,
+pero para los grupos, los premios y el aviso a otros plugins (1.7.0) con 0 no
+tienes título: Greñas Sucias empieza en 1.
 
 **Anuncios globales** (se pueden desactivar):
 - Al subir de título: `{jugador} asciende a {título}. Su peluquero ya ha pedido el paro.`
@@ -122,7 +124,12 @@ Con 0 de alopecia también eres Greñas Sucias.
 **Cartel grande al subir de título** (1.6.0): además del chat, a todos los
 conectados les sale en el centro de la pantalla, durante 6 s,
 `¡{jugador} ya es CABALLERO DE LA TONSURA!`. Es el mismo cartel que los
-eventos globales. Las bajadas siguen solo en el chat.
+eventos globales.
+
+**Cartel grande al bajar de título** (1.7.0): igual, con
+`{jugador} baja a ENTRADAS INCIPIENTES. Ya no se le ve el cartón.` El mensaje
+del chat al bajar sigue saliendo como antes. Se desactiva con
+`"Show title drop banner"` y dura lo mismo que el de subida.
 
 **Premio por subir de título** (1.6.0): cada título puede dar Puntos de Chola, pelones y/o
 objetos. Por defecto todo está a 0. Se cobra **una sola vez por jugador y
@@ -130,6 +137,48 @@ título**: bajar y volver a subir no paga otra vez. A los jugadores que ya
 existían se les apunta como cobrado el título que tenían la primera vez que
 cambian de título. La alopecia **comprada** en el cambio no cobra premios,
 salvo que se active en la config.
+
+Desde la 1.7.0:
+- El premio de **Greñas Sucias** se cobra al pasar de 0 a 1 o más. Antes nunca
+  se pagaba, porque con 0 ya contaba como Greñas Sucias.
+- Los **objetos** del premio se dan **en silencio**: Rust ya enseña su aviso de
+  objeto recibido. El mensaje del premio solo nombra los Puntos de Chola y los
+  pelones; si el premio es solo de objetos, dice que ya están en el inventario.
+  Si no caben, caen a los pies del jugador.
+- Cada premio puede llevar su **mensaje propio** (`"Message"`), que se le dice al
+  jugador tal cual, detrás del mensaje del premio.
+
+### Grupos por título (plugin 1.7.0)
+
+Cada jugador está siempre en el **grupo de Oxide de su título** y en ningún
+otro grupo de la lista: `calvo1` (Greñas Sucias) a `calvo7` (Su Calvísima
+Majestad). Con 0 de alopecia, en ninguno. Las **ventajas** de cada título
+(homes, espera del teletransporte, mochila, título en el chat) son permisos de
+NTeleportation, Backpacks y Better Chat que el admin da a esos grupos: el
+plugin solo mueve a los jugadores de grupo.
+
+- Se sincroniza al cargar el plugin (los conectados), al conectarse y en cada
+  cambio de alopecia que cambie de título: al subir y al bajar, también con
+  alopecia comprada, con `/calvoadmin` y con el reset del wipe.
+- A diferencia del premio, el grupo **sigue siempre al título actual**: se
+  pierde al bajar, y la alopecia comprada también cuenta.
+- Si un grupo no existe, el plugin lo crea. Los grupos que no están en la lista
+  (`default`, `admin`…) no se tocan nunca; `default`, `admin` y `*` no se
+  pueden poner como grupo de título.
+- Es silencioso: nada en el chat.
+
+### Aviso a otros plugins (plugin 1.7.0)
+
+Cuando un jugador cambia de título (al subir y al bajar, con anuncios; no con
+`/calvoadmin` ni al sincronizar la carga), el plugin llama al hook:
+
+```csharp
+OnIslaTitleChanged(ulong userId, string playerName, string oldTitle, string newTitle, bool up, long baldness)
+```
+
+`oldTitle` o `newTitle` van vacíos si no había título (alopecia 0). No hace
+falta devolver nada. Lo escucha JanoBridge para que el Gran Calvo Jano felicite
+(o se ría) en el chat.
 
 Los mensajes van resaltados con los colores de la casa: dorado para cifras
 buenas y comandos, y óxido para lo que duele (ver [docs/TONO.md](docs/TONO.md)).
@@ -526,10 +575,16 @@ los premios son la alopecia mínima de cada título:
 ```json
 "Tier prizes (title minimum baldness -> prize)": {
   "1000": { "RP (Server Rewards)": 0, "Coins (Economics)": 0,
-            "Items": [ { "Item shortname": "scrap", "Amount": 100 } ] },
+            "Items": [ { "Item shortname": "scrap", "Amount": 100 } ],
+            "Message": "" },
   ...
 },
 "Tier prizes also for bought baldness": false,
+"Sync title groups": true,
+"Title groups (title minimum baldness -> Oxide group)": {
+  "1": "calvo1", "1000": "calvo2", "10000": "calvo3", "100000": "calvo4",
+  "1000000": "calvo5", "10000000": "calvo6", "100000000": "calvo7"
+},
 "Baldness exchange (El Calvario)": {
   "Enabled": true,
   "Sell: baldness for 1 RP": 100,
@@ -541,12 +596,13 @@ los premios son la alopecia mínima de cada título:
 }
 ```
 
-(El `scrap` es solo un ejemplo: por defecto los premios vienen vacíos. En el
-chat, los objetos del premio salen con su nombre interno.)
+(El `scrap` es solo un ejemplo: por defecto los premios vienen vacíos, con el
+mensaje en blanco.)
 
-En `"On-screen UI"` hay dos opciones nuevas:
-`"Show a banner to everyone when a player rises to a higher title": true` y
-`"Seconds the title-up banner stays": 6.0`.
+En `"On-screen UI"` están
+`"Show a banner to everyone when a player rises to a higher title": true`,
+`"Seconds the title-up banner stays": 6.0` y, desde la 1.7.0,
+`"Show title drop banner": true`.
 
 La config lleva además un `Config version (do not edit)`. Sirve para que una
 actualización pueda corregir valores ya guardados (la 1.3.1 mueve el contador
@@ -584,7 +640,7 @@ servidor.
 1. Ten un servidor dedicado de Rust con **Oxide (uMod)** instalado.
 2. Copia `src/IslaDeCalvos.cs` en la carpeta `oxide/plugins/` del servidor.
 3. Oxide lo compila y carga solo. En la consola deberías ver algo como
-   `Loaded plugin Isla de Calvos v1.6.9 by Igor Monasterio`.
+   `Loaded plugin Isla de Calvos v1.7.0 by Igor Monasterio`.
 4. Para recargarlo tras cambiar el fichero (normalmente se recarga solo):
    `oxide.reload IslaDeCalvos`
 

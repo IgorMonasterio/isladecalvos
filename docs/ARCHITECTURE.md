@@ -294,6 +294,38 @@ Para añadir otro evento: decidir qué hook marca "participar" y cuál marca
   `ChangeBaldness` (no por `GainBaldness`), para que no la multipliquen
   eventos ni la pila.
 
+## 4i. Grupos por título, premios en silencio y aviso a otros plugins (plugin 1.7.0)
+
+- **Título real**: `GetTitleIndex` devuelve -1 por debajo del primer título (a 0
+  no hay título); `GetTierIndex` sigue devolviendo 0 ahí y lo usan el contador,
+  el ranking y los anuncios del chat, que no cambian (pasar de 0 a 1 no se
+  anuncia, como antes).
+- **Grupos**: `SyncTitleGroup(data)` mete al jugador en el grupo de su título y
+  lo saca de los demás grupos de `"Title groups"`, por id (vale también para
+  desconectados). Se llama en `OnServerInitialized` (conectados, y crea los
+  grupos que falten), `OnPlayerConnected`, `OnNewSave` (tras el reset, a todos
+  los guardados) y en `ChangeBaldness` cuando cambia el título real, **antes**
+  del corte por `announce`, así que también con admin y con alopecia comprada.
+  API de `Oxide.Core/Libraries/Permission.cs`: `GroupExists(string)`,
+  `CreateGroup(string name, string title, int rank)` → `bool`,
+  `UserHasGroup(string id, string group)`, `AddUserGroup` y `RemoveUserGroup`
+  (los tres últimos no hacen nada si el grupo no existe). Ojo:
+  `RemoveUserGroup(id, "*")` vacía todos los grupos del jugador; por eso `*`,
+  `default` y `admin` se rechazan como grupo de título (`ProtectedGroups`).
+- **Premios**: `PayTierPrizes` se llama cuando sube el título real, así que el
+  primer título (desde -1) también paga. `PrizedTier` = -1 sigue sirviendo:
+  se inicializa con el título real anterior, que puede ser -1. Los objetos no
+  salen en el mensaje (`TierPrizeV2` solo con Puntos de Chola y pelones;
+  `TierPrizeItems` si solo hubo objetos). `GiveItem` los mete en el inventario
+  o, si `PlayerInventory.GiveItem` falla, los suelta con `item.Drop` (§4e).
+  `"Message"` se manda tal cual con `SendChat`.
+- **Hook para otros plugins**: `Interface.CallHook("OnIslaTitleChanged", ulong,
+  string, string, string, bool, long)` (sobrecarga de 6 argumentos de
+  `Oxide.Core/Interface.cs`), al final de `ChangeBaldness`, después de anuncios
+  y premios, solo si `announce` (no con `/calvoadmin`) y cuando cambia el
+  título real. Título vacío = sin título.
+- **Cartel de bajada**: mismo `ShowBanner`, con la duración del de subida.
+
 ## 5. Localización (lang)
 
 - Todos los textos del plugin pasan por `lang`: se registran en

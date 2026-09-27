@@ -484,6 +484,9 @@ Bases, `/info`, NPCs y el Gran Calvo Jano). En el repo cambiaron:
   - frases de Igor y TONO.md con la regla 7.
 - **1.6.9** (PR #25): RP → Puntos de Chola, monedas → pelones, tasa 1 = 25; TONO.md con
   vocabulario nuevo.
+- **1.7.0**: grupos de Oxide por título (ventajas que se pierden al bajar), objetos de
+  premio en silencio, mensaje propio por premio, cartel al bajar y hook
+  `OnIslaTitleChanged` para JanoBridge.
 
 ---
 
