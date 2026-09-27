@@ -59,7 +59,7 @@ Y frases que ha puesto o elegido Igor después:
 - "¿Vas de jefe, piltrafilla?"
 - "¿Duele?"
 - "El pelo está sobrevalorado, el futuro es calvo."
-- "Empiezas con 0 monedas, pelado como tu madre te trajo al mundo."
+- "Empiezas con 0 pelones, pelado como tu madre te trajo al mundo."
 - "Paquetes." (el peludo sobrevive a la cacería)
 - "Has sido muy valiente, enhorabuena." (matar a uno dormido o desconectado)
 - "Ha escampado. Ya podéis palmar tranquilos." (fin de la Lluvia de champú)
@@ -101,13 +101,14 @@ maldad. La pulla es de colega, no de acosador.
 |---|---|---|
 | **alopecia** (la cifra: "Alopecia 25.000", "nivel de alopecia") | "calvicie" para la cifra | "calvicie", "calva" y sinónimos solo en chistes y nombres de eventos ("Hora de la calvicie") |
 | **el Mercalvona®** | la Mercalvona, la tienda | Masculino: el/del/en el Mercalvona. En menús, la ® pequeña: `Mercalvona<size=10>®</size>` |
-| **Cambio de divisas** (ServerRewards) · **Cambista de divisas** (su NPC) | Premios Calvos, tienda de puntos | Vende botín por RP, cambia RP ↔ monedas (1 RP = 10 monedas) |
+| **Cambio de divisas** (ServerRewards) · **Cambista de divisas** (su NPC) | Premios Calvos, tienda de puntos | Vende botín por Puntos de Chola y cambia Puntos de Chola ↔ pelones (1 Punto de Chola = 25 pelones) |
 | **la peluquería** | — | `/peluqueria` te teletransporta allí; dentro, el Mercalvona®, el Cambio de divisas y El Calvario |
 | **El Calvario** · **el Barbero** | — | Objetos malditos, Carné de Calvo y el cambio de calva |
 | **Gran Calvo Jano** | Señor Jano | La IA del chat |
 | **Dios Calvo** | Dios Dorado | Igor en el chat |
 | **Casas de Padre Jano** | Raidable Bases (hacia el jugador) | |
-| **RP** · **monedas** | puntos, créditos | |
+| **Puntos de Chola** (Server Rewards; singular: 1 Punto de Chola) | RP, puntos a secas, créditos | Masculino ("los Puntos de Chola"). Donde no quepa (botones, precios del panel): **PdC**, nunca "RP" |
+| **pelones** (Economics, la moneda del Mercalvona®; singular: 1 pelón) | monedas, dinero de la tienda, créditos | Masculino: "cuántos pelones te quedan", "no te los gastes". Ojo con "pelón" como insulto cerca de dinero: que no se lea como la moneda sin querer (o que se lea a propósito) |
 
 Títulos (de menos a más): Greñas Sucias · Pelambrera Lamentable · Entradas
 Incipientes · Coronilla a la Intemperie · Caballero de la Tonsura · Lord Bola de
@@ -115,6 +116,25 @@ Billar · Su Calvísima Majestad.
 
 Eventos: Hora de la calvicie · Lluvia de champú · Cacería del peludo · Brote de
 alopecia (es un nombre de evento: ahí "alopecia" no es la cifra y no choca con el contador).
+
+## Munición para los remates (expresiones de Igor, 2026-09-27)
+
+Vocabulario calvo **guardado para ir usándolo**: en textos nuevos y cuando se repase
+alguno. **No se reescriben textos que ya funcionan solo para meterlas** ("repasar no
+es podar"). Son munición, no muletillas: cada una, de vez en cuando y donde encaje.
+
+- pelón · pelado · lampiño
+- "se te ve el cartón"
+- pelucas (el enemigo: el que lleva peluca, el que vende pelucas…)
+- "frente soberana"
+- "rodilla con ojos"
+- "te peinas con esponja" · "se peina con una toalla"
+- "tienes la línea del pelo en la nuca"
+- "refleja más que un espejo de feria"
+- "de pelo vago" · "de pelo escueto"
+
+"Pelado" ya está en la lista de coletillas repetidas: se puede usar, pero buscando
+antes si ya está cerca. "Pelón" es también la moneda: el doble sentido vale si es a propósito.
 
 ## Formato
 
@@ -143,7 +163,7 @@ Ante la duda, se deja como está y se le pregunta a Igor.
 - Longitud parecida a la original: los botones y los paneles tienen el sitio que tienen.
 - Textos de admin, ayudas de sintaxis y botones: claros, sin chiste.
 - Se usa el vocabulario oficial de arriba aunque el plugin diga otra cosa
-  (su "Shop" es el Mercalvona®; sus "points", RP…).
+  (su "Shop" es el Mercalvona®; sus "points", Puntos de Chola; su "money"/"coins", pelones…).
 
 ## Traer un plugin nuevo de un repositorio de mods
 
