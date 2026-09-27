@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Isla de Calvos", "Igor Monasterio", "1.6.9")]
+    [Info("Isla de Calvos", "Igor Monasterio", "1.7.0")]
     [Description("Baldness system for the Isla de Calvos Rust server: being bald is glory, hair is a curse.")]
     public class IslaDeCalvos : RustPlugin
     {
@@ -20,6 +20,9 @@ namespace Oxide.Plugins
         private const long MinBaldness = 0;
         private const int RankingPageSize = 10;
         private const float SurvivalTickSeconds = 60f;
+
+        // Never title groups: the plugin only touches the groups listed in "Title groups".
+        private static readonly HashSet<string> ProtectedGroups = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "*", "default", "admin" };
 
         private Configuration config;
         private StoredData storedData;
@@ -51,6 +54,7 @@ namespace Oxide.Plugins
 
         // Tier prizes by title index (built from the config).
         private Dictionary<int, TierPrize> tierPrizes;
+        private Dictionary<int, string> titleGroups = new Dictionary<int, string>();
 
         // Baldness exchange waiting for the player's CONFIRMAR. In memory only; the button carries no amounts.
         private readonly Dictionary<ulong, PendingExchange> pendingExchanges = new Dictionary<ulong, PendingExchange>();
@@ -151,6 +155,18 @@ namespace Oxide.Plugins
             [JsonProperty("Tier prizes also for bought baldness")]
             public bool TierPrizesForBoughtBaldness = false;
 
+            // Every player sits in the group of their current title and in no other group of this list; the perks of each
+            // title (homes, teleport cooldowns, backpack size, chat title) are permissions granted to these groups.
+            [JsonProperty("Sync title groups")]
+            public bool SyncTitleGroups = true;
+
+            [JsonProperty("Title groups (title minimum baldness -> Oxide group)", ObjectCreationHandling = ObjectCreationHandling.Replace)]
+            public Dictionary<string, string> TitleGroups = new Dictionary<string, string>
+            {
+                ["1"] = "calvo1", ["1000"] = "calvo2", ["10000"] = "calvo3", ["100000"] = "calvo4",
+                ["1000000"] = "calvo5", ["10000000"] = "calvo6", ["100000000"] = "calvo7"
+            };
+
             [JsonProperty("NpcTiers", ObjectCreationHandling = ObjectCreationHandling.Replace)]
             public Dictionary<string, int> NpcTiers = DefaultNpcTiers();
 
@@ -212,8 +228,12 @@ namespace Oxide.Plugins
             [JsonProperty("Items", ObjectCreationHandling = ObjectCreationHandling.Replace)]
             public List<PrizeItem> Items = new List<PrizeItem>();
 
+            // Said to the player along with the prize, as written (no lang key: each prize has its own).
+            [JsonProperty("Message")] public string Message = string.Empty;
+
             [JsonIgnore]
-            public bool IsEmpty => Rp <= 0 && Coins <= 0 && (Items == null || Items.All(i => i == null || i.Amount <= 0));
+            public bool IsEmpty => Rp <= 0 && Coins <= 0 && (Items == null || Items.All(i => i == null || i.Amount <= 0))
+                && string.IsNullOrEmpty(Message);
         }
 
         private class PrizeItem
@@ -365,6 +385,10 @@ namespace Oxide.Plugins
 
             [JsonProperty("Seconds the title-up banner stays")]
             public float TitleUpBannerSeconds = 6f;
+
+            // Uses the title-up banner's seconds.
+            [JsonProperty("Show title drop banner")]
+            public bool ShowTitleDropBanner = true;
         }
 
         private class GlobalEventsConfig
@@ -648,6 +672,30 @@ namespace Oxide.Plugins
                 tierPrizes[index] = entry.Value;
             }
 
+            if (config.TitleGroups == null) config.TitleGroups = new Dictionary<string, string>();
+            titleGroups = new Dictionary<int, string>();
+            foreach (KeyValuePair<string, string> entry in config.TitleGroups)
+            {
+                string group = entry.Value?.Trim();
+                if (string.IsNullOrEmpty(group)) continue;
+                if (ProtectedGroups.Contains(group))
+                {
+                    // Removing players from these would be a disaster; "*" even means "all groups" to RemoveUserGroup.
+                    PrintWarning($"Title groups: '{group}' cannot be a title group; ignored.");
+                    continue;
+                }
+
+                int index = long.TryParse(entry.Key, NumberStyles.Integer, CultureInfo.InvariantCulture, out long min)
+                    ? config.Titles.FindIndex(t => t.MinBaldness == min) : -1;
+                if (index < 0)
+                {
+                    PrintWarning($"Title groups: '{entry.Key}' is not the minimum baldness of any title; ignored.");
+                    continue;
+                }
+
+                titleGroups[index] = group;
+            }
+
             if (config.BarberShop == null) config.BarberShop = new BarberShopConfig();
             if (config.BarberShop.CalvarioNpcIds == null) config.BarberShop.CalvarioNpcIds = new List<ulong>();
             config.BarberShop.MaxDistance = Math.Max(1f, config.BarberShop.MaxDistance);
@@ -817,6 +865,8 @@ namespace Oxide.Plugins
                 ["UnitCoinsOneV2"] = "{0} pelón",
                 ["TitleUpBanner"] = "¡{0} ya es {1}! Gafas de sol, que deslumbra.",
                 ["TierPrizeV2"] = "<color=#e0a526>Premio por ascender a {0}:</color> {1}. Invita la casa, que tú no tienes ni para peine.",
+                ["TierPrizeItems"] = "<color=#e0a526>Premio por ascender a {0}:</color> ya lo tienes en el inventario (o a tus pies, si no te cabe). Invita la casa.",
+                ["TitleDropBanner"] = "{0} baja a {1}. Ya no se le ve el cartón.",
                 ["DebugTierPrize"] = "[debug] {0}: premio de {1} · {2}",
                 ["ReasonExchange"] = "cambio en el Calvario",
                 ["BarberGreetingV2_1"] = "Siéntate, peludo. ¿Qué te quito hoy, el pelo o la dignidad?",
@@ -1072,6 +1122,22 @@ namespace Oxide.Plugins
 
             ValidateCursedItemNames();
             CheckServerRewardsPatch(ServerRewards);
+
+            if (config.SyncTitleGroups)
+            {
+                foreach (string group in titleGroups.Values.Distinct(StringComparer.OrdinalIgnoreCase))
+                {
+                    EnsureGroup(group);
+                }
+
+                foreach (BasePlayer player in BasePlayer.activePlayerList)
+                {
+                    if (IsRealPlayer(player) && storedData.Players.TryGetValue((ulong)player.userID, out PlayerData data))
+                    {
+                        SyncTitleGroup(data);
+                    }
+                }
+            }
         }
 
         private void OnPluginLoaded(Plugin plugin)
@@ -1135,6 +1201,13 @@ namespace Oxide.Plugins
             killCooldowns.Clear();
             dataDirty = true;
             SaveData();
+
+            // Everybody is back to 0, so nobody keeps a title group (offline players too: groups work by id).
+            foreach (PlayerData data in storedData.Players.Values)
+            {
+                SyncTitleGroup(data);
+            }
+
             Puts("Map wipe detected: baldness reset for all players (stats kept).");
         }
 
@@ -1146,7 +1219,7 @@ namespace Oxide.Plugins
         {
             if (IsRealPlayer(player))
             {
-                GetOrCreateData(player);
+                SyncTitleGroup(GetOrCreateData(player));
             }
         }
 
@@ -3216,11 +3289,20 @@ namespace Oxide.Plugins
             dataDirty = true;
             RefreshCounter(data, newValue - oldValue);
 
+            // The title the player actually holds (-1 = none, at 0). Groups follow it always, admin and bought changes too.
+            int oldTitle = GetTitleIndex(oldValue);
+            int newTitle = GetTitleIndex(newValue);
+            if (newTitle != oldTitle)
+            {
+                SyncTitleGroup(data);
+            }
+
             if (!announce)
             {
                 return;
             }
 
+            // Announcements keep their pre-1.7.0 rule: going between 0 and the first title is not announced.
             int oldTier = GetTierIndex(oldValue);
             int newTier = GetTierIndex(newValue);
             if (newTier > oldTier)
@@ -3239,12 +3321,31 @@ namespace Oxide.Plugins
                 {
                     ShowBanner(Lang("TitleUpBanner", null, data.Name, GetTitle(newValue).ToUpperInvariant()), config.Ui.TitleUpBannerSeconds);
                 }
-
-                PayTierPrizes(data, oldTier, newTier, bought);
             }
-            else if (newTier < oldTier && config.AnnounceTitleDrop)
+            else if (newTier < oldTier)
             {
-                Broadcast("TitleDropV2", data.Name, GetTitle(newValue));
+                if (config.AnnounceTitleDrop)
+                {
+                    Broadcast("TitleDropV2", data.Name, GetTitle(newValue));
+                }
+
+                if (config.Ui.ShowTitleDropBanner)
+                {
+                    ShowBanner(Lang("TitleDropBanner", null, data.Name, GetTitle(newValue).ToUpperInvariant()), config.Ui.TitleUpBannerSeconds);
+                }
+            }
+
+            if (newTitle > oldTitle)
+            {
+                // From -1 too, so the first title (Greñas Sucias) has its prize.
+                PayTierPrizes(data, oldTitle, newTitle, bought);
+            }
+
+            if (newTitle != oldTitle)
+            {
+                // For other plugins (JanoBridge). Empty title = none.
+                Interface.CallHook("OnIslaTitleChanged", data.Id, data.Name ?? string.Empty, TitleName(oldTitle), TitleName(newTitle),
+                    newTitle > oldTitle, newValue);
             }
         }
 
@@ -3279,23 +3380,39 @@ namespace Oxide.Plugins
                 }
 
                 var parts = new List<string>();
+                var given = new List<string>();
                 if (prize.Rp > 0 && AddRp(data.Id, prize.Rp)) parts.Add(UnitText(true, prize.Rp, null));
                 if (prize.Coins > 0 && DepositCoins(data.Id, prize.Coins)) parts.Add(UnitText(false, prize.Coins, null));
                 if (prize.Items != null && player != null && player.IsConnected)
                 {
+                    // Silent: Rust shows its own pickup notice for each item.
                     foreach (PrizeItem item in prize.Items)
                     {
                         if (item != null && item.Amount > 0 && !string.IsNullOrEmpty(item.Shortname) && GiveItem(player, item.Shortname, item.Amount, false))
                         {
-                            parts.Add(item.Shortname + " x" + item.Amount);
+                            given.Add(item.Shortname + " x" + item.Amount);
                         }
                     }
                 }
 
-                SendDebug("DebugTierPrize", data.Name, config.Titles[tier].Name, parts.Count > 0 ? string.Join(", ", parts.ToArray()) : "-");
-                if (parts.Count > 0 && player != null && player.IsConnected)
+                SendDebug("DebugTierPrize", data.Name, config.Titles[tier].Name, parts.Count + given.Count > 0 ? string.Join(", ", parts.Concat(given).ToArray()) : "-");
+                if (player == null || !player.IsConnected)
+                {
+                    continue;
+                }
+
+                if (parts.Count > 0)
                 {
                     Reply(player, "TierPrizeV2", config.Titles[tier].Name, string.Join(", ", parts.ToArray()));
+                }
+                else if (given.Count > 0)
+                {
+                    Reply(player, "TierPrizeItems", config.Titles[tier].Name);
+                }
+
+                if (!string.IsNullOrEmpty(prize.Message))
+                {
+                    SendChat(player, prize.Message);
                 }
             }
         }
@@ -3416,6 +3533,48 @@ namespace Oxide.Plugins
         }
 
         private string GetTitle(long baldness) => config.Titles[GetTierIndex(baldness)].Name;
+
+        // Unlike GetTierIndex, -1 below the first title: at 0 baldness a player holds no title.
+        private int GetTitleIndex(long baldness) => baldness >= config.Titles[0].MinBaldness ? GetTierIndex(baldness) : -1;
+
+        private string TitleName(int index) => index >= 0 && index < config.Titles.Count ? config.Titles[index].Name : string.Empty;
+
+        private void EnsureGroup(string group)
+        {
+            if (!permission.GroupExists(group))
+            {
+                permission.CreateGroup(group, group, 0);
+                Puts($"Oxide group '{group}' created for a title.");
+            }
+        }
+
+        // Puts the player in their current title's group and takes them out of every other title group. Quiet on purpose.
+        private void SyncTitleGroup(PlayerData data)
+        {
+            if (!config.SyncTitleGroups || data == null || titleGroups.Count == 0)
+            {
+                return;
+            }
+
+            string userId = data.Id.ToString(CultureInfo.InvariantCulture);
+            string target = titleGroups.TryGetValue(GetTitleIndex(data.Baldness), out string group) ? group : null;
+            foreach (string other in titleGroups.Values.Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                if (!string.Equals(other, target, StringComparison.OrdinalIgnoreCase) && permission.UserHasGroup(userId, other))
+                {
+                    permission.RemoveUserGroup(userId, other);
+                }
+            }
+
+            if (target != null)
+            {
+                EnsureGroup(target);
+                if (!permission.UserHasGroup(userId, target))
+                {
+                    permission.AddUserGroup(userId, target);
+                }
+            }
+        }
 
         private List<KeyValuePair<ulong, PlayerData>> FindStoredPlayers(string query)
         {
