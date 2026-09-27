@@ -310,6 +310,19 @@ peludo de golpe… crecimiento compuesto duplicando cada ~35 horas de juego acti
 - **Servidores renombrados:** el modded es el principal, **"[ES] Isla de Calvos"**; el
   vanilla es **"[ES] Isla de Calvos - Vanilla"**.
 
+**1.6.9 — divisas con nombre propio.** Igor decidió renombrar las dos divisas:
+- los RP pasan a ser **Puntos de Chola** (abreviatura PdC);
+- las monedas pasan a ser **pelones**;
+- la tasa pasa de 1 = 10 a **1 Punto de Chola = 25 pelones**.
+
+Jano cambió todo lo que está fuera del repo (Server Rewards, Economics, GUIShop, Raidable
+Bases, `/info`, NPCs y el Gran Calvo Jano). En el repo cambiaron:
+- todos los textos, con claves nuevas y singular bien puesto ("1 pelón", "1 Punto de
+  Chola");
+- la tasa por defecto del cambio de calva por pelones, que pasa a 25;
+- TONO.md, con el vocabulario nuevo y una sección de "munición para los remates" con
+  expresiones de Igor ("frente soberana", "rodilla con ojos", "se te ve el cartón"…).
+
 ---
 
 ## 2. Ideas y su estado
@@ -466,6 +479,8 @@ peludo de golpe… crecimiento compuesto duplicando cada ~35 horas de juego acti
   - objetos malditos marcados;
   - aviso si falta el parche de Server Rewards;
   - frases de Igor y TONO.md con la regla 7.
+- **1.6.9** (PR #25): RP → Puntos de Chola, monedas → pelones, tasa 1 = 25; TONO.md con
+  vocabulario nuevo.
 
 ---
 

@@ -124,7 +124,7 @@ conectados les sale en el centro de la pantalla, durante 6 s,
 `¡{jugador} ya es CABALLERO DE LA TONSURA!`. Es el mismo cartel que los
 eventos globales. Las bajadas siguen solo en el chat.
 
-**Premio por subir de título** (1.6.0): cada título puede dar RP, monedas y/o
+**Premio por subir de título** (1.6.0): cada título puede dar Puntos de Chola, pelones y/o
 objetos. Por defecto todo está a 0. Se cobra **una sola vez por jugador y
 título**: bajar y volver a subir no paga otra vez. A los jugadores que ya
 existían se les apunta como cobrado el título que tenían la primera vez que
@@ -138,17 +138,17 @@ cuenta en Steam o pon otro SteamID64 en la config. Si acabas de cambiar el
 avatar, los clientes pueden tardar en verlo (Steam lo cachea). **No uses emojis en los textos**: el
 chat de Rust no los dibuja y salen como `??`.
 
-### RP de Server Rewards por alopecia (plugin 1.4.0, lineal desde la 1.6.0)
+### Puntos de Chola de Server Rewards por alopecia (plugin 1.4.0, lineal desde la 1.6.0)
 
 Ser calvo da de comer. Cada **30 minutos vivo, conectado y despierto**, el
-plugin paga **RP de Server Rewards**: **1 RP por cada 100 de alopecia**, sin
+plugin paga **Puntos de Chola de Server Rewards**: **1 Punto de Chola por cada 100 de alopecia**, sin
 tope (100 → 1, 3.900 → 39, 2.000.000 → 20.000). Se calcula en entero largo
 (64 bits).
 
-**Límite de Server Rewards** (1.6.7): Server Rewards guarda los RP en un
+**Límite de Server Rewards** (1.6.7): Server Rewards guarda los Puntos de Chola en un
 entero de 32 bits y, si se pasa de 2.147.483.647, el saldo salta a negativo.
 El plugin nunca empuja un saldo más allá: la paga se recorta hasta el tope, y
-vender alopecia por RP se rechaza si no cabe. Si Server Rewards está parcheado
+vender alopecia por Puntos de Chola se rechaza si no cabe. Si Server Rewards está parcheado
 para trabajar en 64 bits (métodos `AddPointsLong`, `TakePointsLong` y
 `CheckPointsLong`), el plugin los usa solo y el límite desaparece.
 
@@ -158,9 +158,9 @@ escalones por título de la 1.4.0.
 - Solo cobra quien se haya **movido** durante esos 30 minutos (anti-AFK). Se
   mira cada minuto; basta con moverse 1 m entre dos comprobaciones.
 - Cuenta el título que tengas **en el momento del pago**. Morir no reinicia
-  el reloj de los RP, pero los minutos muerto o dormido no cuentan.
-- El jugador ve en el chat `+X RP por lucir calva de {título}`.
-- Los RP no se multiplican con eventos ni con la pila, y no tocan la alopecia.
+  el reloj de los Puntos de Chola, pero los minutos muerto o dormido no cuentan.
+- El jugador ve en el chat `+X Puntos de Chola por lucir calva de {título}`.
+- Los Puntos de Chola no se multiplican con eventos ni con la pila, y no tocan la alopecia.
 - Si **Server Rewards** no está cargado, no se paga nada y se avisa una vez
   en la consola. La alopecia sigue funcionando igual.
 
@@ -274,21 +274,21 @@ lo avisa en la consola al arrancar.
 ### El cambio de alopecia (plugin 1.6.0)
 
 Opción **3. Vengo a vender (o comprar) calva** en la conversación con el barbero.
-Alopecia, RP y monedas se cambian entre sí:
+Alopecia, Puntos de Chola y pelones se cambian entre sí:
 
 | Operación | Por defecto |
 |---|---|
-| Vender alopecia por RP | 100 de alopecia → 1 RP |
-| Vender alopecia por monedas | 100 de alopecia → 10 monedas |
-| Comprar alopecia con RP | 1 RP → 1 de alopecia |
-| Comprar alopecia con monedas | 10 monedas → 1 de alopecia |
+| Vender alopecia por Puntos de Chola | 100 de alopecia → 1 Punto de Chola |
+| Vender alopecia por pelones | 100 de alopecia → 25 pelones |
+| Comprar alopecia con Puntos de Chola | 1 Punto de Chola → 1 de alopecia |
+| Comprar alopecia con pelones | 25 pelones → 1 de alopecia |
 
-- Las tasas son **asimétricas a propósito**: la alopecia paga RP cada 30 min
+- Las tasas son **asimétricas a propósito**: la alopecia paga Puntos de Chola cada 30 min
   para siempre, y si comprarla fuera barato sería una máquina de hacer dinero.
 - Cantidades fijas (100, 1.000, 10.000, 100.000 de alopecia), solo enteras. Para
   vender, un mínimo de 100 y múltiplos exactos.
 - Antes de cada cambio sale una **confirmación** ("¿Seguro que cambias 1.000 de
-  alopecia por 10 RP?…") con **CONFIRMAR** / **ME LO PIENSO**. Lo que se confirma se
+  alopecia por 10 Puntos de Chola?…") con **CONFIRMAR** / **ME LO PIENSO**. Lo que se confirma se
   guarda en el servidor, no en el botón, y se vuelve a comprobar al confirmar.
 - Primero se paga o se cobra en Server Rewards o Economics, y solo si eso sale
   bien se toca la alopecia.
@@ -304,8 +304,8 @@ Tres casitas, cada una con un NPC de **HumanNPC**:
 | Casa | NPC | Plugin que la atiende |
 |---|---|---|
 | **El Calvario** | El Barbero | Este plugin: objetos malditos y Carné de Calvo |
-| **El Mercalvona®** | Tendero del Mercalvona | GUIShop (monedas) |
-| **Cambio de divisas** (antes Premios Calvos) | Cambista de divisas | Server Rewards (RP) |
+| **El Mercalvona®** | Tendero del Mercalvona | GUIShop (pelones) |
+| **Cambio de divisas** (antes Premios Calvos) | Cambista de divisas | Server Rewards (Puntos de Chola) |
 
 Se llega con **`/peluqueria`**, igual que `/bandit` o `/outpost`. `/shop` y
 `/s` dejan de funcionar fuera de allí, y `/calvos` solo muestra el ranking.
@@ -375,7 +375,7 @@ y después `/npc name "…"`, `/npc hello "…" "…"`, `/npc use "…"` y
 
 # Cambio de divisas
 /npc name "Cambista de divisas"
-/npc hello "Cambio de divisas: tu calva vale RP y aquí se cobra. Pasa por caja."
+/npc hello "Cambio de divisas: tu calva vale Puntos de Chola y aquí se cobra. Pasa por caja."
 /npc use "A ver cuánto te ha pagado esa cabeza. Dale a la E."
 /npc bye "Sigue brillando, que cada media hora te cae algo."
 ```
@@ -387,12 +387,12 @@ está en el servidor con el tono de la isla y no se toca:
 "NPCResponseOpen": "¡Bienvenido a {0}! ¿Qué te pongo? Dale a la E, que no tengo todo el día.",
 "NPCResponseClose": "Gracias por comprar en {0}. Vuelve pronto, y más pelado.",
 "GlobalShopsDisabled": "Aquí no se compra desde el sofá, señorito. Ve al Mercalvona con /peluqueria y háblale al tendero.",
-"Bought": "Te llevas {0} de {1}. El tendero ya está contando tus monedas.",
+"Bought": "Te llevas {0} de {1}. El tendero ya está contando tus pelones.",
 "Sold": "Has vendido {0} de {1}. Con eso no te da ni para un peine."
 ```
 
 **Server Rewards 2.x** (`oxide/lang/es/ServerRewards.json`). Con
-`"Use NPC dealers only": true`, el aviso de RP sin gastar usa esta clave
+`"Use NPC dealers only": true`, el aviso de Puntos de Chola sin gastar usa esta clave
 (conservar la etiqueta de color):
 
 ```json
@@ -435,7 +435,7 @@ plugin. Después de editarla: `oxide.reload IslaDeCalvos`.
 | `Baldness gained per headshot kill (instead of the normal kill reward)` | 1000 | Alopecia por kill de headshot. |
 | `Baldness gained per survival interval` | 100 | Alopecia por sobrevivir. |
 | `Survival interval (minutes alive and connected)` | 30 | Cada cuántos minutos se gana. |
-| `Survival reward only if the player moved during the interval (not AFK)` | true | Si no te has movido en el intervalo, no cobras (misma comprobación que la paga de RP). |
+| `Survival reward only if the player moved during the interval (not AFK)` | true | Si no te has movido en el intervalo, no cobras (misma comprobación que la paga de Puntos de Chola). |
 | `Baldness lost on death (% of current baldness)` | 10 | Porcentaje de tu alopecia que pierdes al morir. |
 | `Deaths caused by NPCs lower baldness` | true | Si morir a manos de un NPC resta alopecia. |
 | `Kill cooldown per victim (minutes)` | 30 | Anti-farmeo por víctima (0 = sin cooldown). |
@@ -500,7 +500,7 @@ nombre interno y su probabilidad):
 }
 ```
 
-Bloque de RP (valores por defecto). Las claves son la alopecia mínima, igual
+Bloque de Puntos de Chola (valores por defecto). Las claves son la alopecia mínima, igual
 que los títulos:
 
 ```json
@@ -533,9 +533,9 @@ los premios son la alopecia mínima de cada título:
 "Baldness exchange (El Calvario)": {
   "Enabled": true,
   "Sell: baldness for 1 RP": 100,
-  "Sell: coins per 100 baldness": 10,
+  "Sell: coins per 100 baldness": 25,
   "Buy: RP per 1 baldness": 1,
-  "Buy: coins per 1 baldness": 10,
+  "Buy: coins per 1 baldness": 25,
   "Minimum baldness to sell": 100,
   "Amounts offered (baldness)": [ 100, 1000, 10000, 100000 ]
 }
@@ -584,7 +584,7 @@ servidor.
 1. Ten un servidor dedicado de Rust con **Oxide (uMod)** instalado.
 2. Copia `src/IslaDeCalvos.cs` en la carpeta `oxide/plugins/` del servidor.
 3. Oxide lo compila y carga solo. En la consola deberías ver algo como
-   `Loaded plugin Isla de Calvos v1.6.8 by Igor Monasterio`.
+   `Loaded plugin Isla de Calvos v1.6.9 by Igor Monasterio`.
 4. Para recargarlo tras cambiar el fichero (normalmente se recarga solo):
    `oxide.reload IslaDeCalvos`
 

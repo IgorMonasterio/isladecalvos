@@ -18,10 +18,17 @@ lo que pasa en la isla acaba teniendo que ver con el pelo o la calvicie.
   nombres de eventos ("Vender calva", "Hora de la calvicie"). Los
   identificadores del código siguen siendo `Baldness` y compañía, y no se
   tocan.
-- La alopecia da **RP de Server Rewards** cada 30 min: 1 RP por cada 100 de
-  alopecia, sin tope (lineal desde la 1.6.0; antes, por escalones de título).
-  1 RP = 10 monedas. Desde la 1.6.0 hay además un cambio de alopecia ↔ RP ↔
-  monedas en El Calvario.
+- La alopecia da **Puntos de Chola** (los RP de Server Rewards) cada 30 min:
+  1 Punto de Chola por cada 100 de alopecia, sin tope (lineal desde la 1.6.0;
+  antes, por escalones de título). **1 Punto de Chola = 25 pelones** (la moneda
+  de Economics). Desde la 1.6.0 hay además un cambio de alopecia ↔ Puntos de
+  Chola ↔ pelones en El Calvario.
+- **Nombres de las divisas** (decidido por Igor el 2026-09-27): los RP se llaman
+  **Puntos de Chola** (singular "1 Punto de Chola", masculino; abreviatura
+  **PdC** donde no quepa) y las monedas, **pelones** (singular "1 pelón",
+  masculino). "RP" y "monedas" no aparecen en nada que vea un jugador. La tasa
+  pasó de 1 = 10 a **1 = 25**. En el código y en las claves de la config siguen
+  `Rp`, `Coins`, "RP (Server Rewards)"… y no se tocan.
 
 ## Estado y hoja de ruta
 
@@ -85,6 +92,9 @@ alcance cerrado:
   de Server Rewards, la consola lo avisa una vez por detección. En la misma
   versión entran seis frases escritas por Igor (calvicie suprema, fin de la
   Lluvia de champú, cacería cazada y sobrevivida, y dos de depuración).
+- **Plugin 1.6.9** — las divisas cambian de nombre (Puntos de Chola y pelones,
+  decisión de Igor del 2026-09-27) en todos los textos, con claves nuevas; la
+  tasa del cambio de calva por pelones pasa a 25 por defecto.
 
 Decisiones de diseño de la v1.0 que no venían en la especificación inicial:
 - Toda muerte resta alopecia (PvP, NPC, entorno, suicidio), también la de un
@@ -134,7 +144,7 @@ Cambio de escala (de % a puntos enteros sin límite):
 - Cero dependencias de otros plugins salvo decisión explícita de Igor. Las
   decididas son **Server Rewards** y **Economics** (1.6.0), ambas blandas
   (`[PluginReference]`): si no están cargadas, el plugin funciona igual, pero
-  sin RP o sin monedas. HumanNPC no es dependencia de código: solo se escucha
+  sin Puntos de Chola o sin pelones. HumanNPC no es dependencia de código: solo se escucha
   su hook `OnUseNPC`.
 
 ## Estructura
@@ -176,13 +186,13 @@ Lee `docs/ARCHITECTURE.md` antes de tocar código.
   **principal** y se llama **"[ES] Isla de Calvos"** (el de este plugin); el
   vanilla es **"[ES] Isla de Calvos - Vanilla"**. Del principal: 1-3 jugadores, x5 gather, loot x1
   (BetterLoot), StackSizeController x5, RaidableBases (NPCs `scientistnpc_heavy`,
-  skinID 3710562502), Economics + GUIShop (monedas) y ServerRewards **2.0.8**
-  (RP, 1 RP = 10 monedas; sus claves de lang no son las de la v1, p. ej.
+  skinID 3710562502), Economics + GUIShop (pelones) y ServerRewards **2.0.8**
+  (Puntos de Chola, 1 = 25 pelones; sus claves de lang no son las de la v1, p. ej.
   `Message.Notification.Unspent.NPC`). No hay otros plugins que den
   recompensas por kills. Tiendas de la peluquería: **el Mercalvona®**
-  (masculino: "al Mercalvona"; GUIShop, monedas) y **Cambio de divisas**
-  (Server Rewards, RP; su NPC es el "Cambista de divisas"). Economics empieza
-  en 0 monedas y los saldos no se borran en el wipe. Desde el 2026-09-27 el
+  (masculino: "al Mercalvona"; GUIShop, pelones) y **Cambio de divisas**
+  (Server Rewards, Puntos de Chola; su NPC es el "Cambista de divisas"). Economics empieza
+  en 0 pelones y los saldos no se borran en el wipe. Desde el 2026-09-27 el
   Server Rewards del servidor está parcheado a `long` por Jano
   (`AddPointsLong`/`TakePointsLong`/`CheckPointsLong`; `CheckPoints` y
   `OnPointsUpdated` siguen en `int` recortado). Una actualización de Server

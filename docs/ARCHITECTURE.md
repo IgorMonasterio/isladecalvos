@@ -182,7 +182,7 @@ Para añadir otro evento: decidir qué hook marca "participar" y cuál marca
 - Todas las ganancias de objetos pasan por `GainBaldness`, así que eventos y
   pila las multiplican.
 
-## 4f. RP de Server Rewards (plugin 1.4.0)
+## 4f. Puntos de Chola de Server Rewards (plugin 1.4.0)
 
 - Referencia blanda: `[PluginReference] private Plugin ServerRewards = null;`.
   Oxide rellena el campo por su nombre con el plugin cargado
@@ -206,7 +206,7 @@ Para añadir otro evento: decidir qué hook marca "participar" y cuál marca
 - Reloj: va con `SurvivalTick` (cada minuto, solo vivo, conectado y
   despierto). `RpSeconds` y `RpMoved` se guardan en `PlayerData`. La última
   posición vive en memoria (`lastPositions`) y se borra al desconectar.
-- Los RP no pasan por `GainBaldness` ni `ChangeBaldness`: no tocan la calvicie
+- Los Puntos de Chola no pasan por `GainBaldness` ni `ChangeBaldness`: no tocan la calvicie
   ni se multiplican.
 - **Aviso si falta el parche** (1.6.8): `CheckServerRewardsPatch` llama a
   `CheckPointsLong` en `OnServerInitialized` y en `OnPluginLoaded` de Server
@@ -267,7 +267,7 @@ Para añadir otro evento: decidir qué hook marca "participar" y cuál marca
   (NTeleportation, "Dynamic Commands") son configuración de esos plugins; el
   plugin no los llama. Los pasos están en el README.
 
-## 4h. Premios por título, RP lineal y cambio de calvicie (plugin 1.6.0)
+## 4h. Premios por título, paga lineal de Puntos de Chola y cambio de calvicie (plugin 1.6.0)
 
 - **Economics** es la segunda dependencia blanda (`[PluginReference] Plugin
   Economics`), decidida por Igor para premios y cambio. API verificada en
@@ -285,12 +285,12 @@ Para añadir otro evento: decidir qué hook marca "participar" y cuál marca
   y la opción desactivada, se marca como tratado sin pagar.
 - **Cartel de subida**: `ShowBanner(texto, segundos)`, compartido con
   `BroadcastEvent`.
-- **RP lineal**: `GetRpRate` = `min(int.MaxValue, calvicie / X)` en `long`.
+- **Paga lineal de Puntos de Chola**: `GetRpRate` = `calvicie / X` en `long` (sin tope desde la 1.6.7).
 - **Cambio**: comando `calvos.exchange mode|amount|confirm`. La operación
   pendiente vive en el servidor (`pendingExchanges`); `confirm` no lleva
   datos. Se comprueba que el modo existe (`Enum.IsDefined`), que la cantidad
   está en la lista de la config y que llega el saldo. Primero se mueve el
-  RP o las monedas y después la calvicie. La calvicie comprada entra por
+  Puntos de Chola o los pelones y después la calvicie. La calvicie comprada entra por
   `ChangeBaldness` (no por `GainBaldness`), para que no la multipliquen
   eventos ni la pila.
 
