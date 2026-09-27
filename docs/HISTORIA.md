@@ -141,8 +141,8 @@ los eventos.
 - **`/calvos`:** pasó a ser el único comando de jugador, con ventana de Objetos y Ranking
   y una X para cerrar (Igor la pidió). `/calvo` desapareció.
 - **Muerte:** pasó a **−10 % de la calvicie actual**, redondeado hacia arriba (−20 % con la
-  Lluvia de champú). Entró en el alcance del issue #4 junto al Calvario; la transcripción
-  no recoge la frase exacta con la que se pidió.
+  Lluvia de champú). Lo pidió Igor y entró en la 1.3.0 (PR #12), en el alcance del issue #4
+  junto al Calvario. Antes, morir restaba 1.000 fijos.
 - **Ramas:** Igor preguntó si borrar las ramas era necesario. Se le explicó que borrarlas
   no borra el trabajo.
 - **Etiquetas de versión:** GitHub no deja a este Claude crearlas (error 403), así que las
@@ -373,8 +373,11 @@ Bases, `/info`, NPCs y el Gran Calvo Jano). En el repo cambiaron:
 - **Kill +1.000 y supervivencia +100:** los fijó Igor. Una kill vale lo mismo que un heli.
   Media hora viva vale lo que un heavy.
 - **NPCs por tiers:** el servidor tiene 1-3 jugadores; sin NPCs no habría progreso.
-- **Muerte: −10 % de lo que tienes** (desde la 1.3.0):
-  - un castigo fijo (−1.000) no significaba nada para quien tiene millones;
+- **Muerte: −10 % de lo que tienes** (desde la 1.3.0, PR #12, a petición de Igor):
+  - un castigo fijo (−1.000) no significaba nada para quien tiene millones: con una
+    cifra absurda, morir daba exactamente igual;
+  - Igor eligió el 10 %: el 20 % le parecía demasiado. Con 100 millones, morir una vez
+    cuesta 10 millones, "y en Rust se muere mucho";
   - con porcentaje, morir duele igual en todos los niveles y nunca te deja en negativo;
   - redondeado hacia arriba: si tienes algo, morir siempre cuesta al menos 1;
   - toda muerte resta, también dormido o por caída, por decisión de Igor.
