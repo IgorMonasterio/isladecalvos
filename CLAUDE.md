@@ -95,6 +95,15 @@ alcance cerrado:
 - **Plugin 1.6.9** — las divisas cambian de nombre (Puntos de Chola y pelones,
   decisión de Igor del 2026-09-27) en todos los textos, con claves nuevas; la
   tasa del cambio de calva por pelones pasa a 25 por defecto.
+- **Plugin 1.7.0** — encargo de Jano con decisión de Igor: **ventajas por título**.
+  Cada jugador está siempre en el grupo de Oxide de su título (`calvo1`…`calvo7`;
+  con 0, en ninguno) y las ventajas (homes y espera de NTeleportation, mochila de
+  Backpacks, título de Better Chat) las da Jano con permisos de esos grupos: el
+  plugin solo mueve de grupo. El premio se cobra una vez; el grupo sigue siempre
+  al título actual. Además: objetos de premio en silencio, `"Message"` propio por
+  premio, cartel grande al bajar de título y el hook `OnIslaTitleChanged` para
+  JanoBridge. Con 0 de alopecia no hay título real: el premio de Greñas Sucias
+  se cobra al pasar de 0 a 1 (antes nunca se pagaba).
 
 Decisiones de diseño de la v1.0 que no venían en la especificación inicial:
 - Toda muerte resta alopecia (PvP, NPC, entorno, suicidio), también la de un
@@ -145,7 +154,8 @@ Cambio de escala (de % a puntos enteros sin límite):
   decididas son **Server Rewards** y **Economics** (1.6.0), ambas blandas
   (`[PluginReference]`): si no están cargadas, el plugin funciona igual, pero
   sin Puntos de Chola o sin pelones. HumanNPC no es dependencia de código: solo se escucha
-  su hook `OnUseNPC`.
+  su hook `OnUseNPC`. NTeleportation, Backpacks y Better Chat tampoco: el plugin
+  solo mete a cada jugador en el grupo de su título (1.7.0).
 
 ## Estructura
 
