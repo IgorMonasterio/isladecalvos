@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Isla de Calvos", "Igor Monasterio", "1.6.7")]
+    [Info("Isla de Calvos", "Igor Monasterio", "1.6.8")]
     [Description("Baldness system for the Isla de Calvos Rust server: being bald is glory, hair is a curse.")]
     public class IslaDeCalvos : RustPlugin
     {
@@ -63,6 +63,7 @@ namespace Oxide.Plugins
 
         private bool warnedNoServerRewards;
         private bool warnedRpCap;
+        private bool warnedMissingRpPatch;
 
         // Barber shop: Calvario NPC ids (HumanNPC) and the NPC each player last talked to. In memory only.
         private HashSet<ulong> calvarioNpcIds;
@@ -98,6 +99,10 @@ namespace Oxide.Plugins
 
             [JsonProperty("Survival interval (minutes alive and connected)")]
             public int SurvivalIntervalMinutes = 30;
+
+            // Same check as the RP payout (moved at least "Minimum movement between checks" once in the interval).
+            [JsonProperty("Survival reward only if the player moved during the interval (not AFK)")]
+            public bool SurvivalRequireMovement = true;
 
             // Percentage of the victim's current baldness (rounded up), whatever killed them.
             [JsonProperty("Baldness lost on death (% of current baldness)")]
@@ -327,6 +332,11 @@ namespace Oxide.Plugins
 
             [JsonProperty("ID tags (Carne de Calvo collection)")]
             public IdTagsConfig IdTags = new IdTagsConfig();
+
+            // Every item this plugin hands out carries this skin, and the barber only counts and takes items with it,
+            // so the same item from normal loot (or a scientist's dog tag) is worth nothing. Changing it orphans items already out.
+            [JsonProperty("Skin ID that marks the items this plugin hands out")]
+            public ulong MarkSkin = 9202609270UL;
         }
 
         private class UiConfig
@@ -702,8 +712,9 @@ namespace Oxide.Plugins
 
             public int CarnesCompleted;
 
-            // Seconds alive and connected since the last survival reward (or since the last death).
+            // Seconds alive and connected since the last survival reward (or since the last death), and whether the player moved.
             public float SurvivalSeconds;
+            public bool SurvivalMoved;
 
             // Server Rewards: seconds alive and connected since the last RP payout, and whether the player moved.
             public float RpSeconds;
@@ -1058,6 +1069,41 @@ namespace Oxide.Plugins
             }
 
             ValidateCursedItemNames();
+            CheckServerRewardsPatch(ServerRewards);
+        }
+
+        private void OnPluginLoaded(Plugin plugin)
+        {
+            if (plugin != null && plugin.Name == "ServerRewards")
+            {
+                CheckServerRewardsPatch(plugin);
+            }
+        }
+
+        private void OnPluginUnloaded(Plugin plugin)
+        {
+            if (plugin != null && plugin.Name == "ServerRewards")
+            {
+                warnedMissingRpPatch = false;
+            }
+        }
+
+        // The 64-bit patch adds CheckPointsLong; without it the plugin silently falls back to the int API, so say it loud once.
+        // The server forwards console warnings to Telegram. Console text for the admins, in Spanish on purpose.
+        private void CheckServerRewardsPatch(Plugin serverRewards)
+        {
+            if (warnedMissingRpPatch || serverRewards == null || !serverRewards.IsLoaded)
+            {
+                return;
+            }
+
+            if (serverRewards.Call("CheckPointsLong", 0UL) is long)
+            {
+                return;
+            }
+
+            warnedMissingRpPatch = true;
+            PrintWarning("AVISO: Server Rewards no tiene el parche de 64 bits: RP limitados a 2.147.483.647. Avisa a Jano.");
         }
 
         private void OnServerSave() => SaveData();
@@ -1159,6 +1205,7 @@ namespace Oxide.Plugins
             PlayerData victimData = GetOrCreateData(victim);
             victimData.Deaths++;
             victimData.SurvivalSeconds = 0f;
+            victimData.SurvivalMoved = false;
             dataDirty = true;
 
             if (victimData.HasDeathShield)
@@ -2089,14 +2136,42 @@ namespace Oxide.Plugins
             }
         }
 
-        private int CountItem(BasePlayer player, string shortname)
+        // Only items carrying the plugin's mark skin count (see CursedItemsConfig.MarkSkin). The inventory walk follows
+        // GUIShop 2.4.48: containerMain, containerBelt and containerWear, matching item.info.itemid and item.skin.
+        private List<global::Item> FindMarkedItems(BasePlayer player, string shortname)
         {
+            var found = new List<global::Item>();
             ItemDefinition definition = FindItemDefinition(shortname);
-            return definition == null || player.inventory == null ? 0 : player.inventory.GetAmount(definition.itemid);
+            if (definition == null || player == null || player.inventory == null)
+            {
+                return found;
+            }
+
+            ulong mark = config.CursedItems.MarkSkin;
+            foreach (ItemContainer container in new[] { player.inventory.containerMain, player.inventory.containerBelt, player.inventory.containerWear })
+            {
+                if (container?.itemList == null)
+                {
+                    continue;
+                }
+
+                foreach (global::Item item in container.itemList)
+                {
+                    if (item != null && item.info != null && item.info.itemid == definition.itemid && item.skin == mark && item.amount > 0)
+                    {
+                        found.Add(item);
+                    }
+                }
+            }
+
+            return found;
         }
 
-        // Gives one item straight to the inventory, or drops it at the player's feet if it is full.
-        private bool GiveItem(BasePlayer player, string shortname, int amount = 1)
+        private int CountItem(BasePlayer player, string shortname) => FindMarkedItems(player, shortname).Sum(item => item.amount);
+
+        // Gives the item straight to the inventory, or drops it at the player's feet if it is full. Cursed items get the
+        // mark skin; tier prize items are ordinary items.
+        private bool GiveItem(BasePlayer player, string shortname, int amount = 1, bool marked = true)
         {
             ItemDefinition definition = FindItemDefinition(shortname);
             if (definition == null || player == null || player.inventory == null)
@@ -2104,7 +2179,7 @@ namespace Oxide.Plugins
                 return false;
             }
 
-            global::Item item = ItemManager.CreateByItemID(definition.itemid, Math.Max(1, amount));
+            global::Item item = ItemManager.CreateByItemID(definition.itemid, Math.Max(1, amount), marked ? config.CursedItems.MarkSkin : 0UL);
             if (item == null)
             {
                 return false;
@@ -2120,13 +2195,13 @@ namespace Oxide.Plugins
 
         private bool TakeItem(BasePlayer player, string shortname)
         {
-            ItemDefinition definition = FindItemDefinition(shortname);
-            if (definition == null || player.inventory.GetAmount(definition.itemid) < 1)
+            global::Item item = FindMarkedItems(player, shortname).FirstOrDefault();
+            if (item == null)
             {
                 return false;
             }
 
-            player.inventory.Take(null, definition.itemid, 1);
+            item.UseItem(1);
             return true;
         }
 
@@ -2990,17 +3065,40 @@ namespace Oxide.Plugins
                 }
 
                 PlayerData data = GetOrCreateData(player);
+                TrackMovement(player, data);
                 data.SurvivalSeconds += SurvivalTickSeconds;
                 dataDirty = true;
 
                 if (data.SurvivalSeconds >= interval)
                 {
                     data.SurvivalSeconds -= interval;
-                    GainBaldness(data, config.SurvivalReward, Lang("ReasonSurvival"));
+                    bool moved = data.SurvivalMoved;
+                    data.SurvivalMoved = false;
+                    if (config.SurvivalRequireMovement && !moved)
+                    {
+                        DebugNoReward(data, Lang("NoRpAfk"));
+                    }
+                    else
+                    {
+                        GainBaldness(data, config.SurvivalReward, Lang("ReasonSurvival"));
+                    }
                 }
 
                 RewardPointsTick(player, data);
             }
+        }
+
+        // One position check per tick feeds both the survival reward and the RP payout (anti-AFK).
+        private void TrackMovement(BasePlayer player, PlayerData data)
+        {
+            Vector3 position = player.transform.position;
+            if (lastPositions.TryGetValue(data.Id, out Vector3 last) && Vector3.Distance(last, position) >= config.ServerRewards.MinMoveMeters)
+            {
+                data.SurvivalMoved = true;
+                data.RpMoved = true;
+            }
+
+            lastPositions[data.Id] = position;
         }
 
         private void RewardPointsTick(BasePlayer player, PlayerData data)
@@ -3011,13 +3109,6 @@ namespace Oxide.Plugins
                 return;
             }
 
-            Vector3 position = player.transform.position;
-            if (lastPositions.TryGetValue(data.Id, out Vector3 last) && Vector3.Distance(last, position) >= rp.MinMoveMeters)
-            {
-                data.RpMoved = true;
-            }
-
-            lastPositions[data.Id] = position;
             data.RpSeconds += SurvivalTickSeconds;
             if (data.RpSeconds < rp.IntervalMinutes * 60f)
             {
@@ -3188,7 +3279,7 @@ namespace Oxide.Plugins
                 {
                     foreach (PrizeItem item in prize.Items)
                     {
-                        if (item != null && item.Amount > 0 && !string.IsNullOrEmpty(item.Shortname) && GiveItem(player, item.Shortname, item.Amount))
+                        if (item != null && item.Amount > 0 && !string.IsNullOrEmpty(item.Shortname) && GiveItem(player, item.Shortname, item.Amount, false))
                         {
                             parts.Add(item.Shortname + " x" + item.Amount);
                         }
