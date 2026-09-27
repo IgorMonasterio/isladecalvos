@@ -29,6 +29,8 @@ sobrevalorado, el futuro es calvo.
    Un paréntesis que ES el chiste, como "(poco)", está bien.
 6. Mejor seco y corto que largo y forzado. Una frase sin chiste está bien;
    un chiste flojo metido a presión, no.
+7. **Si el remate puede ser una sola palabra, mejor una palabra que un párrafo.**
+   El ejemplo es de Igor: el peludo sobrevive a la cacería y gana +X. "Paquetes."
 
 ## La vara de medir (frases del menú original, aprobadas por Igor)
 
@@ -58,6 +60,12 @@ Y frases que ha puesto o elegido Igor después:
 - "¿Duele?"
 - "El pelo está sobrevalorado, el futuro es calvo."
 - "Empiezas con 0 monedas, pelado como tu madre te trajo al mundo."
+- "Paquetes." (el peludo sobrevive a la cacería)
+- "Has sido muy valiente, enhorabuena." (matar a uno dormido o desconectado)
+- "Ha escampado. Ya podéis palmar tranquilos." (fin de la Lluvia de champú)
+- "Gracias por este gran servicio a la comunidad." (alguien caza al peludo)
+- "Ya no tienes que preocuparte por el champú." (calvicie suprema)
+- "Rapado por headshot."
 
 ## Lo que NO (vetado por Igor)
 
@@ -70,6 +78,13 @@ Y frases que ha puesto o elegido Igor después:
   genio, fiera, cobarde, okupa, inventado, "como las amistades de verdad"…). Antes de
   usar una, busca si ya está. Si sobra, **se cambia por otra palabra; el remate se queda**.
 - **Tono de asistente amable, coaching motivacional o frase de taza.**
+- **Pasar de vacilar a despreciar.** La pulla va a lo que hace el jugador en la isla,
+  no a quién es. Ejemplos vetados (de una prueba con ChatGPT, 2026-09): "Qué asco de
+  persona", "Tampoco dignidad, pero eso ya venía de antes", "No dejéis que se
+  reproduzca", "Tú obedece".
+- **Subir el tono a base de tacos o de running gags.** Un taco cuando sale solo; el
+  "Ministerio de Alopecia" de vez en cuando, no en una de cada tres frases. Más ácido
+  no es más gracioso.
 - **Negritas** en el texto (`<b>`): no hacen falta. Solo los títulos de sección de un
   menú pueden ir en negrita. Para resaltar, color.
 - **Emojis**: el chat de Rust no los dibuja (salen como `??`).

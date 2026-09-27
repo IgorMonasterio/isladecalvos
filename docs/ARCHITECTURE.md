@@ -154,6 +154,17 @@ Para añadir otro evento: decidir qué hook marca "participar" y cuál marca
   si falla, `item.Drop(player.GetDropPosition(), player.GetInheritedDropVelocity())`;
   `inventory.GetAmount(id)` / `inventory.Take(null, id, 1)`. Todo visto en el
   código descompilado de Oxide.Docs y en Oxide.Rust.
+- **Marca propia** (1.6.8): lo que reparte el plugin se crea con
+  `ItemManager.CreateByItemID(id, cantidad, MarkSkin)`, con el tercer
+  argumento como skin, igual que GUIShop 2.4.48. El barbero no usa
+  `GetAmount`/`Take` (cuentan cualquier objeto de ese tipo, también el del loot
+  normal): `FindMarkedItems` recorre `containerMain`, `containerBelt` y
+  `containerWear` y se queda con los que tienen `item.info.itemid` y
+  `item.skin == MarkSkin`, como hace GUIShop. Para gastar uno se llama a
+  `item.UseItem(1)` (en `docs.json`). Los premios por título se dan sin marca
+  (`GiveItem(..., marked: false)`). `MarkSkin` por defecto es 9202609270, por
+  encima de los IDs de Workshop actuales; cambiarlo deja sin valor lo que ya
+  esté repartido.
 - Repartos: barriles en `OnEntityDeath` (un `LootContainer` cuyo prefab
   contiene `barrel`), NPCs tras cobrar su tier, y placas rojas en
   `PayEventReward` para cada jugador pagado que esté conectado.
@@ -197,6 +208,11 @@ Para añadir otro evento: decidir qué hook marca "participar" y cuál marca
   posición vive en memoria (`lastPositions`) y se borra al desconectar.
 - Los RP no pasan por `GainBaldness` ni `ChangeBaldness`: no tocan la calvicie
   ni se multiplican.
+- **Aviso si falta el parche** (1.6.8): `CheckServerRewardsPatch` llama a
+  `CheckPointsLong` en `OnServerInitialized` y en `OnPluginLoaded` de Server
+  Rewards (hooks de `OxideMod.cs`). Si devuelve `null`, saca un
+  `PrintWarning` en español, una vez por detección; `OnPluginUnloaded` lo
+  rearma. Los centinelas del servidor reenvían la consola a Telegram.
 - **Límite de 32 bits** (1.6.7). Server Rewards 2.0.7 guarda el saldo en
   `Hash<ulong, int>` y `AddPoints` hace `+=` sin comprobar: pasado
   `int.MaxValue` da la vuelta a negativo (C# no comprueba desbordamientos por

@@ -1,6 +1,6 @@
 # isladecalvos
 
-Plugin principal del servidor de Rust **Isla de Calvos**. Supervivencia, locuras
+Plugin principal del servidor de Rust **[ES] Isla de Calvos**. Supervivencia, locuras
 y calvicie en cantidades innecesarias. Todo por la patria capilar.
 
 Hecho para **uMod/Oxide** en C#. Sin dependencias de otros plugins.
@@ -26,7 +26,7 @@ Todos los valores se pueden cambiar en la config. Estos son los de por defecto:
 |---|---|
 | Matas a otro jugador (headshot o no) | **+1.000** |
 | Matas a un NPC | según su tier, de **+1** (T1) a **+1.000** (T20) |
-| Cada 30 min vivo y conectado | **+100** |
+| Cada 30 min vivo, conectado y moviéndote (no AFK) | **+100** |
 | Mueres, sea como sea (PvP, headshot, NPC, caída, suicidio…) | **−10 % de tu alopecia** (redondeado hacia arriba) |
 
 Siempre son números enteros.
@@ -206,11 +206,19 @@ cada evento) se cambia en el bloque `Global events` de la config.
 
 ## El Calvario: objetos calvos (v1.3)
 
-Objetos que **existen en el código de Rust pero no salen en ningún servidor
-normal**. Solo los reparte este plugin: van **directos a tu inventario** (o
+Objetos del juego que el plugin reparte **marcados como malditos**: van
+**directos a tu inventario** (o
 caen a tus pies si lo llevas lleno) con aviso en el chat. Se pueden cambiar o
-regalar como cualquier objeto, y se usan en **el Calvario de la peluquería**:
-hablando con **El Barbero** (tecla **E**). Ver [La peluquería](#la-peluquería-plugin-150).
+regalar como cualquier objeto, y se usan en **el Calvario de la peluquería**.
+
+Desde la 1.6.8 el plugin **marca** todo lo que reparte con un skin propio
+(`Skin ID that marks the items this plugin hands out` en la config), y el
+barbero **solo cuenta y gasta los objetos marcados**. Una pila, una cinta, una
+placa o unas gemas que salgan del loot normal (o de un científico) no valen
+nada en el Calvario. Los objetos marcados no se apilan con los normales. Los
+premios por título son objetos normales, sin marca.
+
+Se usan hablando con **El Barbero** (tecla **E**). Ver [La peluquería](#la-peluquería-plugin-150).
 
 **La conversación con el barbero** imita a los dependientes vanilla (como el
 del pueblo pesquero). Abajo sale un cuadro con lo que dice el barbero y tus
@@ -427,6 +435,7 @@ plugin. Después de editarla: `oxide.reload IslaDeCalvos`.
 | `Baldness gained per headshot kill (instead of the normal kill reward)` | 1000 | Alopecia por kill de headshot. |
 | `Baldness gained per survival interval` | 100 | Alopecia por sobrevivir. |
 | `Survival interval (minutes alive and connected)` | 30 | Cada cuántos minutos se gana. |
+| `Survival reward only if the player moved during the interval (not AFK)` | true | Si no te has movido en el intervalo, no cobras (misma comprobación que la paga de RP). |
 | `Baldness lost on death (% of current baldness)` | 10 | Porcentaje de tu alopecia que pierdes al morir. |
 | `Deaths caused by NPCs lower baldness` | true | Si morir a manos de un NPC resta alopecia. |
 | `Kill cooldown per victim (minutes)` | 30 | Anti-farmeo por víctima (0 = sin cooldown). |
@@ -575,7 +584,7 @@ servidor.
 1. Ten un servidor dedicado de Rust con **Oxide (uMod)** instalado.
 2. Copia `src/IslaDeCalvos.cs` en la carpeta `oxide/plugins/` del servidor.
 3. Oxide lo compila y carga solo. En la consola deberías ver algo como
-   `Loaded plugin Isla de Calvos v1.6.7 by Igor Monasterio`.
+   `Loaded plugin Isla de Calvos v1.6.8 by Igor Monasterio`.
 4. Para recargarlo tras cambiar el fichero (normalmente se recarga solo):
    `oxide.reload IslaDeCalvos`
 
