@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Isla de Calvos", "Igor Monasterio", "1.6.6")]
+    [Info("Isla de Calvos", "Igor Monasterio", "1.6.7")]
     [Description("Baldness system for the Isla de Calvos Rust server: being bald is glory, hair is a curse.")]
     public class IslaDeCalvos : RustPlugin
     {
@@ -62,6 +62,7 @@ namespace Oxide.Plugins
         private readonly Dictionary<ulong, Vector3> lastPositions = new Dictionary<ulong, Vector3>();
 
         private bool warnedNoServerRewards;
+        private bool warnedRpCap;
 
         // Barber shop: Calvario NPC ids (HumanNPC) and the NPC each player last talked to. In memory only.
         private HashSet<ulong> calvarioNpcIds;
@@ -904,6 +905,7 @@ namespace Oxide.Plugins
                 ["NoRpAfk"] = "no se ha movido (AFK)",
                 ["NoRpPlugin"] = "Server Rewards no está cargado",
                 ["NoRpRefused"] = "Server Rewards no aceptó el pago",
+                ["NoRpCap"] = "saldo de RP al tope de Server Rewards",
                 ["RpEarnedV3"] = "<color=#e0a526>+{0} RP</color> por lucir calva de <color=#e0a526>{1}</color>. Es lo único que te va a pagar alguien en la vida por estar calvo: disfrútalo.",
                 ["ReasonPlayerKill"] = "kill a {0}",
                 ["ReasonPlayerHeadshotKill"] = "kill de headshot a {0}",
@@ -985,6 +987,40 @@ namespace Oxide.Plugins
         private static readonly NumberFormatInfo BaldnessFormat = new NumberFormatInfo { NumberGroupSeparator = ".", NumberGroupSizes = new[] { 3 } };
 
         private static string FormatBaldness(long value) => value.ToString("#,0", BaldnessFormat);
+
+        // Short form for narrow spots (counter, +X/-X popup, ranking): full number below a thousand million,
+        // then M (10^6), B (10^12) or T (10^18) with one decimal, truncated so it never shows more than there is.
+        private static string FormatCompact(long value)
+        {
+            if (value > -1000000000L && value < 1000000000L)
+            {
+                return FormatBaldness(value);
+            }
+
+            string sign = value < 0 ? "-" : string.Empty;
+            ulong magnitude = value < 0 ? (ulong)(-(value + 1)) + 1UL : (ulong)value;
+            ulong unit = magnitude >= 1000000000000000000UL ? 1000000000000000000UL : magnitude >= 1000000000000UL ? 1000000000000UL : 1000000UL;
+            string suffix = unit == 1000000000000000000UL ? "T" : unit == 1000000000000UL ? "B" : "M";
+            ulong whole = magnitude / unit;
+            ulong tenth = magnitude % unit / (unit / 10);
+            string number = whole.ToString("#,0", BaldnessFormat) + (tenth > 0 ? "," + tenth.ToString(CultureInfo.InvariantCulture) : string.Empty);
+            return sign + number + " " + suffix;
+        }
+
+        // Baldness is a long; these keep huge values at long.MaxValue instead of wrapping to negative.
+        private static long SaturatingAdd(long a, long b)
+        {
+            if (b > 0 && a > long.MaxValue - b) return long.MaxValue;
+            if (b < 0 && a < long.MinValue - b) return long.MinValue;
+            return a + b;
+        }
+
+        private static long SaturatingMultiply(long a, long b)
+        {
+            if (a == 0 || b == 0) return 0;
+            if (a > 0 && b > 0 && a > long.MaxValue / b) return long.MaxValue;
+            return a * b;
+        }
 
         #endregion
 
@@ -1353,7 +1389,7 @@ namespace Oxide.Plugins
 
             if (activeEvent == GlobalEvent.BladeStorm)
             {
-                reward *= config.GlobalEvents.BladeStorm.Multiplier;
+                reward = SaturatingMultiply(reward, config.GlobalEvents.BladeStorm.Multiplier);
                 prefab += EventTag(GlobalEvent.BladeStorm, config.GlobalEvents.BladeStorm.Multiplier);
             }
 
@@ -1748,13 +1784,13 @@ namespace Oxide.Plugins
         {
             if (activeEvent == GlobalEvent.BaldHour)
             {
-                amount *= config.GlobalEvents.BaldHour.Multiplier;
+                amount = SaturatingMultiply(amount, config.GlobalEvents.BaldHour.Multiplier);
                 reason += EventTag(GlobalEvent.BaldHour, config.GlobalEvents.BaldHour.Multiplier);
             }
 
             if (IsBatteryActive(data.Id))
             {
-                amount *= config.CursedItems.Battery.Multiplier;
+                amount = SaturatingMultiply(amount, config.CursedItems.Battery.Multiplier);
                 reason += Lang("BatteryTag", null, config.CursedItems.Battery.Multiplier);
             }
 
@@ -1800,7 +1836,7 @@ namespace Oxide.Plugins
             {
                 Text =
                 {
-                    Text = Lang("HudCounterV3", player.UserIDString, FormatBaldness(data.Baldness), GetTitle(data.Baldness)),
+                    Text = Lang("HudCounterV3", player.UserIDString, FormatCompact(data.Baldness), GetTitle(data.Baldness)),
                     FontSize = 14,
                     Align = TextAnchor.MiddleCenter,
                     Color = "1 1 1 1"
@@ -1832,7 +1868,7 @@ namespace Oxide.Plugins
             {
                 Text =
                 {
-                    Text = (delta > 0 ? "+" : string.Empty) + FormatBaldness(delta),
+                    Text = (delta > 0 ? "+" : string.Empty) + FormatCompact(delta),
                     FontSize = 18,
                     Align = TextAnchor.MiddleCenter,
                     Color = delta > 0 ? ColorGold : ColorRust,
@@ -2369,7 +2405,7 @@ namespace Oxide.Plugins
 
             AddText(ui, window, Lang("CalvarioTitle", userId), 26, TextAnchor.MiddleLeft, "0.03 0.915", "0.45 0.975", ColorScalp);
             AddText(ui, window, Lang("CalvarioSubtitleV2", userId), 11, TextAnchor.MiddleLeft, "0.03 0.88", "0.6 0.915", ColorMuted);
-            AddText(ui, window, Lang("CalvarioYouV3", userId, FormatBaldness(data.Baldness), GetTitle(data.Baldness)), 15, TextAnchor.MiddleRight, "0.45 0.93", "0.935 0.975");
+            AddText(ui, window, Lang("CalvarioYouV3", userId, FormatCompact(data.Baldness), GetTitle(data.Baldness)), 15, TextAnchor.MiddleRight, "0.45 0.93", "0.935 0.975");
             DrawTitleProgress(ui, window, data.Baldness, userId);
             AddButton(ui, window, Lang("CalvarioClose", userId), "0.956 0.935", "0.99 0.985", ColorPoleRed, null, UiMenu, 18);
 
@@ -2536,9 +2572,9 @@ namespace Oxide.Plugins
             switch (mode)
             {
                 case ExchangeMode.SellForRp: return baldness / ex.SellBaldnessPerRp;
-                case ExchangeMode.SellForCoins: return baldness / 100 * ex.SellCoinsPer100;
-                case ExchangeMode.BuyWithRp: return baldness * ex.BuyRpPerBaldness;
-                default: return baldness * ex.BuyCoinsPerBaldness;
+                case ExchangeMode.SellForCoins: return SaturatingMultiply(baldness / 100, ex.SellCoinsPer100);
+                case ExchangeMode.BuyWithRp: return SaturatingMultiply(baldness, ex.BuyRpPerBaldness);
+                default: return SaturatingMultiply(baldness, ex.BuyCoinsPerBaldness);
             }
         }
 
@@ -2554,7 +2590,7 @@ namespace Oxide.Plugins
                 case ExchangeMode.SellForCoins:
                     return data.Baldness >= baldness;
                 case ExchangeMode.BuyWithRp:
-                    return price <= int.MaxValue && CheckRp(data.Id) >= price;
+                    return CheckRp(data.Id) >= price;
                 default:
                     return CoinBalance(data.Id) >= price;
             }
@@ -2723,7 +2759,7 @@ namespace Oxide.Plugins
             }, UiMenu);
 
             AddText(ui, box, Lang("BarberName", userId), 18, TextAnchor.MiddleLeft, "0.03 0.88", "0.5 0.98", ColorScalp);
-            AddText(ui, box, Lang("CalvarioYouV3", userId, FormatBaldness(data.Baldness), GetTitle(data.Baldness)), 12, TextAnchor.MiddleRight, "0.5 0.88", "0.93 0.98", ColorMuted);
+            AddText(ui, box, Lang("CalvarioYouV3", userId, FormatCompact(data.Baldness), GetTitle(data.Baldness)), 12, TextAnchor.MiddleRight, "0.5 0.88", "0.93 0.98", ColorMuted);
             AddButton(ui, box, Lang("CalvarioClose", userId), "0.945 0.9", "0.99 0.98", ColorPoleRed, null, UiMenu, 14);
             AddPanel(ui, box, ColorScalp, "0.03 0.872", "0.97 0.876");
             AddText(ui, box, line ?? string.Empty, 14, TextAnchor.UpperLeft, "0.03 0.5", "0.97 0.855", ColorText);
@@ -2778,7 +2814,7 @@ namespace Oxide.Plugins
 
                 string nameColor = index < medals.Length ? medals[index] : "1 1 1 1";
                 AddText(ui, row, Lang("CalvarioRankingLine", userId, index + 1, entry.Name), 14, TextAnchor.MiddleLeft, "0.02 0", "0.5 1", nameColor);
-                AddText(ui, row, FormatBaldness(entry.Baldness), 14, TextAnchor.MiddleRight, "0.5 0", "0.68 1", ColorGold);
+                AddText(ui, row, FormatCompact(entry.Baldness), 14, TextAnchor.MiddleRight, "0.5 0", "0.68 1", ColorGold);
                 AddText(ui, row, GetTitle(entry.Baldness), 13, TextAnchor.MiddleRight, "0.68 0", "0.98 1", ColorText);
             }
 
@@ -2992,7 +3028,7 @@ namespace Oxide.Plugins
             bool moved = data.RpMoved;
             data.RpMoved = false;
 
-            int amount = GetRpRate(data.Baldness);
+            long amount = GetRpRate(data.Baldness);
             if (amount <= 0)
             {
                 return;
@@ -3016,30 +3052,45 @@ namespace Oxide.Plugins
                 return;
             }
 
-            // Server Rewards API: object AddPoints(object userID, int amount), returns true when paid.
-            object paid = ServerRewards.Call("AddPoints", data.Id, amount);
-            if (!(paid is bool ok) || !ok)
+            long room = RpRoom(data.Id);
+            if (amount > room)
+            {
+                if (!warnedRpCap)
+                {
+                    warnedRpCap = true;
+                    PrintWarning($"{data.Name} is at Server Rewards' RP limit; payouts are capped so the balance does not wrap to negative.");
+                }
+
+                amount = room;
+                if (amount <= 0)
+                {
+                    SendDebug("DebugNoRp", data.Name, Lang("NoRpCap"));
+                    return;
+                }
+            }
+
+            if (!AddRp(data.Id, amount))
             {
                 SendDebug("DebugNoRp", data.Name, Lang("NoRpRefused"));
                 return;
             }
 
-            SendDebug("DebugRp", data.Name, amount, GetTitle(data.Baldness));
+            SendDebug("DebugRp", data.Name, FormatBaldness(amount), GetTitle(data.Baldness));
             if (rp.NotifyPlayer)
             {
-                Reply(player, "RpEarnedV3", amount, GetTitle(data.Baldness));
+                Reply(player, "RpEarnedV3", FormatBaldness(amount), GetTitle(data.Baldness));
             }
         }
 
-        private int GetRpRate(long baldness)
+        private long GetRpRate(long baldness)
         {
             long perX = config.ServerRewards.RpPerBaldness;
             if (perX > 0)
             {
-                return (int)Math.Min(int.MaxValue, Math.Max(0, baldness) / perX);
+                return Math.Max(0, baldness) / perX;
             }
 
-            int amount = 0;
+            long amount = 0;
             foreach (KeyValuePair<long, int> rate in rpRates)
             {
                 if (baldness >= rate.Key)
@@ -3054,7 +3105,7 @@ namespace Oxide.Plugins
         private void ChangeBaldness(PlayerData data, long delta, bool announce, string reason, bool bought = false)
         {
             long oldValue = data.Baldness;
-            long newValue = Math.Max(MinBaldness, oldValue + delta);
+            long newValue = Math.Max(MinBaldness, SaturatingAdd(oldValue, delta));
 
             SendDebug("DebugChange", data.Name, FormatBaldness(oldValue), FormatBaldness(newValue),
                 delta >= 0 ? "+" : string.Empty, FormatBaldness(delta), reason);
@@ -3155,14 +3206,74 @@ namespace Oxide.Plugins
         private bool RpAvailable => ServerRewards != null && ServerRewards.IsLoaded;
         private bool CoinsAvailable => Economics != null && Economics.IsLoaded;
 
-        // Server Rewards 2.x API: AddPoints/TakePoints(ulong, int) -> bool, CheckPoints(ulong) -> int.
-        private bool AddRp(ulong id, long amount) =>
-            RpAvailable && amount > 0 && amount <= int.MaxValue && ServerRewards.Call("AddPoints", id, (int)amount) is bool ok && ok;
+        // Server Rewards 2.x API: AddPoints/TakePoints(ulong, int) -> bool, CheckPoints(ulong) -> int. It keeps
+        // balances in an int and adds without an overflow check, so the int path never pushes one past int.MaxValue.
+        // A Server Rewards patched to long can add AddPointsLong/TakePointsLong(ulong, long) -> bool and
+        // CheckPointsLong(ulong) -> long; Oxide returns null for a method the plugin does not have (CSPlugin.OnCallHook
+        // finds no hook), so a null result means "not available" and the int API is used instead.
+        private bool AddRp(ulong id, long amount)
+        {
+            if (!RpAvailable || amount <= 0)
+            {
+                return false;
+            }
 
-        private bool TakeRp(ulong id, long amount) =>
-            RpAvailable && amount > 0 && amount <= int.MaxValue && ServerRewards.Call("TakePoints", id, (int)amount) is bool ok && ok;
+            object result = ServerRewards.Call("AddPointsLong", id, amount);
+            if (result != null)
+            {
+                return result is bool ok && ok;
+            }
 
-        private long CheckRp(ulong id) => RpAvailable && ServerRewards.Call("CheckPoints", id) is int points ? points : 0;
+            return amount <= RpRoom(id) && ServerRewards.Call("AddPoints", id, (int)amount) is bool paid && paid;
+        }
+
+        private bool TakeRp(ulong id, long amount)
+        {
+            if (!RpAvailable || amount <= 0)
+            {
+                return false;
+            }
+
+            object result = ServerRewards.Call("TakePointsLong", id, amount);
+            if (result != null)
+            {
+                return result is bool ok && ok;
+            }
+
+            return amount <= int.MaxValue && ServerRewards.Call("TakePoints", id, (int)amount) is bool taken && taken;
+        }
+
+        private long CheckRp(ulong id)
+        {
+            if (!RpAvailable)
+            {
+                return 0;
+            }
+
+            if (ServerRewards.Call("CheckPointsLong", id) is long balance)
+            {
+                return balance;
+            }
+
+            return ServerRewards.Call("CheckPoints", id) is int points ? points : 0;
+        }
+
+        // How many RP can still be added before the balance hits Server Rewards' limit (int or long).
+        private long RpRoom(ulong id)
+        {
+            if (!RpAvailable)
+            {
+                return 0;
+            }
+
+            if (ServerRewards.Call("CheckPointsLong", id) is long balance)
+            {
+                return long.MaxValue - Math.Max(0, balance);
+            }
+
+            long points = ServerRewards.Call("CheckPoints", id) is int value ? value : 0;
+            return int.MaxValue - Math.Max(0, points);
+        }
 
         // Economics 3.9 API: Deposit/Withdraw(string playerId, double) -> bool, Balance(string playerId) -> double.
         private bool DepositCoins(ulong id, long amount) =>

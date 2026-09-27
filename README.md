@@ -142,8 +142,15 @@ chat de Rust no los dibuja y salen como `??`.
 
 Ser calvo da de comer. Cada **30 minutos vivo, conectado y despierto**, el
 plugin paga **RP de Server Rewards**: **1 RP por cada 100 de alopecia**, sin
-tope (100 → 1, 3.900 → 39, 2.000.000 → 20.000). Se calcula en entero largo y
-se limita al máximo que admite Server Rewards (2.147.483.647).
+tope (100 → 1, 3.900 → 39, 2.000.000 → 20.000). Se calcula en entero largo
+(64 bits).
+
+**Límite de Server Rewards** (1.6.7): Server Rewards guarda los RP en un
+entero de 32 bits y, si se pasa de 2.147.483.647, el saldo salta a negativo.
+El plugin nunca empuja un saldo más allá: la paga se recorta hasta el tope, y
+vender alopecia por RP se rechaza si no cabe. Si Server Rewards está parcheado
+para trabajar en 64 bits (métodos `AddPointsLong`, `TakePointsLong` y
+`CheckPointsLong`), el plugin los usa solo y el límite desaparece.
 
 Con `"RP per X baldness (0 = use the table)": 0` se vuelve a la tabla de
 escalones por título de la 1.4.0.
@@ -166,6 +173,11 @@ jugadores). Las kills cuentan aunque no den alopecia (sleeper o cooldown).
   derecha**: `ALOPECIA 1.174` y tu título debajo (desde la 1.6.1; antes
   ponía `CALVICIE`). Se actualiza con cada cambio. (Abajo chocaba con el
   panel de RaidableBases.)
+- **Números grandes** (1.6.7): en los sitios estrechos (contador, `+X`/`-X`,
+  ranking y la línea "Tu alopecia") la cifra se abrevia a partir de mil
+  millones: `2.147,4 M` (millones), `1,5 B` (billones) o `9,2 T` (trillones),
+  con un decimal y sin redondear hacia arriba. Por debajo sale entera, como
+  siempre. En el chat y los anuncios siempre sale entera.
 - Al ganar alopecia sale debajo un **`+18`** en dorado durante 2,5 s; al
   perderla, un **`-117`** en óxido.
 - Los **eventos globales** salen además en un **cartel grande en el centro
@@ -563,7 +575,7 @@ servidor.
 1. Ten un servidor dedicado de Rust con **Oxide (uMod)** instalado.
 2. Copia `src/IslaDeCalvos.cs` en la carpeta `oxide/plugins/` del servidor.
 3. Oxide lo compila y carga solo. En la consola deberías ver algo como
-   `Loaded plugin Isla de Calvos v1.6.6 by Igor Monasterio`.
+   `Loaded plugin Isla de Calvos v1.6.7 by Igor Monasterio`.
 4. Para recargarlo tras cambiar el fichero (normalmente se recarga solo):
    `oxide.reload IslaDeCalvos`
 
