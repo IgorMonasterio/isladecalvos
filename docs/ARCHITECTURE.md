@@ -210,6 +210,12 @@ Para añadir otro evento: decidir qué hook marca "participar" y cuál marca
     oficial), se usan esos. Se detecta sin configurar nada: si un plugin no
     tiene el método, `CSPlugin.OnCallHook` no encuentra hook y devuelve
     `null` (Oxide.Core), y entonces se usa la API `int`.
+  - Parche aplicado por Jano en el Server Rewards 2.0.8 del servidor el
+    2026-09-27, con esas firmas exactas: `AddPointsLong` devuelve `false` si
+    `amount <= 0` y se satura en `long.MaxValue`; `TakePointsLong` devuelve
+    `false` si `amount <= 0` o no hay saldo suficiente; `CheckPointsLong`
+    devuelve 0 si no hay saldo. Si una actualización lo pisa, los métodos
+    desaparecen y el plugin vuelve solo a la API `int` con freno.
   - El parche no puede cambiar `CheckPoints` a `long`: GUIShop hace
     `(int)ServerRewards.Call("CheckPoints", …)` y petaría. `CheckPoints` y
     el hook `OnPointsUpdated(ulong, int)` siguen en `int`, recortados.

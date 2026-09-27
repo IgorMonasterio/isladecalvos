@@ -174,7 +174,12 @@ Lee `docs/ARCHITECTURE.md` antes de tocar código.
   recompensas por kills. Tiendas de la peluquería: **el Mercalvona®**
   (masculino: "al Mercalvona"; GUIShop, monedas) y **Cambio de divisas**
   (Server Rewards, RP; su NPC es el "Cambista de divisas"). Economics empieza
-  en 0 monedas y los saldos no se borran en el wipe.
+  en 0 monedas y los saldos no se borran en el wipe. Desde el 2026-09-27 el
+  Server Rewards del servidor está parcheado a `long` por Jano
+  (`AddPointsLong`/`TakePointsLong`/`CheckPointsLong`; `CheckPoints` y
+  `OnPointsUpdated` siguen en `int` recortado). Una actualización de Server
+  Rewards pisa el parche hasta que Jano lo vuelve a aplicar. Su comando de
+  admin es `rp` (`rp check/add/take <jugador>`).
 - **Menú `/info`** (plugin IslaInfo): lo mantiene Jano, el Claude que
   administra el servidor. Si un PR cambia números, mecánicas, comandos o
   nombres de eventos, se dice en la descripción del PR para que lo actualice.
