@@ -82,7 +82,9 @@ alcance cerrado:
 - **Plugin 1.6.8** — tres fallos que encontró Jano: la supervivencia pide
   haberse movido (como la paga de RP); los objetos malditos llevan un skin
   propio y el barbero solo cuenta los marcados; y si falta el parche de 64 bits
-  de Server Rewards, la consola lo avisa una vez por detección.
+  de Server Rewards, la consola lo avisa una vez por detección. En la misma
+  versión entran seis frases escritas por Igor (calvicie suprema, fin de la
+  Lluvia de champú, cacería cazada y sobrevivida, y dos de depuración).
 
 Decisiones de diseño de la v1.0 que no venían en la especificación inicial:
 - Toda muerte resta alopecia (PvP, NPC, entorno, suicidio), también la de un
