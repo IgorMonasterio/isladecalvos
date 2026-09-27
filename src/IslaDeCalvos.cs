@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Isla de Calvos", "Igor Monasterio", "1.6.8")]
+    [Info("Isla de Calvos", "Igor Monasterio", "1.6.9")]
     [Description("Baldness system for the Isla de Calvos Rust server: being bald is glory, hair is a curse.")]
     public class IslaDeCalvos : RustPlugin
     {
@@ -227,9 +227,9 @@ namespace Oxide.Plugins
         {
             [JsonProperty("Enabled")] public bool Enabled = true;
             [JsonProperty("Sell: baldness for 1 RP")] public long SellBaldnessPerRp = 100;
-            [JsonProperty("Sell: coins per 100 baldness")] public long SellCoinsPer100 = 10;
+            [JsonProperty("Sell: coins per 100 baldness")] public long SellCoinsPer100 = 25;
             [JsonProperty("Buy: RP per 1 baldness")] public long BuyRpPerBaldness = 1;
-            [JsonProperty("Buy: coins per 1 baldness")] public long BuyCoinsPerBaldness = 10;
+            [JsonProperty("Buy: coins per 1 baldness")] public long BuyCoinsPerBaldness = 25;
             [JsonProperty("Minimum baldness to sell")] public long MinSell = 100;
 
             [JsonProperty("Amounts offered (baldness)", ObjectCreationHandling = ObjectCreationHandling.Replace)]
@@ -793,11 +793,11 @@ namespace Oxide.Plugins
                 ["CalvarioTitle"] = "EL CALVARIO",
                 ["BarberName"] = "EL BARBERO",
                 ["BarberOptExchange"] = "Vengo a vender (o comprar) calva",
-                ["BarberExIntroV2"] = "Aquí la calva se compra y se vende. Vender sale barato y comprar sale caro: esto es un negocio, no una ONG.\nTienes {0} de alopecia · {1} RP · {2} monedas.",
-                ["BarberExSellRpV2"] = "Vender calva por RP (cada {0} de alopecia, 1 RP)",
-                ["BarberExSellCoinsV2"] = "Vender calva por monedas (cada 100 de alopecia, {0} monedas)",
-                ["BarberExBuyRpV3"] = "Comprar calva con RP ({0} RP cada 1 de alopecia)",
-                ["BarberExBuyCoinsV2"] = "Comprar calva con monedas ({0} monedas cada 1 de alopecia)",
+                ["BarberExIntroV3"] = "Aquí la calva se compra y se vende. Vender sale barato y comprar sale caro: esto es un negocio, no una ONG.\nTienes {0} de alopecia · {1} Puntos de Chola · {2} pelones.",
+                ["BarberExSellRpV3"] = "Vender calva por Puntos de Chola (cada {0} de alopecia, 1 Punto de Chola)",
+                ["BarberExSellCoinsV3"] = "Vender calva por pelones (cada 100 de alopecia, {0} pelones)",
+                ["BarberExBuyRpV4"] = "Comprar calva con Puntos de Chola ({0} PdC cada 1 de alopecia)",
+                ["BarberExBuyCoinsV3"] = "Comprar calva con pelones ({0} pelones cada 1 de alopecia)",
                 ["BarberExClosedV3"] = "{0}  [cerrado: falta {1}. Vuelve cuando el jefe lo arregle]",
                 ["BarberExPickAmount"] = "¿Cuánto? Piénsatelo bien, que luego lloras.",
                 ["BarberExSellLineV2"] = "Dar {0} de alopecia y llevarme {1}",
@@ -811,8 +811,10 @@ namespace Oxide.Plugins
                 ["BarberExDoneBuyV2"] = "Hecho: +{0} de alopecia y -{1}. Brillas como una bola de billar recién encerada.",
                 ["BarberExNotEnough"] = "No te llega. Ni para un afeitado de barrio.",
                 ["BarberExFailed"] = "Algo ha petado y no se ha tocado nada. Prueba otra vez, que la maquinilla tiene sus días.",
-                ["UnitRp"] = "{0} RP",
-                ["UnitCoins"] = "{0} monedas",
+                ["UnitRpV2"] = "{0} Puntos de Chola",
+                ["UnitRpOneV2"] = "{0} Punto de Chola",
+                ["UnitCoinsV2"] = "{0} pelones",
+                ["UnitCoinsOneV2"] = "{0} pelón",
                 ["TitleUpBanner"] = "¡{0} ya es {1}! Gafas de sol, que deslumbra.",
                 ["TierPrizeV2"] = "<color=#e0a526>Premio por ascender a {0}:</color> {1}. Invita la casa, que tú no tienes ni para peine.",
                 ["DebugTierPrize"] = "[debug] {0}: premio de {1} · {2}",
@@ -911,13 +913,13 @@ namespace Oxide.Plugins
                 ["DebugOff"] = "Debug desactivado.",
                 ["DebugChange"] = "[debug] {0}: {1} → {2} ({3}{4}) · {5}",
                 ["DebugNoRewardV2"] = "[debug] {0}: sin alopecia · {1}",
-                ["DebugRp"] = "[debug] {0}: +{1} RP ({2})",
-                ["DebugNoRp"] = "[debug] {0}: sin RP · {1}",
+                ["DebugRpV2"] = "[debug] {0}: +{1} PdC ({2})",
+                ["DebugNoRpV2"] = "[debug] {0}: sin PdC · {1}",
                 ["NoRpAfk"] = "no se ha movido (AFK)",
                 ["NoRpPlugin"] = "Server Rewards no está cargado",
                 ["NoRpRefused"] = "Server Rewards no aceptó el pago",
-                ["NoRpCap"] = "saldo de RP al tope de Server Rewards",
-                ["RpEarnedV3"] = "<color=#e0a526>+{0} RP</color> por lucir calva de <color=#e0a526>{1}</color>. Es lo único que te va a pagar alguien en la vida por estar calvo: disfrútalo.",
+                ["NoRpCapV2"] = "saldo de Puntos de Chola al tope de Server Rewards",
+                ["RpEarnedV4"] = "<color=#e0a526>+{0} Puntos de Chola</color> por lucir calva de <color=#e0a526>{1}</color>. Es lo único que te va a pagar alguien en la vida por estar calvo: disfrútalo.",
                 ["ReasonPlayerKill"] = "kill a {0}",
                 ["ReasonPlayerHeadshotKillV2"] = "rapado por headshot a {0}",
                 ["ReasonDeath"] = "muerte (-{0} %)",
@@ -1103,7 +1105,7 @@ namespace Oxide.Plugins
             }
 
             warnedMissingRpPatch = true;
-            PrintWarning("AVISO: Server Rewards no tiene el parche de 64 bits: RP limitados a 2.147.483.647. Avisa a Jano.");
+            PrintWarning("AVISO: Server Rewards no tiene el parche de 64 bits: Puntos de Chola limitados a 2.147.483.647. Avisa a Jano.");
         }
 
         private void OnServerSave() => SaveData();
@@ -2654,7 +2656,11 @@ namespace Oxide.Plugins
         }
 
         private string ExchangePriceText(ExchangeMode mode, long price, string userId) =>
-            Lang(mode == ExchangeMode.SellForRp || mode == ExchangeMode.BuyWithRp ? "UnitRp" : "UnitCoins", userId, FormatBaldness(price));
+            UnitText(mode == ExchangeMode.SellForRp || mode == ExchangeMode.BuyWithRp, price, userId);
+
+        // "1 Punto de Chola" / "2 Puntos de Chola", "1 pelón" / "2 pelones".
+        private string UnitText(bool rp, long amount, string userId) =>
+            Lang(rp ? (amount == 1 ? "UnitRpOneV2" : "UnitRpV2") : (amount == 1 ? "UnitCoinsOneV2" : "UnitCoinsV2"), userId, FormatBaldness(amount));
 
         private bool CanAffordExchange(PlayerData data, ExchangeMode mode, long baldness)
         {
@@ -2765,12 +2771,12 @@ namespace Oxide.Plugins
                         line += "\n";
                     }
 
-                    line += Lang("BarberExIntroV2", userId, FormatBaldness(data.Baldness),
+                    line += Lang("BarberExIntroV3", userId, FormatBaldness(data.Baldness),
                         RpAvailable ? FormatBaldness(CheckRp(data.Id)) : "-", CoinsAvailable ? FormatBaldness(CoinBalance(data.Id)) : "-");
-                    AddExchangeOption(options, ExchangeMode.SellForRp, Lang("BarberExSellRpV2", userId, FormatBaldness(ex.SellBaldnessPerRp)), userId);
-                    AddExchangeOption(options, ExchangeMode.SellForCoins, Lang("BarberExSellCoinsV2", userId, FormatBaldness(ex.SellCoinsPer100)), userId);
-                    AddExchangeOption(options, ExchangeMode.BuyWithRp, Lang("BarberExBuyRpV3", userId, FormatBaldness(ex.BuyRpPerBaldness)), userId);
-                    AddExchangeOption(options, ExchangeMode.BuyWithCoins, Lang("BarberExBuyCoinsV2", userId, FormatBaldness(ex.BuyCoinsPerBaldness)), userId);
+                    AddExchangeOption(options, ExchangeMode.SellForRp, Lang("BarberExSellRpV3", userId, FormatBaldness(ex.SellBaldnessPerRp)), userId);
+                    AddExchangeOption(options, ExchangeMode.SellForCoins, Lang("BarberExSellCoinsV3", userId, FormatBaldness(ex.SellCoinsPer100)), userId);
+                    AddExchangeOption(options, ExchangeMode.BuyWithRp, Lang("BarberExBuyRpV4", userId, FormatBaldness(ex.BuyRpPerBaldness)), userId);
+                    AddExchangeOption(options, ExchangeMode.BuyWithCoins, Lang("BarberExBuyCoinsV3", userId, FormatBaldness(ex.BuyCoinsPerBaldness)), userId);
                     options.Add(new KeyValuePair<string, string>(Lang("BarberOptBack", userId), "calvos.barber main"));
                     break;
                 case BarberPage.ExchangeAmount:
@@ -3127,7 +3133,7 @@ namespace Oxide.Plugins
 
             if (rp.RequireMovement && !moved)
             {
-                SendDebug("DebugNoRp", data.Name, Lang("NoRpAfk"));
+                SendDebug("DebugNoRpV2", data.Name, Lang("NoRpAfk"));
                 return;
             }
 
@@ -3136,10 +3142,10 @@ namespace Oxide.Plugins
                 if (!warnedNoServerRewards)
                 {
                     warnedNoServerRewards = true;
-                    PrintWarning("Server Rewards is not loaded; no RP is being paid.");
+                    PrintWarning("Server Rewards is not loaded; no Puntos de Chola are being paid.");
                 }
 
-                SendDebug("DebugNoRp", data.Name, Lang("NoRpPlugin"));
+                SendDebug("DebugNoRpV2", data.Name, Lang("NoRpPlugin"));
                 return;
             }
 
@@ -3149,27 +3155,27 @@ namespace Oxide.Plugins
                 if (!warnedRpCap)
                 {
                     warnedRpCap = true;
-                    PrintWarning($"{data.Name} is at Server Rewards' RP limit; payouts are capped so the balance does not wrap to negative.");
+                    PrintWarning($"{data.Name} is at Server Rewards' Puntos de Chola limit; payouts are capped so the balance does not wrap to negative.");
                 }
 
                 amount = room;
                 if (amount <= 0)
                 {
-                    SendDebug("DebugNoRp", data.Name, Lang("NoRpCap"));
+                    SendDebug("DebugNoRpV2", data.Name, Lang("NoRpCapV2"));
                     return;
                 }
             }
 
             if (!AddRp(data.Id, amount))
             {
-                SendDebug("DebugNoRp", data.Name, Lang("NoRpRefused"));
+                SendDebug("DebugNoRpV2", data.Name, Lang("NoRpRefused"));
                 return;
             }
 
-            SendDebug("DebugRp", data.Name, FormatBaldness(amount), GetTitle(data.Baldness));
+            SendDebug("DebugRpV2", data.Name, FormatBaldness(amount), GetTitle(data.Baldness));
             if (rp.NotifyPlayer)
             {
-                Reply(player, "RpEarnedV3", FormatBaldness(amount), GetTitle(data.Baldness));
+                Reply(player, "RpEarnedV4", FormatBaldness(amount), GetTitle(data.Baldness));
             }
         }
 
@@ -3273,8 +3279,8 @@ namespace Oxide.Plugins
                 }
 
                 var parts = new List<string>();
-                if (prize.Rp > 0 && AddRp(data.Id, prize.Rp)) parts.Add(Lang("UnitRp", null, FormatBaldness(prize.Rp)));
-                if (prize.Coins > 0 && DepositCoins(data.Id, prize.Coins)) parts.Add(Lang("UnitCoins", null, FormatBaldness(prize.Coins)));
+                if (prize.Rp > 0 && AddRp(data.Id, prize.Rp)) parts.Add(UnitText(true, prize.Rp, null));
+                if (prize.Coins > 0 && DepositCoins(data.Id, prize.Coins)) parts.Add(UnitText(false, prize.Coins, null));
                 if (prize.Items != null && player != null && player.IsConnected)
                 {
                     foreach (PrizeItem item in prize.Items)
