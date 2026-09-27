@@ -2,7 +2,7 @@
 
 ## Proyecto
 
-Plugin principal del servidor modded de Rust **Isla de Calvos**. Temática: todo
+Plugin principal del servidor modded de Rust **[ES] Isla de Calvos**. Temática: todo
 lo que pasa en la isla acaba teniendo que ver con el pelo o la calvicie.
 
 ## Premisa (lore)
@@ -79,6 +79,10 @@ alcance cerrado:
   nunca del tope de 32 bits de Server Rewards, y si Server Rewards está
   parcheado a `long` (`AddPointsLong`/`TakePointsLong`/`CheckPointsLong`) se
   usa eso. Ver ARCHITECTURE §4f.
+- **Plugin 1.6.8** — tres fallos que encontró Jano: la supervivencia pide
+  haberse movido (como la paga de RP); los objetos malditos llevan un skin
+  propio y el barbero solo cuenta los marcados; y si falta el parche de 64 bits
+  de Server Rewards, la consola lo avisa una vez por detección.
 
 Decisiones de diseño de la v1.0 que no venían en la especificación inicial:
 - Toda muerte resta alopecia (PvP, NPC, entorno, suicidio), también la de un
@@ -109,7 +113,7 @@ Cambio de escala (de % a puntos enteros sin límite):
 - PvP: **toda kill +1000** (headshot o no). **Toda muerte −10 % de la
   alopecia actual** (redondeado hacia arriba), sea cual sea la causa;
   Lluvia de champú −20 %.
-- Supervivencia: +100 cada 30 min vivo y conectado.
+- Supervivencia: +100 cada 30 min vivo y conectado (y moviéndose, desde la 1.6.8).
 - Títulos por cada cero, de mucho pelo a nada, con humor calvo británico.
   Desde la 1.6.0: Greñas Sucias (1), Pelambrera Lamentable (1.000), Entradas
   Incipientes (10.000), Coronilla a la Intemperie (100.000), Caballero de la
@@ -166,7 +170,9 @@ Lee `docs/ARCHITECTURE.md` antes de tocar código.
 - **Espacio en pantalla**: abajo, entre el cinturón y las barras, lo usa el
   panel de RaidableBases; arriba en el centro, otro panel de RaidableBases.
   El contador va arriba a la derecha.
-- **Contexto del servidor** (a 2026-09-26): 1-3 jugadores, x5 gather, loot x1
+- **Contexto del servidor** (a 2026-09-27): hay dos servidores. El modded es el
+  **principal** y se llama **"[ES] Isla de Calvos"** (el de este plugin); el
+  vanilla es **"[ES] Isla de Calvos - Vanilla"**. Del principal: 1-3 jugadores, x5 gather, loot x1
   (BetterLoot), StackSizeController x5, RaidableBases (NPCs `scientistnpc_heavy`,
   skinID 3710562502), Economics + GUIShop (monedas) y ServerRewards **2.0.8**
   (RP, 1 RP = 10 monedas; sus claves de lang no son las de la v1, p. ej.
