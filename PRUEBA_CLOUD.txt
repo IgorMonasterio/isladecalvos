@@ -1,0 +1,2 @@
+Esto es una prueba desde una sesión de Claude Code en la nube (2026-09-27).
+No forma parte del plugin: se puede borrar sin miedo.
