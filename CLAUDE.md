@@ -73,6 +73,12 @@ alcance cerrado:
 - **Plugin 1.6.6** — TONO.md afinado ("repasar no es podar"): vuelve el nombre
   Brote de alopecia y vuelven los remates que se quitaron en la 1.6.4, con las
   coletillas cambiadas (tieso, Fórmula 1, figura). La gloria sigue fuera.
+- **Plugin 1.6.7** — números grandes, pedido por Igor: la alopecia sigue en
+  `long` pero las sumas se saturan en vez de desbordar; en los sitios
+  estrechos la cifra se abrevia a M/B/T desde mil millones; los RP no pasan
+  nunca del tope de 32 bits de Server Rewards, y si Server Rewards está
+  parcheado a `long` (`AddPointsLong`/`TakePointsLong`/`CheckPointsLong`) se
+  usa eso. Ver ARCHITECTURE §4f.
 
 Decisiones de diseño de la v1.0 que no venían en la especificación inicial:
 - Toda muerte resta alopecia (PvP, NPC, entorno, suicidio), también la de un

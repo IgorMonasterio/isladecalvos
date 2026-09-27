@@ -197,6 +197,27 @@ Para añadir otro evento: decidir qué hook marca "participar" y cuál marca
   posición vive en memoria (`lastPositions`) y se borra al desconectar.
 - Los RP no pasan por `GainBaldness` ni `ChangeBaldness`: no tocan la calvicie
   ni se multiplican.
+- **Límite de 32 bits** (1.6.7). Server Rewards 2.0.7 guarda el saldo en
+  `Hash<ulong, int>` y `AddPoints` hace `+=` sin comprobar: pasado
+  `int.MaxValue` da la vuelta a negativo (C# no comprueba desbordamientos por
+  defecto). La 2.0.8 del servidor no se ha podido leer.
+  - Todos los pagos pasan por `AddRp`/`TakeRp`/`CheckRp`/`RpRoom`. Con la API
+    `int`, `AddRp` rechaza lo que no quepa hasta `int.MaxValue`, y la paga de
+    cada 30 min se recorta con `RpRoom` (aviso en consola una vez).
+  - Si Server Rewards trae `AddPointsLong(ulong, long)`,
+    `TakePointsLong(ulong, long)` → `bool` y `CheckPointsLong(ulong)` →
+    `long` (parche propio del servidor, no existen en el Server Rewards
+    oficial), se usan esos. Se detecta sin configurar nada: si un plugin no
+    tiene el método, `CSPlugin.OnCallHook` no encuentra hook y devuelve
+    `null` (Oxide.Core), y entonces se usa la API `int`.
+  - El parche no puede cambiar `CheckPoints` a `long`: GUIShop hace
+    `(int)ServerRewards.Call("CheckPoints", …)` y petaría. `CheckPoints` y
+    el hook `OnPointsUpdated(ulong, int)` siguen en `int`, recortados.
+- **Números grandes en nuestro lado**: la alopecia es `long`. `ChangeBaldness`,
+  los multiplicadores de eventos y pila y los precios del cambio usan
+  `SaturatingAdd`/`SaturatingMultiply`, que se paran en `long.MaxValue` en vez
+  de dar la vuelta. `FormatCompact` abrevia a M/B/T desde 10^9 en los sitios
+  estrechos; `FormatBaldness` (entero con puntos) en el resto.
 
 ## 4g. La peluquería: Calvario en un NPC (plugin 1.5.0)
 
