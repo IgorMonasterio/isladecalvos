@@ -473,22 +473,37 @@ Para lo de "en ese mapa" cada jugador lleva `WipeKills` y `WipeDeaths`, que
 suben junto a `Kills`/`Deaths` y vuelven a 0 en el wipe, después de guardar la
 entrada. Los `Kills`/`Deaths` de siempre no se tocan.
 
-- Si nadie tiene alopecia ni kills, no se guarda nada.
+- Si nadie ha **matado ni muerto** en el mapa, no se guarda nada (1.8.2; antes
+  miraba la alopecia, que con el reset apagado nunca vuelve a 0).
+- **Un wipe, un cierre** (1.8.2): si el último cierre de mapa fue hace menos
+  de **12 horas**, un `OnNewSave` nuevo no hace nada (ni entrada, ni anuncio, ni
+  hook, ni reset): solo un aviso en la consola. Es para el relanzamiento con
+  semilla nueva ~1 minuto después del wipe, que hace llegar `OnNewSave` dos veces.
 - Se ve en la pestaña **SALÓN DE LA FAMA** de `/calvos`: un bloque por mapa,
-  del más nuevo al más viejo, con el podio en oro, plata y bronce y una pulla
-  para el que más ha muerto. Cada bloque lleva su número (`#3`).
-- Cuando despierta el **primer jugador** tras el wipe, sale una vez en el chat
-  quién se lleva el mapa (el primero del podio).
-- `/calvoadmin salon guardar` guarda a mano una entrada con el estado actual
+  del más nuevo al más viejo, con el podio en oro, plata y bronce. Cada bloque
+  lleva su número (`#3`). La pulla para el que más ha muerto sale solo en el
+  bloque más nuevo (1.8.2). Las entradas de un cierre dicen "Mapa cerrado el…";
+  las guardadas con `salon guardar`, "Foto del mapa del…".
+- **Anuncio del ganador** (1.8.2): cada jugador, la **primera vez que despierta**
+  tras el cierre, ve en **su** chat quién se lleva el mapa (el primero del podio).
+  Se guarda quién lo ha visto ya, así que sale una vez por jugador y por cierre.
+- `/calvoadmin salon guardar` guarda a mano una **foto** con el estado actual
   (sin anuncio en el chat, ni resetear nada). `/calvoadmin salon borrar <n>`
-  quita la entrada `#n`.
+  quita la entrada `#n`; si era la del anuncio pendiente y queda otra entrada del
+  mismo cierre, el anuncio pasa a esa.
+- **Cierre a mano** (1.8.2): `/calvoadmin salon cerrar`, o `isla.salon cerrar`
+  desde la consola del servidor o RCON, hace **todo lo que hace el wipe**: guarda
+  la entrada, apunta el anuncio, llama al hook, pone a 0 las kills y muertes del
+  mapa y, **solo si la config tiene el reset por wipe activado**, la alopecia.
+  Tiene la misma protección de 12 horas; con `forzar` al final se la salta
+  (`/calvoadmin salon cerrar forzar`, `isla.salon cerrar forzar`).
 - Las entradas se guardan en el fichero de datos del plugin, sin tope por
   defecto (`Max entries kept`).
 - **Ojo**: `OnNewSave` solo le llega al plugin si está **cargado al arrancar**
   el servidor con el mapa nuevo (Oxide compila y carga los plugins antes de
   cargar el mapa). Si tras la actualización de Rust no compilara, o se carga a
-  mano después, la entrada no se guarda sola: toca `/calvoadmin salon guardar`,
-  y los contadores del mapa no vuelven a 0 hasta el siguiente wipe.
+  mano después, el cierre no se hace solo: toca `salon cerrar` (a mano o por
+  consola).
 
 ### Recompensas por cabeza
 
@@ -537,8 +552,12 @@ de la alopecia de todos para comparar al día siguiente.
   ha pasado la medianoche). La primera vez que carga la 1.8.0 se hace la
   primera foto; si ya son más de las 21:00, la primera elección es al día
   siguiente.
-- `/calvoadmin calvodeldia ahora` fuerza una elección (para probar). La de
-  las 21:00 sigue a su hora.
+- **No se compra** (1.8.2): la alopecia comprada en el barbero y los cambios de
+  admin (`/calvoadmin set` y `reset`) no cuentan, ni para sumar ni para restar
+  (se mueve la foto de ese jugador en la misma cantidad). Vender alopecia sí
+  resta, como morir.
+- `/calvoadmin calvodeldia ahora` fuerza una elección, y **cuenta como la del
+  día** (1.8.2): ese día ya no se elige otra vez a las 21:00 ni se paga dos veces.
 - Con `"Enabled": false`, el grupo se vacía al cargar el plugin (1.8.1): nadie
   se queda con sus ventajas.
 
@@ -555,16 +574,20 @@ OnIslaCalvoDelDia(ulong userId, string playerName, long gained)
 OnIslaHuntEnded(ulong targetId, string targetName, string outcome, string killerName)
 ```
 
-- `OnIslaWipeHallOfFame`: la entrada recién guardada (wipe o a mano), en una
-  línea de JSON:
+- `OnIslaWipeHallOfFame`: la entrada recién guardada (cierre de mapa o foto a
+  mano), en una línea de JSON. La del wipe (`OnNewSave`) llega mientras carga el
+  mundo, cuando aún no hay nadie en RCON: desde la 1.8.2 se guarda como pendiente
+  y se llama **60 s después de `OnServerInitialized`** (si el server se reinicia
+  antes, en el siguiente arranque). Las de `salon cerrar` y `salon guardar`, al
+  momento:
   `{"number":3,"date":"2026-10-01T20:00:12","manual":false,"podium":[{"id":"7656…","name":"…","alopecia":123456}],"topKiller":{"id":"7656…","name":"…","kills":12},"topDeaths":{"id":"7656…","name":"…","deaths":34}}`.
   `topKiller`/`topDeaths` van a `null` si nadie mató o murió. Los SteamID van
   como texto.
 - `OnIslaBountyPlaced`: `amount` es lo que se acaba de poner y `total`, el bote
   después de sumarlo.
 - `OnIslaHuntEnded`: al acabar la Cacería del peludo, con `outcome` =
-  `killed`, `survived`, `died` o `escaped`. `killerName` va vacío salvo en
-  `killed`. Si un admin para el evento, no se llama.
+  `killed`, `survived`, `died`, `escaped` o, desde la 1.8.2, `stopped` (un admin
+  paró el evento). `killerName` va vacío salvo en `killed`.
 
 ### Comando de consola `isla.ranking`
 
@@ -578,6 +601,12 @@ alopecia:
 
 `id` va como texto y `title` va vacío con 0 de alopecia (sin título).
 
+### Comando de consola `isla.salon` (1.8.2)
+
+`isla.salon cerrar [forzar]`: el cierre de mapa a mano (ver [Salón de la fama
+por wipe](#salón-de-la-fama-por-wipe)), solo desde la **consola del servidor o
+RCON**. Contesta en la consola qué ha hecho.
+
 ## Comandos
 
 | Comando | Quién | Qué hace |
@@ -590,11 +619,13 @@ alopecia:
 | `/calvoadmin evento <hora\|champu\|peludo\|alopecia>` | Admin | Lanza ese evento ya, sin esperar a la hora. Para probar. (`cuchillas` también vale para el Brote de alopecia.) |
 | `/calvoadmin evento parar` | Admin | Cancela el evento en marcha. |
 | `/calvoadmin debug on\|off` | Admin | Muestra en tu chat cada cambio de alopecia (de cualquier jugador) con su motivo: NPC, tier, valor… También avisa cuando algo **no** da alopecia y por qué. Para probar. Se apaga al recargar el plugin. |
-| `/calvoadmin salon guardar` | Admin | Guarda a mano una entrada del Salón de la fama con el estado actual. |
+| `/calvoadmin salon guardar` | Admin | Guarda a mano una foto del mapa en el Salón de la fama (sin cerrar nada). |
+| `/calvoadmin salon cerrar [forzar]` | Admin | Cierre de mapa completo, como el wipe: entrada, anuncio, hook, kills y muertes del mapa a 0 y reset de alopecia si la config lo dice. Sin `forzar`, no hace nada si el último cierre fue hace menos de 12 horas. |
 | `/calvoadmin salon borrar <n>` | Admin | Quita la entrada `#n` del Salón de la fama. |
 | `/calvoadmin cabeza quitar <jugador>` | Admin | Anula el bote que haya por la cabeza de ese jugador (no se devuelve a nadie). |
-| `/calvoadmin calvodeldia ahora` | Admin | Elige ya al Calvo del Día (para probar). |
+| `/calvoadmin calvodeldia ahora` | Admin | Elige ya al Calvo del Día. Cuenta como la elección del día: a las 21:00 ya no hay otra. |
 | `isla.ranking` | Consola del servidor / RCON | Todos los jugadores en una línea de JSON (ver arriba). |
+| `isla.salon cerrar [forzar]` | Consola del servidor / RCON | Lo mismo que `/calvoadmin salon cerrar`. |
 
 `<jugador>` puede ser el SteamID o el nombre (o parte del nombre). Funciona
 también con jugadores desconectados que ya tengan datos. Los cambios de admin
@@ -804,7 +835,7 @@ servidor. Desde la 1.8.0 van en el mismo fichero el Salón de la fama
 1. Ten un servidor dedicado de Rust con **Oxide (uMod)** instalado.
 2. Copia `src/IslaDeCalvos.cs` en la carpeta `oxide/plugins/` del servidor.
 3. Oxide lo compila y carga solo. En la consola deberías ver algo como
-   `Loaded plugin Isla de Calvos v1.8.1 by Igor Monasterio`.
+   `Loaded plugin Isla de Calvos v1.8.2 by Igor Monasterio`.
 4. Para recargarlo tras cambiar el fichero (normalmente se recarga solo):
    `oxide.reload IslaDeCalvos`
 
