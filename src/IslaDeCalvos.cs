@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Isla de Calvos", "Igor Monasterio", "1.8.1")]
+    [Info("Isla de Calvos", "Igor Monasterio", "1.8.2")]
     [Description("Baldness system for the Isla de Calvos Rust server: being bald is glory, hair is a curse.")]
     public class IslaDeCalvos : RustPlugin
     {
@@ -23,8 +23,16 @@ namespace Oxide.Plugins
         private const float SurvivalTickSeconds = 60f;
         private const float CalvoDelDiaCheckSeconds = 60f;
 
-        // The wipe winner is announced this long after the first player wakes up, so the chat is already on screen.
+        // The wipe winner is announced to each player this long after they wake up, so the chat is already on screen.
         private const float WipeAnnouncementDelaySeconds = 5f;
+
+        // A map close (OnNewSave or "salon cerrar") this soon after the last one is the same wipe: the server restarts
+        // with a new seed a minute after the wipe, so OnNewSave comes twice. "forzar" skips the check.
+        private const double MapCloseRepeatHours = 12;
+
+        // OnNewSave runs while the world loads, before anybody can be on RCON: the hall of fame hook waits this long
+        // after OnServerInitialized.
+        private const float WipeHookDelaySeconds = 60f;
 
         // Never title groups: the plugin only touches the groups listed in "Title groups".
         private static readonly HashSet<string> ProtectedGroups = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "*", "default", "admin" };
@@ -839,8 +847,18 @@ namespace Oxide.Plugins
 
             public int HallNextNumber = 1;
 
-            // Entry whose winner is announced when the first player wakes up after the wipe (0 = nothing pending).
+            // Entry whose winner is announced to each player the first time they wake up after the wipe (0 = nothing
+            // pending). It stays until the next map close; WipeAnnouncementSeen lists who already got it.
             public int PendingWipeAnnouncement;
+
+            [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
+            public HashSet<ulong> WipeAnnouncementSeen = new HashSet<ulong>();
+
+            // Entry saved by OnNewSave whose OnIslaWipeHallOfFame hook still has to be called (0 = none), after the boot.
+            public int PendingWipeHook;
+
+            // Server time of the last map close (OnNewSave or "salon cerrar"), for the repeat check. Never = default.
+            public DateTime LastMapClose;
 
             // Puntos de Chola on each player's head. Kept across wipes; only a PvP kill or an admin removes them.
             [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
@@ -856,7 +874,7 @@ namespace Oxide.Plugins
             // Server time when the entry was saved.
             public DateTime Date;
 
-            // Saved with "/calvoadmin salon guardar" instead of by a wipe.
+            // Saved with "/calvoadmin salon guardar" (a snapshot, the map goes on) instead of by a map close.
             public bool Manual;
 
             // Top 3 by alopecia (Value = alopecia).
@@ -978,6 +996,7 @@ namespace Oxide.Plugins
 
             int lastNumber = storedData.HallOfFame.Count > 0 ? storedData.HallOfFame.Max(e => e.Number) : 0;
             storedData.HallNextNumber = Math.Max(storedData.HallNextNumber, lastNumber + 1);
+            if (storedData.WipeAnnouncementSeen == null) storedData.WipeAnnouncementSeen = new HashSet<ulong>();
 
             if (storedData.Bounties == null) storedData.Bounties = new Dictionary<ulong, long>();
             if (storedData.CalvoDelDia == null) storedData.CalvoDelDia = new CalvoDelDiaData();
@@ -1102,7 +1121,7 @@ namespace Oxide.Plugins
                 ["CalvarioProverb7"] = "La calva no se pierde: se conquista.",
                 ["CalvarioProverb8"] = "El champú anticaída es propaganda peluda.",
                 ["CalvarioCarneHintV2"] = "Una tarjeta de cada color: +{0} por sello y +{1} al completar el carné. Las repetidas, para cambiarlas en el patio.",
-                ["CalvarioRankingEmpty"] = "Aún no hay nadie en el salón. La isla está llena de pelo.",
+                ["CalvarioRankingEmptyV2"] = "Aún no hay nadie en el ranking. La isla está llena de pelo.",
                 ["CalvarioRankingLine"] = "{0}.  {1}",
                 ["CalvarioRankingYouV3"] = "Tu puesto: <color=#e0a526>{0}º</color> de {1}. Te faltan <color=#e0a526>{2}</color> para adelantar a {3}. Venga, que ese tiene hasta cejas.",
                 ["CalvarioRankingFirstV2"] = "Eres la cabeza más brillante de la isla. Los demás se peinan mirándose en ti.",
@@ -1144,7 +1163,7 @@ namespace Oxide.Plugins
                 ["TitleUpV3"] = "<color=#e0a526>{0}</color> asciende a <color=#e0a526>{1}</color>. Su peluquero ya ha pedido el paro.",
                 ["TitleDropV2"] = "<color=#e0662f>A {0} le está saliendo pelo</color> (ahora es {1})",
                 ["NoPermissionV4"] = "No tienes permiso para usar este comando. Buen intento, figura.",
-                ["AdminUsageV4"] = "Uso: /calvoadmin set <jugador> <valor> | /calvoadmin reset <jugador> | /calvoadmin debug on|off | /calvoadmin evento <hora|champu|peludo|alopecia|parar> | /calvoadmin salon guardar|borrar <n> | /calvoadmin cabeza quitar <jugador> | /calvoadmin calvodeldia ahora",
+                ["AdminUsageV5"] = "Uso: /calvoadmin set <jugador> <valor> | /calvoadmin reset <jugador> | /calvoadmin debug on|off | /calvoadmin evento <hora|champu|peludo|alopecia|parar> | /calvoadmin salon guardar|cerrar [forzar]|borrar <n> | /calvoadmin cabeza quitar <jugador> | /calvoadmin calvodeldia ahora",
                 ["AdminInvalidValue"] = "El valor tiene que ser un número entero igual o mayor que {0}.",
                 ["PlayerNotFound"] = "No se ha encontrado ningún jugador con '{0}'.",
                 ["PlayerAmbiguous"] = "Hay {0} jugadores que coinciden con '{1}'. Sé más concreto o usa el SteamID.",
@@ -1206,8 +1225,15 @@ namespace Oxide.Plugins
                 ["HallPodiumPlace"] = "{0}º  {1}",
                 ["HallTopKiller"] = "Más kills: <color=#e0a526>{0}</color> ({1})",
                 ["HallTopDeaths"] = "Más muertes: <color=#e0662f>{0}</color> ({1}). Con tanto morir, ya puede hacerse trenzas.",
+                ["HallTopDeathsPlain"] = "Más muertes: <color=#e0662f>{0}</color> ({1})",
+                ["HallSnapshot"] = "Foto del mapa del {0}",
                 ["HallWipeWinner"] = "<color=#e0a526>{0}</color> se lleva el mapa con <color=#e0a526>{1}</color> de alopecia (el podio, en el Salón de la fama de <color=#e0a526>/calvos</color>). Frente soberana.",
-                ["AdminHallUsage"] = "Uso: /calvoadmin salon guardar | /calvoadmin salon borrar <n>",
+                ["AdminHallUsageV2"] = "Uso: /calvoadmin salon guardar | /calvoadmin salon cerrar [forzar] | /calvoadmin salon borrar <n>",
+                ["AdminHallCloseUsage"] = "Uso: isla.salon cerrar [forzar]",
+                ["AdminHallClosed"] = "Mapa cerrado: entrada #{0} guardada en el Salón de la fama. Kills y muertes del mapa a 0.",
+                ["AdminHallClosedEmpty"] = "Mapa cerrado sin entrada en el Salón de la fama (nadie ha matado ni muerto en este mapa, o el salón está desactivado). Kills y muertes del mapa a 0.",
+                ["AdminHallClosedReset"] = "Alopecia de todos a 0 (la config tiene el reset por wipe activado).",
+                ["AdminHallCloseRecent"] = "No se ha cerrado nada: el mapa ya se cerró el {0} a las {1}, hace menos de {2} horas. Para cerrarlo otra vez, añade 'forzar'.",
                 ["AdminHallSaved"] = "Entrada #{0} guardada en el Salón de la fama.",
                 ["AdminHallNothing"] = "No se ha guardado nada: nadie tiene alopecia ni kills en este mapa.",
                 ["AdminHallDeleted"] = "Entrada #{0} ({1}) borrada del Salón de la fama.",
@@ -1215,11 +1241,13 @@ namespace Oxide.Plugins
                 ["BountyUsage"] = "Uso: <color=#e0a526>/cabeza <jugador> <cantidad></color> (mínimo {0}). Lo que pones no se devuelve.",
                 ["BountyTooLow"] = "El mínimo son {0}. Con menos no le cortas ni las patillas.",
                 ["BountySelf"] = "No puedes poner precio a tu propia cabellera, por mucho que te sobre.",
-                ["BountyNoBalance"] = "No te llega: tienes {0}. Ni para una peluca de segunda mano.",
+                ["BountyNoBalanceV2"] = "No te llega: tienes {0}. Mucho rencor para tan poco saldo.",
+                ["BountyNotFound"] = "Nadie en la isla se llama '{0}'. Para odiar a alguien, primero apréndete su nombre.",
+                ["BountyAmbiguous"] = "Hay {0} jugadores con '{1}' en el nombre. Escribe más, que esto no es una rifa.",
                 ["BountyClosed"] = "Las recompensas por cabeza están cerradas.",
                 ["BountyFailed"] = "Algo ha fallado con los Puntos de Chola y no se ha puesto nada. Prueba otra vez.",
                 ["BountyPlaced"] = "<color=#e0a526>{0}</color> ha puesto <color=#e0a526>{1}</color> por la cabellera de <color=#e0662f>{2}</color>. Quien lo mate, se lo lleva. Se busca, vivo o calvo.",
-                ["BountyRaised"] = "<color=#e0a526>{0}</color> añade <color=#e0a526>{1}</color> por la cabellera de <color=#e0662f>{2}</color>: el bote ya va por <color=#e0a526>{3}</color>. Esa melena cotiza al alza.",
+                ["BountyRaisedV2"] = "<color=#e0a526>{0}</color> añade <color=#e0a526>{1}</color> por la cabellera de <color=#e0662f>{2}</color>: el bote ya va por <color=#e0a526>{3}</color>. Cotiza al alza.",
                 ["BountyClaimed"] = "<color=#e0a526>{0}</color> se cobra la cabellera de <color=#e0662f>{1}</color> y se lleva <color=#e0a526>{2}</color>. Rapado y pagado.",
                 ["BountyListEmpty"] = "Ninguna cabellera tiene precio. O hay paz en la isla, o nadie tiene un Punto de Chola.",
                 ["BountyPriceShort"] = "{0} PdC",
@@ -1232,8 +1260,8 @@ namespace Oxide.Plugins
                 ["AdminBountyRemoved"] = "Anulado el precio por la cabellera de {0} ({1}).",
                 ["AdminBountyNone"] = "Nadie ha puesto precio a la cabellera de {0}.",
                 ["CalvoDelDiaName"] = "Calvo del Día",
-                ["CalvoDelDiaChatV2"] = "<color=#e0a526>{0}</color> es el <color=#e0a526>CALVO DEL DÍA</color>: +{1} de alopecia desde la última elección. Respetad su autoridad capilar: hasta mañana, su frente es ley.",
-                ["CalvoDelDiaBanner"] = "¡{0} es el CALVO DEL DÍA! Su frente es ley.",
+                ["CalvoDelDiaChatV3"] = "<color=#e0a526>{0}</color> es el <color=#e0a526>CALVO DEL DÍA</color>: +{1} de alopecia desde la última elección. Hasta mañana, se le habla de usted.",
+                ["CalvoDelDiaBannerV2"] = "¡{0} es el CALVO DEL DÍA! Firma autógrafos en la calva.",
                 ["CalvoDelDiaMenu"] = "Calvo del Día: <color=#e0a526>{0}</color> (+{1})",
                 ["CalvoDelDiaPrize"] = "<color=#e0a526>Premio de Calvo del Día:</color> {0}. Que no se te suba a la cabeza, que ahí arriba ya no queda nada.",
                 ["CalvoDelDiaPrizeItems"] = "<color=#e0a526>Premio de Calvo del Día:</color> ya lo tienes en el inventario (o a tus pies, si no te cabe).",
@@ -1328,6 +1356,12 @@ namespace Oxide.Plugins
 
         private void OnServerInitialized()
         {
+            serverReady = true;
+            if (storedData.PendingWipeHook != 0)
+            {
+                timer.Once(WipeHookDelaySeconds, DeliverPendingWipeHook);
+            }
+
             foreach (BasePlayer player in BasePlayer.activePlayerList)
             {
                 if (IsRealPlayer(player))
@@ -1434,49 +1468,7 @@ namespace Oxide.Plugins
                 return;
             }
 
-            // The hall of fame keeps the finished map's numbers, so it goes first, before any reset.
-            if (config.HallOfFame.Enabled)
-            {
-                HallEntry entry = SaveHallEntry(false);
-                if (entry != null && entry.Podium.Count > 0 && config.HallOfFame.AnnounceWinner)
-                {
-                    // Nobody is connected while the server boots: announced when the first player wakes up.
-                    storedData.PendingWipeAnnouncement = entry.Number;
-                }
-            }
-
-            foreach (PlayerData data in storedData.Players.Values)
-            {
-                data.WipeKills = 0;
-                data.WipeDeaths = 0;
-            }
-
-            dataDirty = true;
-            if (!config.ResetBaldnessOnWipe)
-            {
-                SaveData();
-                Puts("Map wipe detected: per-map kills and deaths reset (baldness kept).");
-                return;
-            }
-
-            foreach (PlayerData data in storedData.Players.Values)
-            {
-                data.Baldness = MinBaldness;
-                data.SurvivalSeconds = 0f;
-            }
-
-            // Everybody starts from 0, so the Calvo del Día measures gains from 0 too.
-            storedData.CalvoDelDia.Snapshot.Clear();
-            killCooldowns.Clear();
-            SaveData();
-
-            // Everybody is back to 0, so nobody keeps a title group (offline players too: groups work by id).
-            foreach (PlayerData data in storedData.Players.Values)
-            {
-                SyncTitleGroup(data);
-            }
-
-            Puts("Map wipe detected: baldness and per-map kills and deaths reset for all players (stats kept).");
+            CloseMap(false, "OnNewSave");
         }
 
         #endregion
@@ -1912,13 +1904,13 @@ namespace Oxide.Plugins
             List<KeyValuePair<ulong, PlayerData>> matches = FindStoredPlayers(query);
             if (matches.Count == 0)
             {
-                Reply(player, "PlayerNotFound", query);
+                Reply(player, "BountyNotFound", query);
                 return;
             }
 
             if (matches.Count > 1)
             {
-                Reply(player, "PlayerAmbiguous", matches.Count, query);
+                Reply(player, "BountyAmbiguous", matches.Count, query);
                 return;
             }
 
@@ -1933,7 +1925,7 @@ namespace Oxide.Plugins
             long balance = CheckRp(placer.Id);
             if (balance < amount)
             {
-                Reply(player, "BountyNoBalance", UnitText(true, balance, userId));
+                Reply(player, "BountyNoBalanceV2", UnitText(true, balance, userId));
                 return;
             }
 
@@ -1950,7 +1942,7 @@ namespace Oxide.Plugins
 
             if (total > amount)
             {
-                Broadcast("BountyRaised", placer.Name, UnitText(true, amount, null), target.Name, UnitText(true, total, null));
+                Broadcast("BountyRaisedV2", placer.Name, UnitText(true, amount, null), target.Name, UnitText(true, total, null));
             }
             else
             {
@@ -1989,7 +1981,7 @@ namespace Oxide.Plugins
 
             if (args.Length < 2)
             {
-                Reply(player, "AdminUsageV4");
+                Reply(player, "AdminUsageV5");
                 return;
             }
 
@@ -2039,7 +2031,7 @@ namespace Oxide.Plugins
             }
             else
             {
-                Reply(player, "AdminUsageV4");
+                Reply(player, "AdminUsageV5");
                 return;
             }
 
@@ -2058,8 +2050,10 @@ namespace Oxide.Plugins
 
             PlayerData target = matches[0].Value;
 
-            // Admin changes are silent: no global announcements.
+            // Admin changes are silent: no global announcements. Nor do they count for the Calvo del Día.
+            long before = target.Baldness;
             ChangeBaldness(target, value - target.Baldness, false, Lang("ReasonAdmin"));
+            ExcludeFromCalvoDelDia(target, before);
             Reply(player, action == "set" ? "AdminSetV2" : "AdminResetV2", target.Name, FormatBaldness(target.Baldness));
             Puts($"{player.displayName} ({player.UserIDString}) {action} baldness of {target.Name} ({matches[0].Key}) to {target.Baldness}.");
         }
@@ -2078,18 +2072,18 @@ namespace Oxide.Plugins
                     Reply(player, "DebugOff");
                     break;
                 default:
-                    Reply(player, "AdminUsageV4");
+                    Reply(player, "AdminUsageV5");
                     break;
             }
         }
 
-        // /calvoadmin salon guardar | /calvoadmin salon borrar <n>
+        // /calvoadmin salon guardar | /calvoadmin salon cerrar [forzar] | /calvoadmin salon borrar <n>
         private void AdminHall(BasePlayer player, string[] args)
         {
             switch (args[1].ToLowerInvariant())
             {
                 case "guardar":
-                    // Admin saves are not announced in chat, like every other admin change; other plugins still get the hook.
+                    // A snapshot: the map goes on. Not announced in chat, like every other admin change; other plugins still get the hook.
                     HallEntry saved = SaveHallEntry(true);
                     if (saved == null)
                     {
@@ -2097,13 +2091,30 @@ namespace Oxide.Plugins
                         return;
                     }
 
+                    CallHallHook(saved);
                     Reply(player, "AdminHallSaved", saved.Number);
                     Puts($"{player.displayName} ({player.UserIDString}) saved hall of fame entry #{saved.Number} by hand.");
+                    return;
+                case "cerrar":
+                    // The whole map close, for when OnNewSave did not arrive. Same repeat check, unless "forzar".
+                    bool force = args.Length > 2 && args[2].ToLowerInvariant() == "forzar";
+                    if (args.Length > 2 && !force)
+                    {
+                        Reply(player, "AdminHallUsageV2");
+                        return;
+                    }
+
+                    Puts($"{player.displayName} ({player.UserIDString}) closed the map by hand{(force ? " (forced)" : string.Empty)}.");
+                    foreach (string line in CloseMapReplies(CloseMap(force, "/calvoadmin salon cerrar"), player.UserIDString))
+                    {
+                        SendChat(player, line);
+                    }
+
                     return;
                 case "borrar":
                     if (args.Length < 3 || !int.TryParse(args[2].TrimStart('#'), NumberStyles.Integer, CultureInfo.InvariantCulture, out int number))
                     {
-                        Reply(player, "AdminHallUsage");
+                        Reply(player, "AdminHallUsageV2");
                         return;
                     }
 
@@ -2117,7 +2128,17 @@ namespace Oxide.Plugins
                     storedData.HallOfFame.Remove(entry);
                     if (storedData.PendingWipeAnnouncement == number)
                     {
-                        storedData.PendingWipeAnnouncement = 0;
+                        // Another entry of the same close (a repeated wipe before 1.8.2) keeps the announcement going.
+                        HallEntry other = storedData.HallOfFame
+                            .Where(e => !e.Manual && e.Podium.Count > 0 && Math.Abs((e.Date - entry.Date).TotalHours) < MapCloseRepeatHours)
+                            .OrderByDescending(e => e.Number)
+                            .FirstOrDefault();
+                        storedData.PendingWipeAnnouncement = other?.Number ?? 0;
+                    }
+
+                    if (storedData.PendingWipeHook == number)
+                    {
+                        storedData.PendingWipeHook = 0;
                     }
 
                     dataDirty = true;
@@ -2125,7 +2146,7 @@ namespace Oxide.Plugins
                     Puts($"{player.displayName} ({player.UserIDString}) deleted hall of fame entry #{number}.");
                     return;
                 default:
-                    Reply(player, "AdminHallUsage");
+                    Reply(player, "AdminHallUsageV2");
                     return;
             }
         }
@@ -2166,7 +2187,7 @@ namespace Oxide.Plugins
             Puts($"{player.displayName} ({player.UserIDString}) removed the bounty on {target.Name} ({target.Id}): {total} Puntos de Chola.");
         }
 
-        // /calvoadmin calvodeldia ahora: a full pick right now (for testing). The scheduled one still runs at its time.
+        // /calvoadmin calvodeldia ahora: a full pick right now. It counts as today's pick: the scheduled one waits until tomorrow.
         private void AdminCalvoDelDia(BasePlayer player, string mode)
         {
             if (mode.ToLowerInvariant() != "ahora")
@@ -2181,11 +2202,36 @@ namespace Oxide.Plugins
                 return;
             }
 
-            Puts($"{player.displayName} ({player.UserIDString}) forced the Calvo del Día pick.");
+            // It is today's pick: the scheduled one does not run again today (no second prize).
+            storedData.CalvoDelDia.LastPickDate = TodayKey();
+            dataDirty = true;
+            Puts($"{player.displayName} ({player.UserIDString}) forced the Calvo del Día pick (it counts as today's).");
             if (PickCalvoDelDia() == null)
             {
                 Reply(player, "AdminCalvoDelDiaNone");
             }
+        }
+
+        // isla.salon cerrar [forzar]: "/calvoadmin salon cerrar" from the server console or RCON. Replies in the console.
+        [ConsoleCommand("isla.salon")]
+        private void CcmdIslaSalon(ConsoleSystem.Arg arg)
+        {
+            // A player's client always has a connection; the server console and RCON do not.
+            if (arg.Connection != null)
+            {
+                return;
+            }
+
+            string[] args = MenuArgs(arg);
+            bool force = args.Length == 2 && args[1].ToLowerInvariant() == "forzar";
+            if (args.Length == 0 || args.Length > 2 || args[0].ToLowerInvariant() != "cerrar" || (args.Length == 2 && !force))
+            {
+                arg.ReplyWith(Lang("AdminHallCloseUsage"));
+                return;
+            }
+
+            Puts($"Map closed by hand from the console{(force ? " (forced)" : string.Empty)}.");
+            arg.ReplyWith(string.Join("\n", CloseMapReplies(CloseMap(force, "isla.salon cerrar"), null).ToArray()));
         }
 
         // Server console and RCON only (Jano's weekly report): every player as one line of JSON.
@@ -2387,8 +2433,8 @@ namespace Oxide.Plugins
             EndEvent(false);
         }
 
-        // For other plugins (JanoBridge): outcome is "killed", "survived", "died" or "escaped"; killerName is empty unless killed.
-        // An admin stopping the event with /calvoadmin evento parar does not call it.
+        // For other plugins (JanoBridge): outcome is "killed", "survived", "died", "escaped" or "stopped" (an admin stopped it
+        // with /calvoadmin evento parar); killerName is empty unless killed.
         private static void CallHuntEnded(ulong targetId, string targetName, string outcome, string killerName) =>
             Interface.CallHook("OnIslaHuntEnded", targetId, targetName ?? string.Empty, outcome, killerName ?? string.Empty);
 
@@ -2410,8 +2456,15 @@ namespace Oxide.Plugins
                         return;
                     }
 
+                    GlobalEvent stopped = activeEvent;
+                    ulong huntTarget = huntTargetId;
                     BroadcastEvent("EventStoppedByAdminV2", EventName(activeEvent));
                     EndEvent(false);
+                    if (stopped == GlobalEvent.HairiestHunt && huntTarget != 0UL)
+                    {
+                        CallHuntEnded(huntTarget, storedData.Players.TryGetValue(huntTarget, out PlayerData target) ? target.Name : null, "stopped", null);
+                    }
+
                     return;
                 default:
                     Reply(player, "AdminEventUsageV3");
@@ -2473,7 +2526,7 @@ namespace Oxide.Plugins
             if (IsRealPlayer(player))
             {
                 DrawCounter(player);
-                AnnounceWipeWinner();
+                AnnounceWipeWinner(player);
             }
         }
 
@@ -3197,7 +3250,7 @@ namespace Oxide.Plugins
                 HallEntry entry = entries[index];
                 float y1 = 0.79f - i * (blockHeight + blockGap), y0 = y1 - blockHeight;
                 string block = AddPanel(ui, window, ColorCard, Anchor(0.03f, y0), Anchor(0.97f, y1));
-                AddText(ui, block, Lang("HallMapClosed", userId, FormatDate(entry.Date)), 13, TextAnchor.MiddleLeft, "0.015 0.8", "0.8 0.98", ColorScalp);
+                AddText(ui, block, Lang(entry.Manual ? "HallSnapshot" : "HallMapClosed", userId, FormatDate(entry.Date)), 13, TextAnchor.MiddleLeft, "0.015 0.8", "0.8 0.98", ColorScalp);
                 AddText(ui, block, Lang("HallNumber", userId, entry.Number), 11, TextAnchor.MiddleRight, "0.8 0.8", "0.985 0.98", ColorMuted);
 
                 for (int place = 0; place < entry.Podium.Count && place < PodiumColors.Length; place++)
@@ -3217,7 +3270,8 @@ namespace Oxide.Plugins
 
                 if (entry.TopDeaths != null)
                 {
-                    AddText(ui, block, Lang("HallTopDeaths", userId, entry.TopDeaths.Name, FormatBaldness(entry.TopDeaths.Value)), 12, TextAnchor.MiddleLeft, "0.015 0.02", "0.985 0.2", ColorText);
+                    // The joke only on the newest entry, so it is not repeated in every block.
+                    AddText(ui, block, Lang(index == 0 ? "HallTopDeaths" : "HallTopDeathsPlain", userId, entry.TopDeaths.Name, FormatBaldness(entry.TopDeaths.Value)), 12, TextAnchor.MiddleLeft, "0.015 0.02", "0.985 0.2", ColorText);
                 }
             }
 
@@ -3494,8 +3548,11 @@ namespace Oxide.Plugins
                 return Lang("BarberExDoneSellV2", userId, FormatBaldness(baldness), priceText);
             }
 
-            // Bought baldness is not multiplied by events or the battery, and only pays tier prizes if the config says so.
+            // Bought baldness is not multiplied by events or the battery, only pays tier prizes if the config says so and
+            // does not count for the Calvo del Día.
+            long before = data.Baldness;
             ChangeBaldness(data, baldness, true, Lang("ReasonExchange"), true);
+            ExcludeFromCalvoDelDia(data, before);
             return Lang("BarberExDoneBuyV2", userId, FormatBaldness(baldness), priceText);
         }
 
@@ -3648,7 +3705,7 @@ namespace Oxide.Plugins
 
             if (ranking.Count == 0)
             {
-                AddText(ui, window, Lang("CalvarioRankingEmpty", userId), 16, TextAnchor.MiddleCenter, "0.03 0.4", "0.97 0.6", ColorText);
+                AddText(ui, window, Lang("CalvarioRankingEmptyV2", userId), 16, TextAnchor.MiddleCenter, "0.03 0.4", "0.97 0.6", ColorText);
                 return;
             }
 
@@ -3742,11 +3799,19 @@ namespace Oxide.Plugins
 
         #region Hall of Fame, Bounties and Calvo del Día
 
-        // Saves the current state as a hall of fame entry. Null (nothing saved) if nobody has alopecia or kills on this map.
+        // Saves the current state as a hall of fame entry. Null (nothing saved) if the map is empty: for a map close, nobody
+        // killed or died on it (alopecia is no sign of activity: without the wipe reset it never goes back to 0); for a
+        // snapshot by hand, nobody has alopecia or kills. The caller calls the hook.
         private HallEntry SaveHallEntry(bool manual)
         {
             List<PlayerData> players = storedData.Players.Values.Where(d => d != null).ToList();
-            if (!players.Any(d => d.Baldness > 0 || d.WipeKills > 0))
+            if (!manual && !players.Any(d => d.WipeKills > 0 || d.WipeDeaths > 0))
+            {
+                Puts("Hall of fame: nothing to save (nobody killed or died on this map).");
+                return null;
+            }
+
+            if (manual && !players.Any(d => d.Baldness > 0 || d.WipeKills > 0))
             {
                 Puts("Hall of fame: nothing to save (nobody has alopecia or kills on this map).");
                 return null;
@@ -3781,11 +3846,167 @@ namespace Oxide.Plugins
             }
 
             dataDirty = true;
-            Puts($"Hall of fame: entry #{entry.Number} saved ({(manual ? "by hand" : "map wipe")}).");
-
-            // For other plugins (JanoBridge): the saved entry as one line of JSON.
-            Interface.CallHook("OnIslaWipeHallOfFame", HallEntryJson(entry));
+            Puts($"Hall of fame: entry #{entry.Number} saved ({(manual ? "snapshot by hand" : "map close")}).");
             return entry;
+        }
+
+        // For other plugins (JanoBridge): the saved entry as one line of JSON.
+        private static void CallHallHook(HallEntry entry) => Interface.CallHook("OnIslaWipeHallOfFame", HallEntryJson(entry));
+
+        // False until OnServerInitialized: OnNewSave runs while the world loads, when nobody can hear the hook yet.
+        private bool serverReady;
+
+        private void DeliverPendingWipeHook()
+        {
+            int number = storedData.PendingWipeHook;
+            if (number == 0)
+            {
+                return;
+            }
+
+            storedData.PendingWipeHook = 0;
+            dataDirty = true;
+            HallEntry entry = storedData.HallOfFame.FirstOrDefault(e => e.Number == number);
+            if (entry != null)
+            {
+                CallHallHook(entry);
+            }
+        }
+
+        private class MapCloseResult
+        {
+            // Same wipe as the last close (LastClose): nothing was done.
+            public bool Skipped;
+            public DateTime LastClose;
+
+            // Hall of fame entry saved (null = none) and whether alopecia went back to 0.
+            public HallEntry Entry;
+            public bool Reset;
+        }
+
+        // The last map close: the stored time, or the newest entry saved by a close (data from before 1.8.2).
+        private DateTime LastMapCloseTime()
+        {
+            DateTime last = storedData.LastMapClose;
+            foreach (HallEntry entry in storedData.HallOfFame)
+            {
+                if (!entry.Manual && entry.Date > last)
+                {
+                    last = entry.Date;
+                }
+            }
+
+            return last;
+        }
+
+        // Everything a map wipe does: the hall of fame entry (with its announcement and hook), per-map kills and deaths to 0
+        // and, only if the config says so, alopecia to 0. Called by OnNewSave, "/calvoadmin salon cerrar" and "isla.salon
+        // cerrar". A second close within MapCloseRepeatHours is the same wipe and does nothing, unless forced.
+        private MapCloseResult CloseMap(bool force, string source)
+        {
+            var result = new MapCloseResult();
+            DateTime last = LastMapCloseTime();
+            if (!force && last != default(DateTime) && DateTime.Now - last < TimeSpan.FromHours(MapCloseRepeatHours))
+            {
+                result.Skipped = true;
+                result.LastClose = last;
+                PrintWarning($"Map close ({source}) ignored: the map was already closed on {last:yyyy-MM-dd HH:mm}, less than {MapCloseRepeatHours} hours ago (same wipe). Nothing saved, announced or reset.");
+                return result;
+            }
+
+            storedData.LastMapClose = DateTime.Now;
+
+            // A new map: the previous map's announcement is over.
+            storedData.PendingWipeAnnouncement = 0;
+            storedData.WipeAnnouncementSeen.Clear();
+            dataDirty = true;
+
+            // The hall of fame keeps the finished map's numbers, so it goes first, before any reset.
+            if (config.HallOfFame.Enabled)
+            {
+                HallEntry entry = SaveHallEntry(false);
+                result.Entry = entry;
+                if (entry != null)
+                {
+                    if (entry.Podium.Count > 0 && config.HallOfFame.AnnounceWinner)
+                    {
+                        // Each player gets it the first time they wake up on the new map.
+                        storedData.PendingWipeAnnouncement = entry.Number;
+                    }
+
+                    if (serverReady)
+                    {
+                        CallHallHook(entry);
+                    }
+                    else
+                    {
+                        storedData.PendingWipeHook = entry.Number;
+                    }
+                }
+            }
+
+            foreach (PlayerData data in storedData.Players.Values)
+            {
+                data.WipeKills = 0;
+                data.WipeDeaths = 0;
+            }
+
+            if (!config.ResetBaldnessOnWipe)
+            {
+                SaveData();
+                Puts($"Map closed ({source}): per-map kills and deaths reset (baldness kept).");
+                return result;
+            }
+
+            result.Reset = true;
+            foreach (PlayerData data in storedData.Players.Values)
+            {
+                data.Baldness = MinBaldness;
+                data.SurvivalSeconds = 0f;
+            }
+
+            // Everybody starts from 0, so the Calvo del Día measures gains from 0 too.
+            storedData.CalvoDelDia.Snapshot.Clear();
+            killCooldowns.Clear();
+            SaveData();
+
+            // Everybody is back to 0, so nobody keeps a title group (offline players too: groups work by id).
+            foreach (PlayerData data in storedData.Players.Values)
+            {
+                SyncTitleGroup(data);
+            }
+
+            // Online players see their counter at 0 right away (after a real wipe nobody is online yet).
+            foreach (BasePlayer player in BasePlayer.activePlayerList)
+            {
+                if (IsRealPlayer(player) && !player.IsSleeping())
+                {
+                    DrawCounter(player);
+                }
+            }
+
+            Puts($"Map closed ({source}): baldness and per-map kills and deaths reset for all players (stats kept).");
+            return result;
+        }
+
+        // Admin replies for a map close, for the chat (userId) or the console (null).
+        private List<string> CloseMapReplies(MapCloseResult result, string userId)
+        {
+            var lines = new List<string>();
+            if (result.Skipped)
+            {
+                lines.Add(Lang("AdminHallCloseRecent", userId, FormatDate(result.LastClose),
+                    result.LastClose.ToString("HH:mm", CultureInfo.InvariantCulture), MapCloseRepeatHours));
+                return lines;
+            }
+
+            lines.Add(result.Entry != null ? Lang("AdminHallClosed", userId, result.Entry.Number) : Lang("AdminHallClosedEmpty", userId));
+            if (result.Reset)
+            {
+                lines.Add(Lang("AdminHallClosedReset", userId));
+            }
+
+            return lines;
         }
 
         private static HallPlayer ToHallPlayer(PlayerData data, long value) =>
@@ -3804,33 +4025,30 @@ namespace Oxide.Plugins
                 : (object)new { id = entry.TopDeaths.Id.ToString(CultureInfo.InvariantCulture), name = entry.TopDeaths.Name ?? string.Empty, deaths = entry.TopDeaths.Value }
         }, Formatting.None);
 
-        private bool wipeAnnouncementQueued;
+        // Players whose announcement is waiting for its timer. In memory only.
+        private readonly HashSet<ulong> wipeAnnouncementQueued = new HashSet<ulong>();
 
-        // Called when a player wakes up: the first one after a wipe triggers the winner's announcement, once.
-        private void AnnounceWipeWinner()
+        // Called when a player wakes up: the first time after a map close, the finished map's winner in their own chat.
+        private void AnnounceWipeWinner(BasePlayer player)
         {
-            if (wipeAnnouncementQueued || storedData.PendingWipeAnnouncement == 0)
+            ulong id = (ulong)player.userID;
+            if (storedData.PendingWipeAnnouncement == 0 || storedData.WipeAnnouncementSeen.Contains(id) || !wipeAnnouncementQueued.Add(id))
             {
                 return;
             }
 
-            wipeAnnouncementQueued = true;
             timer.Once(WipeAnnouncementDelaySeconds, () =>
             {
-                wipeAnnouncementQueued = false;
+                wipeAnnouncementQueued.Remove(id);
                 int number = storedData.PendingWipeAnnouncement;
-                if (number == 0)
+                HallEntry entry = number == 0 ? null : storedData.HallOfFame.FirstOrDefault(e => e.Number == number);
+                if (entry == null || entry.Podium.Count == 0 || player == null || !player.IsConnected || !storedData.WipeAnnouncementSeen.Add(id))
                 {
                     return;
                 }
 
-                storedData.PendingWipeAnnouncement = 0;
                 dataDirty = true;
-                HallEntry entry = storedData.HallOfFame.FirstOrDefault(e => e.Number == number);
-                if (entry != null && entry.Podium.Count > 0)
-                {
-                    Broadcast("HallWipeWinner", entry.Podium[0].Name, FormatBaldness(entry.Podium[0].Value));
-                }
+                Reply(player, "HallWipeWinner", entry.Podium[0].Name, FormatBaldness(entry.Podium[0].Value));
             });
         }
 
@@ -3933,6 +4151,20 @@ namespace Oxide.Plugins
             }
         }
 
+        // Bought and admin alopecia do not count for the Calvo del Día, up or down: the player's snapshot moves with it.
+        private void ExcludeFromCalvoDelDia(PlayerData data, long before)
+        {
+            long delta = data.Baldness - before;
+            if (delta == 0)
+            {
+                return;
+            }
+
+            Dictionary<ulong, long> snapshot = storedData.CalvoDelDia.Snapshot;
+            snapshot[data.Id] = SaturatingAdd(snapshot.TryGetValue(data.Id, out long old) ? old : 0, delta);
+            dataDirty = true;
+        }
+
         // Alopecia of every player right now; only the players online now count as seen for the next pick.
         private void TakeCalvoDelDiaSnapshot(CalvoDelDiaData day)
         {
@@ -4002,8 +4234,8 @@ namespace Oxide.Plugins
                 return null;
             }
 
-            Broadcast("CalvoDelDiaChatV2", record.Name, FormatBaldness(record.Gained));
-            ShowBanner(Lang("CalvoDelDiaBanner", null, record.Name), config.Ui.TitleUpBannerSeconds);
+            Broadcast("CalvoDelDiaChatV3", record.Name, FormatBaldness(record.Gained));
+            ShowBanner(Lang("CalvoDelDiaBannerV2", null, record.Name), config.Ui.TitleUpBannerSeconds);
             PayCalvoDelDiaPrize(best);
             Interface.CallHook("OnIslaCalvoDelDia", record.Id, record.Name, record.Gained);
             Puts($"Calvo del Día: {record.Name} ({record.Id}), +{record.Gained} alopecia.");
