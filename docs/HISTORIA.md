@@ -484,9 +484,15 @@ Bases, `/info`, NPCs y el Gran Calvo Jano). En el repo cambiaron:
   - frases de Igor y TONO.md con la regla 7.
 - **1.6.9** (PR #25): RP → Puntos de Chola, monedas → pelones, tasa 1 = 25; TONO.md con
   vocabulario nuevo.
-- **1.7.0**: grupos de Oxide por título (ventajas que se pierden al bajar), objetos de
-  premio en silencio, mensaje propio por premio, cartel al bajar y hook
+- **1.7.0** (PR #27): grupos de Oxide por título (ventajas que se pierden al bajar),
+  objetos de premio en silencio, mensaje propio por premio, cartel al bajar y hook
   `OnIslaTitleChanged` para JanoBridge.
+- **1.8.0**: encargo de Jano, con prisa por el wipe forzado del jueves 1 de octubre:
+  - salón de la fama por wipe (podio, más kills y más muertes del mapa, con
+    `WipeKills`/`WipeDeaths`);
+  - recompensas por cabeza (`/cabeza`, `/cabezas`);
+  - Calvo del Día (21:00, grupo `calvodeldia`);
+  - hooks nuevos para JanoBridge y el comando de consola `isla.ranking`.
 
 ---
 
@@ -518,5 +524,9 @@ Bases, `/info`, NPCs y el Gran Calvo Jano). En el repo cambiaron:
    los admins.
 8. **Todo se ha probado solo contra imitaciones.** Cada versión hay que cargarla y mirar
    la consola (`Loaded plugin Isla de Calvos vX`).
-9. **El repo es público.** Hasta ahora no hay secretos en él. Hay que seguir sin meter
-   credenciales, IPs ni SteamIDs de jugadores en issues, PRs o documentos.
+9. **El salón de la fama depende de `OnNewSave`.** Solo le llega al plugin si compila y
+   carga al arrancar el servidor con el mapa nuevo. Si una actualización de Rust lo
+   rompe justo en el wipe forzado, la entrada hay que guardarla a mano
+   (`/calvoadmin salon guardar`).
+10. **El repo es público.** Hasta ahora no hay secretos en él. Hay que seguir sin meter
+    credenciales, IPs ni SteamIDs de jugadores en issues, PRs o documentos.

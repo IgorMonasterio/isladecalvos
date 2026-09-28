@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Isla de Calvos", "Igor Monasterio", "1.7.0")]
+    [Info("Isla de Calvos", "Igor Monasterio", "1.8.0")]
     [Description("Baldness system for the Isla de Calvos Rust server: being bald is glory, hair is a curse.")]
     public class IslaDeCalvos : RustPlugin
     {
@@ -19,7 +19,12 @@ namespace Oxide.Plugins
         private const string PermAdmin = "isladecalvos.admin";
         private const long MinBaldness = 0;
         private const int RankingPageSize = 10;
+        private const int HallPageSize = 3;
         private const float SurvivalTickSeconds = 60f;
+        private const float CalvoDelDiaCheckSeconds = 60f;
+
+        // The wipe winner is announced this long after the first player wakes up, so the chat is already on screen.
+        private const float WipeAnnouncementDelaySeconds = 5f;
 
         // Never title groups: the plugin only touches the groups listed in "Title groups".
         private static readonly HashSet<string> ProtectedGroups = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "*", "default", "admin" };
@@ -72,6 +77,10 @@ namespace Oxide.Plugins
         // Barber shop: Calvario NPC ids (HumanNPC) and the NPC each player last talked to. In memory only.
         private HashSet<ulong> calvarioNpcIds;
         private readonly Dictionary<ulong, BasePlayer> calvarioNpcInUse = new Dictionary<ulong, BasePlayer>();
+
+        // Calvo del Día: pick time in minutes after midnight (server time) and its Oxide group (null = no group). From the config.
+        private int calvoDelDiaMinutes;
+        private string calvoDelDiaGroup;
 
         private class WoundRecord
         {
@@ -209,6 +218,45 @@ namespace Oxide.Plugins
 
             [JsonProperty("Baldness exchange (El Calvario)")]
             public ExchangeConfig Exchange = new ExchangeConfig();
+
+            [JsonProperty("Hall of fame (one entry per map wipe)")]
+            public HallOfFameConfig HallOfFame = new HallOfFameConfig();
+
+            [JsonProperty("Bounties (/cabeza)")]
+            public BountyConfig Bounties = new BountyConfig();
+
+            [JsonProperty("Calvo del Día (top alopecia gainer of the last 24 h)")]
+            public CalvoDelDiaConfig CalvoDelDia = new CalvoDelDiaConfig();
+        }
+
+        // Saved on every map wipe (OnNewSave), before anything is reset, even with "Reset baldness on map wipe" off.
+        private class HallOfFameConfig
+        {
+            [JsonProperty("Enabled")] public bool Enabled = true;
+            [JsonProperty("Max entries kept (0 = no limit)")] public int MaxEntries = 0;
+            [JsonProperty("Announce the winner in chat after the wipe")] public bool AnnounceWinner = true;
+        }
+
+        // Puntos de Chola on a player's head: charged at once, never refunded, paid whole to the PvP killer.
+        private class BountyConfig
+        {
+            [JsonProperty("Enabled")] public bool Enabled = true;
+            [JsonProperty("Minimum amount (Puntos de Chola)")] public long MinAmount = 10;
+            [JsonProperty("Not paid if the victim was sleeping or disconnected")] public bool NotOnSleepers = true;
+        }
+
+        private class CalvoDelDiaConfig
+        {
+            [JsonProperty("Enabled")] public bool Enabled = true;
+            [JsonProperty("Pick time (server time, HH:mm)")] public string PickTime = "21:00";
+
+            // Only the current Calvo del Día is in it. Empty = no group.
+            [JsonProperty("Oxide group")] public string Group = "calvodeldia";
+
+            [JsonProperty("History entries kept")] public int HistorySize = 30;
+
+            // Same shape as the tier prizes; all zero by default.
+            [JsonProperty("Prize")] public TierPrize Prize = new TierPrize();
         }
 
         // El Calvario opens from a HumanNPC at the barber shop; /calvos only shows the ranking.
@@ -728,6 +776,52 @@ namespace Oxide.Plugins
 
             disabledNpcs = new HashSet<string>(config.DisabledNpcs.Where(p => !string.IsNullOrEmpty(p)), StringComparer.OrdinalIgnoreCase);
             sharedRewardTargets = new HashSet<string>(config.SharedRewardTargets.Where(p => !string.IsNullOrEmpty(p)), StringComparer.OrdinalIgnoreCase);
+
+            if (config.HallOfFame == null) config.HallOfFame = new HallOfFameConfig();
+            config.HallOfFame.MaxEntries = Math.Max(0, config.HallOfFame.MaxEntries);
+
+            if (config.Bounties == null) config.Bounties = new BountyConfig();
+            config.Bounties.MinAmount = Math.Max(1, config.Bounties.MinAmount);
+
+            if (config.CalvoDelDia == null) config.CalvoDelDia = new CalvoDelDiaConfig();
+            CalvoDelDiaConfig day = config.CalvoDelDia;
+            day.HistorySize = Math.Max(1, day.HistorySize);
+            if (day.Prize == null) day.Prize = new TierPrize();
+            if (!TryParseClock(day.PickTime, out calvoDelDiaMinutes))
+            {
+                PrintWarning($"Calvo del Día: '{day.PickTime}' is not a time (HH:mm); using 21:00.");
+                day.PickTime = "21:00";
+                calvoDelDiaMinutes = 21 * 60;
+            }
+
+            calvoDelDiaGroup = day.Group?.Trim();
+            if (string.IsNullOrEmpty(calvoDelDiaGroup))
+            {
+                calvoDelDiaGroup = null;
+            }
+            else if (ProtectedGroups.Contains(calvoDelDiaGroup) || titleGroups.Values.Contains(calvoDelDiaGroup, StringComparer.OrdinalIgnoreCase))
+            {
+                // A title group would be emptied by SyncTitleGroup, and the protected ones must never be touched.
+                PrintWarning($"Calvo del Día: '{calvoDelDiaGroup}' cannot be its group (protected or a title group); no group is used.");
+                calvoDelDiaGroup = null;
+            }
+        }
+
+        // "21:00" -> 1260 minutes after midnight. Hours 0-23, minutes 0-59.
+        private static bool TryParseClock(string text, out int minutes)
+        {
+            minutes = 0;
+            string[] parts = (text ?? string.Empty).Trim().Split(':');
+            if (parts.Length != 2
+                || !int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out int hours)
+                || !int.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out int mins)
+                || hours < 0 || hours > 23 || mins < 0 || mins > 59)
+            {
+                return false;
+            }
+
+            minutes = hours * 60 + mins;
+            return true;
         }
 
         #endregion
@@ -738,6 +832,77 @@ namespace Oxide.Plugins
         {
             [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
             public Dictionary<ulong, PlayerData> Players = new Dictionary<ulong, PlayerData>();
+
+            // Hall of fame, oldest entry first. Numbers are never reused, so "/calvoadmin salon borrar <n>" is stable.
+            [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
+            public List<HallEntry> HallOfFame = new List<HallEntry>();
+
+            public int HallNextNumber = 1;
+
+            // Entry whose winner is announced when the first player wakes up after the wipe (0 = nothing pending).
+            public int PendingWipeAnnouncement;
+
+            // Puntos de Chola on each player's head. Kept across wipes; only a PvP kill or an admin removes them.
+            [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
+            public Dictionary<ulong, long> Bounties = new Dictionary<ulong, long>();
+
+            public CalvoDelDiaData CalvoDelDia = new CalvoDelDiaData();
+        }
+
+        private class HallEntry
+        {
+            public int Number;
+
+            // Server time when the entry was saved.
+            public DateTime Date;
+
+            // Saved with "/calvoadmin salon guardar" instead of by a wipe.
+            public bool Manual;
+
+            // Top 3 by alopecia (Value = alopecia).
+            [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
+            public List<HallPlayer> Podium = new List<HallPlayer>();
+
+            // Most kills and most deaths of that map (Value = count); null if nobody had any.
+            public HallPlayer TopKiller;
+            public HallPlayer TopDeaths;
+        }
+
+        private class HallPlayer
+        {
+            public ulong Id;
+            public string Name = string.Empty;
+            public long Value;
+        }
+
+        private class CalvoDelDiaData
+        {
+            // Server date (yyyy-MM-dd) of the last scheduled pick, so it runs once a day and not again after a restart.
+            public string LastPickDate = string.Empty;
+
+            // Alopecia of every player at the last pick; the next pick measures gains against it. Never taken = default.
+            public DateTime SnapshotTime;
+
+            [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
+            public Dictionary<ulong, long> Snapshot = new Dictionary<ulong, long>();
+
+            // Players connected at some point since the snapshot: only they can be picked.
+            [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
+            public HashSet<ulong> Seen = new HashSet<ulong>();
+
+            // Current Calvo del Día (0 = none); their record is the last one in History.
+            public ulong CurrentId;
+
+            [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
+            public List<CalvoDelDiaRecord> History = new List<CalvoDelDiaRecord>();
+        }
+
+        private class CalvoDelDiaRecord
+        {
+            public DateTime Date;
+            public ulong Id;
+            public string Name = string.Empty;
+            public long Gained;
         }
 
         private class PlayerData
@@ -751,6 +916,10 @@ namespace Oxide.Plugins
             public int Kills;
             public int Deaths;
             public int HeadshotKills;
+
+            // Kills and deaths on the current map only: they go up with Kills/Deaths and back to 0 on every wipe.
+            public int WipeKills;
+            public int WipeDeaths;
 
             // El Calvario: duct tape shield, delivered ID tag colors and completed collections.
             public bool HasDeathShield;
@@ -798,6 +967,26 @@ namespace Oxide.Plugins
             {
                 entry.Value.Id = entry.Key;
             }
+
+            if (storedData.HallOfFame == null) storedData.HallOfFame = new List<HallEntry>();
+            storedData.HallOfFame.RemoveAll(e => e == null);
+            foreach (HallEntry entry in storedData.HallOfFame)
+            {
+                if (entry.Podium == null) entry.Podium = new List<HallPlayer>();
+                entry.Podium.RemoveAll(p => p == null);
+            }
+
+            int lastNumber = storedData.HallOfFame.Count > 0 ? storedData.HallOfFame.Max(e => e.Number) : 0;
+            storedData.HallNextNumber = Math.Max(storedData.HallNextNumber, lastNumber + 1);
+
+            if (storedData.Bounties == null) storedData.Bounties = new Dictionary<ulong, long>();
+            if (storedData.CalvoDelDia == null) storedData.CalvoDelDia = new CalvoDelDiaData();
+            CalvoDelDiaData day = storedData.CalvoDelDia;
+            if (day.LastPickDate == null) day.LastPickDate = string.Empty;
+            if (day.Snapshot == null) day.Snapshot = new Dictionary<ulong, long>();
+            if (day.Seen == null) day.Seen = new HashSet<ulong>();
+            if (day.History == null) day.History = new List<CalvoDelDiaRecord>();
+            day.History.RemoveAll(r => r == null);
         }
 
         private void SaveData()
@@ -899,7 +1088,9 @@ namespace Oxide.Plugins
                 ["CalvarioYouV3"] = "Tu alopecia: <color=#e0a526>{0}</color>  —  {1}",
                 ["CalvarioNextV3"] = "Hacia <color=#e0a526>{0}</color>: te faltan {1}. Sigue matando, que no se pela solo.",
                 ["CalvarioTop"] = "Cima capilar alcanzada. Ya no queda nada que arrancar.",
-                ["CalvarioTabRanking"] = "SALÓN DE LA FAMA CALVA",
+                ["CalvarioTabRankingV2"] = "RANKING",
+                ["CalvarioTabHall"] = "SALÓN DE LA FAMA",
+                ["CalvarioTabBounties"] = "CABEZAS",
                 ["CalvarioClose"] = "X",
                 ["CalvarioShieldOn"] = "Cinta puesta. Tu calva sobrevive a la próxima muerte.",
                 ["CalvarioBatteryOn"] = "Maquinilla zumbando: quedan {0} min.",
@@ -953,7 +1144,7 @@ namespace Oxide.Plugins
                 ["TitleUpV3"] = "<color=#e0a526>{0}</color> asciende a <color=#e0a526>{1}</color>. Su peluquero ya ha pedido el paro.",
                 ["TitleDropV2"] = "<color=#e0662f>A {0} le está saliendo pelo</color> (ahora es {1})",
                 ["NoPermissionV4"] = "No tienes permiso para usar este comando. Buen intento, figura.",
-                ["AdminUsageV3"] = "Uso: /calvoadmin set <jugador> <valor> | /calvoadmin reset <jugador> | /calvoadmin debug on|off | /calvoadmin evento <hora|champu|peludo|alopecia|parar>",
+                ["AdminUsageV4"] = "Uso: /calvoadmin set <jugador> <valor> | /calvoadmin reset <jugador> | /calvoadmin debug on|off | /calvoadmin evento <hora|champu|peludo|alopecia|parar> | /calvoadmin salon guardar|borrar <n> | /calvoadmin cabeza quitar <jugador> | /calvoadmin calvodeldia ahora",
                 ["AdminInvalidValue"] = "El valor tiene que ser un número entero igual o mayor que {0}.",
                 ["PlayerNotFound"] = "No se ha encontrado ningún jugador con '{0}'.",
                 ["PlayerAmbiguous"] = "Hay {0} jugadores que coinciden con '{1}'. Sé más concreto o usa el SteamID.",
@@ -1009,6 +1200,46 @@ namespace Oxide.Plugins
                 ["AdminEventCannotStart"] = "No se puede lanzar {0} ahora (¿pocos jugadores conectados o desactivado en la config?).",
                 ["AdminEventNone"] = "No hay ningún evento en marcha.",
                 ["BatteryTag"] = " [pila x{0}]",
+                ["HallEmpty"] = "Aún no se ha cerrado ningún mapa. El primero entra con el próximo wipe: ve puliendo la frente.",
+                ["HallMapClosed"] = "Mapa cerrado el {0}",
+                ["HallNumber"] = "#{0}",
+                ["HallPodiumPlace"] = "{0}º  {1}",
+                ["HallTopKiller"] = "Más kills: <color=#e0a526>{0}</color> ({1})",
+                ["HallTopDeaths"] = "Más muertes: <color=#e0662f>{0}</color> ({1}). Con tanto morir, ya puede hacerse trenzas.",
+                ["HallWipeWinner"] = "<color=#e0a526>{0}</color> se lleva el mapa con <color=#e0a526>{1}</color> de alopecia (el podio, en el Salón de la fama de <color=#e0a526>/calvos</color>). Frente soberana.",
+                ["AdminHallUsage"] = "Uso: /calvoadmin salon guardar | /calvoadmin salon borrar <n>",
+                ["AdminHallSaved"] = "Entrada #{0} guardada en el Salón de la fama.",
+                ["AdminHallNothing"] = "No se ha guardado nada: nadie tiene alopecia ni kills en este mapa.",
+                ["AdminHallDeleted"] = "Entrada #{0} ({1}) borrada del Salón de la fama.",
+                ["AdminHallNotFound"] = "No hay ninguna entrada #{0} en el Salón de la fama.",
+                ["BountyUsage"] = "Uso: <color=#e0a526>/cabeza <jugador> <cantidad></color> (mínimo {0}). Lo que pones no se devuelve.",
+                ["BountyTooLow"] = "El mínimo son {0}. Con menos no le cortas ni las patillas.",
+                ["BountySelf"] = "No puedes poner precio a tu propia cabellera, por mucho que te sobre.",
+                ["BountyNoBalance"] = "No te llega: tienes {0}. Ni para una peluca de segunda mano.",
+                ["BountyClosed"] = "Las recompensas por cabeza están cerradas.",
+                ["BountyFailed"] = "Algo ha fallado con los Puntos de Chola y no se ha puesto nada. Prueba otra vez.",
+                ["BountyPlaced"] = "<color=#e0a526>{0}</color> ha puesto <color=#e0a526>{1}</color> por la cabellera de <color=#e0662f>{2}</color>. Quien lo mate, se lo lleva. Se busca, vivo o calvo.",
+                ["BountyRaised"] = "<color=#e0a526>{0}</color> añade <color=#e0a526>{1}</color> por la cabellera de <color=#e0662f>{2}</color>: el bote ya va por <color=#e0a526>{3}</color>. Esa melena cotiza al alza.",
+                ["BountyClaimed"] = "<color=#e0a526>{0}</color> se cobra la cabellera de <color=#e0662f>{1}</color> y se lleva <color=#e0a526>{2}</color>. Rapado y pagado.",
+                ["BountyListEmpty"] = "Ninguna cabellera tiene precio. O hay paz en la isla, o nadie tiene un Punto de Chola.",
+                ["BountyPriceShort"] = "{0} PdC",
+                ["BountyMenuHint"] = "Pon precio con <color=#e0a526>/cabeza <jugador> <cantidad></color>: se lo lleva quien lo mate en PvP. Lo que pones no se devuelve.",
+                ["BountyMenuYou"] = "Por tu cabellera dan <color=#e0662f>{0}</color>. Con esa calva se te ve desde la otra punta de la isla.",
+                ["DebugBountyNoClaim"] = "[debug] {0}: sin cobrar la cabellera de {1} · {2}",
+                ["NoBountyTeam"] = "es de su equipo",
+                ["NoBountySleeper"] = "víctima dormida o desconectada",
+                ["AdminBountyUsage"] = "Uso: /calvoadmin cabeza quitar <jugador>",
+                ["AdminBountyRemoved"] = "Anulado el precio por la cabellera de {0} ({1}).",
+                ["AdminBountyNone"] = "Nadie ha puesto precio a la cabellera de {0}.",
+                ["CalvoDelDiaName"] = "Calvo del Día",
+                ["CalvoDelDiaChat"] = "<color=#e0a526>{0}</color> es el <color=#e0a526>CALVO DEL DÍA</color>: +{1} de alopecia en 24 horas. Respetad su autoridad capilar: hasta mañana, su frente es ley.",
+                ["CalvoDelDiaBanner"] = "¡{0} es el CALVO DEL DÍA! Su frente es ley.",
+                ["CalvoDelDiaMenu"] = "Calvo del Día: <color=#e0a526>{0}</color> (+{1})",
+                ["CalvoDelDiaPrize"] = "<color=#e0a526>Premio de Calvo del Día:</color> {0}. Que no se te suba a la cabeza, que ahí arriba ya no queda nada.",
+                ["CalvoDelDiaPrizeItems"] = "<color=#e0a526>Premio de Calvo del Día:</color> ya lo tienes en el inventario (o a tus pies, si no te cabe).",
+                ["AdminCalvoDelDiaUsage"] = "Uso: /calvoadmin calvodeldia ahora",
+                ["AdminCalvoDelDiaOff"] = "El Calvo del Día está desactivado en la config.",
+                ["AdminCalvoDelDiaNone"] = "Nadie ha ganado alopecia desde la última elección: no hay Calvo del Día.",
                 ["HudCounterV3"] = "<size=11><color=#9a9288>ALOPECIA</color></size>  <color=#e0a526>{0}</color>\n<size=10><color=#d8d8d8>{1}</color></size>"
             };
 
@@ -1138,6 +1369,12 @@ namespace Oxide.Plugins
                     }
                 }
             }
+
+            if (config.CalvoDelDia.Enabled)
+            {
+                InitCalvoDelDia();
+                timer.Every(CalvoDelDiaCheckSeconds, CheckCalvoDelDia);
+            }
         }
 
         private void OnPluginLoaded(Plugin plugin)
@@ -1187,8 +1424,33 @@ namespace Oxide.Plugins
 
         private void OnNewSave(string filename)
         {
-            if (!config.ResetBaldnessOnWipe || storedData == null)
+            if (storedData == null)
             {
+                return;
+            }
+
+            // The hall of fame keeps the finished map's numbers, so it goes first, before any reset.
+            if (config.HallOfFame.Enabled)
+            {
+                HallEntry entry = SaveHallEntry(false);
+                if (entry != null && entry.Podium.Count > 0 && config.HallOfFame.AnnounceWinner)
+                {
+                    // Nobody is connected while the server boots: announced when the first player wakes up.
+                    storedData.PendingWipeAnnouncement = entry.Number;
+                }
+            }
+
+            foreach (PlayerData data in storedData.Players.Values)
+            {
+                data.WipeKills = 0;
+                data.WipeDeaths = 0;
+            }
+
+            dataDirty = true;
+            if (!config.ResetBaldnessOnWipe)
+            {
+                SaveData();
+                Puts("Map wipe detected: per-map kills and deaths reset (baldness kept).");
                 return;
             }
 
@@ -1198,8 +1460,9 @@ namespace Oxide.Plugins
                 data.SurvivalSeconds = 0f;
             }
 
+            // Everybody starts from 0, so the Calvo del Día measures gains from 0 too.
+            storedData.CalvoDelDia.Snapshot.Clear();
             killCooldowns.Clear();
-            dataDirty = true;
             SaveData();
 
             // Everybody is back to 0, so nobody keeps a title group (offline players too: groups work by id).
@@ -1208,7 +1471,7 @@ namespace Oxide.Plugins
                 SyncTitleGroup(data);
             }
 
-            Puts("Map wipe detected: baldness reset for all players (stats kept).");
+            Puts("Map wipe detected: baldness and per-map kills and deaths reset for all players (stats kept).");
         }
 
         #endregion
@@ -1219,7 +1482,9 @@ namespace Oxide.Plugins
         {
             if (IsRealPlayer(player))
             {
-                SyncTitleGroup(GetOrCreateData(player));
+                PlayerData data = GetOrCreateData(player);
+                SyncTitleGroup(data);
+                MarkSeenForCalvoDelDia(data.Id);
             }
         }
 
@@ -1279,6 +1544,7 @@ namespace Oxide.Plugins
 
             PlayerData victimData = GetOrCreateData(victim);
             victimData.Deaths++;
+            victimData.WipeDeaths++;
             victimData.SurvivalSeconds = 0f;
             victimData.SurvivalMoved = false;
             dataDirty = true;
@@ -1323,12 +1589,16 @@ namespace Oxide.Plugins
 
             PlayerData killerData = GetOrCreateData(killer);
             killerData.Kills++;
+            killerData.WipeKills++;
             if (headshot)
             {
                 killerData.HeadshotKills++;
             }
 
             dataDirty = true;
+
+            // Independent of the kill cooldown: a bounty is paid once and then it is gone.
+            TryClaimBounty(killer, killerData, victim, victimData);
 
             if (!IsKillRewardable(killerData, (ulong)killer.userID, victim, victimData.Name))
             {
@@ -1600,8 +1870,107 @@ namespace Oxide.Plugins
         {
             if (IsRealPlayer(player))
             {
-                OpenRanking(player, 0);
+                OpenCalvos(player, MenuTab.Ranking, 0);
             }
+        }
+
+        // /cabeza <player> <amount>: the amount is the last word, so names with spaces work without quotes.
+        [ChatCommand("cabeza")]
+        private void CmdCabeza(BasePlayer player, string command, string[] args)
+        {
+            if (!IsRealPlayer(player))
+            {
+                return;
+            }
+
+            BountyConfig bounties = config.Bounties;
+            string userId = player.UserIDString;
+            if (!bounties.Enabled || !RpAvailable)
+            {
+                Reply(player, "BountyClosed");
+                return;
+            }
+
+            if (args.Length < 2 || !long.TryParse(args[args.Length - 1].Replace(".", string.Empty), NumberStyles.Integer, CultureInfo.InvariantCulture, out long amount) || amount <= 0)
+            {
+                Reply(player, "BountyUsage", UnitText(true, bounties.MinAmount, userId));
+                return;
+            }
+
+            if (amount < bounties.MinAmount)
+            {
+                Reply(player, "BountyTooLow", UnitText(true, bounties.MinAmount, userId));
+                return;
+            }
+
+            string query = string.Join(" ", args, 0, args.Length - 1);
+            List<KeyValuePair<ulong, PlayerData>> matches = FindStoredPlayers(query);
+            if (matches.Count == 0)
+            {
+                Reply(player, "PlayerNotFound", query);
+                return;
+            }
+
+            if (matches.Count > 1)
+            {
+                Reply(player, "PlayerAmbiguous", matches.Count, query);
+                return;
+            }
+
+            PlayerData placer = GetOrCreateData(player);
+            PlayerData target = matches[0].Value;
+            if (target.Id == placer.Id)
+            {
+                Reply(player, "BountySelf");
+                return;
+            }
+
+            long balance = CheckRp(placer.Id);
+            if (balance < amount)
+            {
+                Reply(player, "BountyNoBalance", UnitText(true, balance, userId));
+                return;
+            }
+
+            // Charged first; the bounty only goes up if Server Rewards took the points.
+            if (!TakeRp(placer.Id, amount))
+            {
+                Reply(player, "BountyFailed");
+                return;
+            }
+
+            long total = SaturatingAdd(storedData.Bounties.TryGetValue(target.Id, out long previous) ? previous : 0, amount);
+            storedData.Bounties[target.Id] = total;
+            dataDirty = true;
+
+            if (total > amount)
+            {
+                Broadcast("BountyRaised", placer.Name, UnitText(true, amount, null), target.Name, UnitText(true, total, null));
+            }
+            else
+            {
+                Broadcast("BountyPlaced", placer.Name, UnitText(true, amount, null), target.Name);
+            }
+
+            Interface.CallHook("OnIslaBountyPlaced", placer.Id, placer.Name ?? string.Empty, target.Id, target.Name ?? string.Empty, amount, total);
+            Puts($"Bounty: {placer.Name} ({placer.Id}) put {amount} Puntos de Chola on {target.Name} ({target.Id}); total {total}.");
+        }
+
+        [ChatCommand("cabezas")]
+        private void CmdCabezas(BasePlayer player, string command, string[] args)
+        {
+            if (!IsRealPlayer(player))
+            {
+                return;
+            }
+
+            if (!config.Bounties.Enabled)
+            {
+                Reply(player, "BountyClosed");
+                return;
+            }
+
+            OpenCalvos(player, MenuTab.Bounties, 0);
         }
 
         [ChatCommand("calvoadmin")]
@@ -1615,7 +1984,7 @@ namespace Oxide.Plugins
 
             if (args.Length < 2)
             {
-                Reply(player, "AdminUsageV3");
+                Reply(player, "AdminUsageV4");
                 return;
             }
 
@@ -1629,6 +1998,24 @@ namespace Oxide.Plugins
             if (action == "evento")
             {
                 AdminEvent(player, args[1]);
+                return;
+            }
+
+            if (action == "salon" || action == "salón")
+            {
+                AdminHall(player, args);
+                return;
+            }
+
+            if (action == "cabeza")
+            {
+                AdminBounty(player, args);
+                return;
+            }
+
+            if (action == "calvodeldia")
+            {
+                AdminCalvoDelDia(player, args[1]);
                 return;
             }
 
@@ -1647,7 +2034,7 @@ namespace Oxide.Plugins
             }
             else
             {
-                Reply(player, "AdminUsageV3");
+                Reply(player, "AdminUsageV4");
                 return;
             }
 
@@ -1686,9 +2073,145 @@ namespace Oxide.Plugins
                     Reply(player, "DebugOff");
                     break;
                 default:
-                    Reply(player, "AdminUsageV3");
+                    Reply(player, "AdminUsageV4");
                     break;
             }
+        }
+
+        // /calvoadmin salon guardar | /calvoadmin salon borrar <n>
+        private void AdminHall(BasePlayer player, string[] args)
+        {
+            switch (args[1].ToLowerInvariant())
+            {
+                case "guardar":
+                    // Admin saves are not announced in chat, like every other admin change; other plugins still get the hook.
+                    HallEntry saved = SaveHallEntry(true);
+                    if (saved == null)
+                    {
+                        Reply(player, "AdminHallNothing");
+                        return;
+                    }
+
+                    Reply(player, "AdminHallSaved", saved.Number);
+                    Puts($"{player.displayName} ({player.UserIDString}) saved hall of fame entry #{saved.Number} by hand.");
+                    return;
+                case "borrar":
+                    if (args.Length < 3 || !int.TryParse(args[2].TrimStart('#'), NumberStyles.Integer, CultureInfo.InvariantCulture, out int number))
+                    {
+                        Reply(player, "AdminHallUsage");
+                        return;
+                    }
+
+                    HallEntry entry = storedData.HallOfFame.FirstOrDefault(e => e.Number == number);
+                    if (entry == null)
+                    {
+                        Reply(player, "AdminHallNotFound", number);
+                        return;
+                    }
+
+                    storedData.HallOfFame.Remove(entry);
+                    if (storedData.PendingWipeAnnouncement == number)
+                    {
+                        storedData.PendingWipeAnnouncement = 0;
+                    }
+
+                    dataDirty = true;
+                    Reply(player, "AdminHallDeleted", number, FormatDate(entry.Date));
+                    Puts($"{player.displayName} ({player.UserIDString}) deleted hall of fame entry #{number}.");
+                    return;
+                default:
+                    Reply(player, "AdminHallUsage");
+                    return;
+            }
+        }
+
+        // /calvoadmin cabeza quitar <player>: the bounty is gone, and nobody gets it back.
+        private void AdminBounty(BasePlayer player, string[] args)
+        {
+            if (args.Length < 3 || args[1].ToLowerInvariant() != "quitar")
+            {
+                Reply(player, "AdminBountyUsage");
+                return;
+            }
+
+            string query = string.Join(" ", args, 2, args.Length - 2);
+            List<KeyValuePair<ulong, PlayerData>> matches = FindStoredPlayers(query);
+            if (matches.Count == 0)
+            {
+                Reply(player, "PlayerNotFound", query);
+                return;
+            }
+
+            if (matches.Count > 1)
+            {
+                Reply(player, "PlayerAmbiguous", matches.Count, query);
+                return;
+            }
+
+            PlayerData target = matches[0].Value;
+            if (!storedData.Bounties.TryGetValue(target.Id, out long total))
+            {
+                Reply(player, "AdminBountyNone", target.Name);
+                return;
+            }
+
+            storedData.Bounties.Remove(target.Id);
+            dataDirty = true;
+            Reply(player, "AdminBountyRemoved", target.Name, UnitText(true, total, player.UserIDString));
+            Puts($"{player.displayName} ({player.UserIDString}) removed the bounty on {target.Name} ({target.Id}): {total} Puntos de Chola.");
+        }
+
+        // /calvoadmin calvodeldia ahora: a full pick right now (for testing). The scheduled one still runs at its time.
+        private void AdminCalvoDelDia(BasePlayer player, string mode)
+        {
+            if (mode.ToLowerInvariant() != "ahora")
+            {
+                Reply(player, "AdminCalvoDelDiaUsage");
+                return;
+            }
+
+            if (!config.CalvoDelDia.Enabled)
+            {
+                Reply(player, "AdminCalvoDelDiaOff");
+                return;
+            }
+
+            Puts($"{player.displayName} ({player.UserIDString}) forced the Calvo del Día pick.");
+            if (PickCalvoDelDia() == null)
+            {
+                Reply(player, "AdminCalvoDelDiaNone");
+            }
+        }
+
+        // Server console and RCON only (Jano's weekly report): every player as one line of JSON.
+        [ConsoleCommand("isla.ranking")]
+        private void CcmdIslaRanking(ConsoleSystem.Arg arg)
+        {
+            // A player's client always has a connection; the server console and RCON do not.
+            if (arg.Connection != null)
+            {
+                return;
+            }
+
+            var players = storedData.Players.Values
+                .OrderByDescending(d => d.Baldness)
+                .ThenByDescending(d => d.Kills)
+                .Select(d => new
+                {
+                    name = d.Name ?? string.Empty,
+                    // As text: a SteamID64 does not fit in a JavaScript number.
+                    id = d.Id.ToString(CultureInfo.InvariantCulture),
+                    alopecia = d.Baldness,
+                    title = TitleName(GetTitleIndex(d.Baldness)),
+                    kills = d.Kills,
+                    deaths = d.Deaths,
+                    wipeKills = d.WipeKills,
+                    wipeDeaths = d.WipeDeaths,
+                    online = IsOnline(d.Id)
+                })
+                .ToList();
+
+            arg.ReplyWith(JsonConvert.SerializeObject(players, Formatting.None));
         }
 
         #endregion
@@ -1721,6 +2244,7 @@ namespace Oxide.Plugins
             if (activeEvent == GlobalEvent.HairiestHunt && player != null && (ulong)player.userID == huntTargetId)
             {
                 BroadcastEvent("EventHuntEscapedV4", player.displayName);
+                CallHuntEnded(huntTargetId, player.displayName, "escaped", null);
                 EndEvent(false);
             }
         }
@@ -1825,6 +2349,7 @@ namespace Oxide.Plugins
                             long bonus = config.GlobalEvents.HairiestHunt.SurvivorBonus;
                             BroadcastEvent("EventHuntSurvivedV3", target.Name, FormatBaldness(bonus));
                             ChangeBaldness(target, bonus, true, Lang("ReasonHuntSurvived"));
+                            CallHuntEnded(huntTargetId, target.Name, "survived", null);
                         }
 
                         break;
@@ -1843,6 +2368,7 @@ namespace Oxide.Plugins
             if (killer == null)
             {
                 BroadcastEvent("EventHuntDiedV4", targetData.Name);
+                CallHuntEnded(targetData.Id, targetData.Name, "died", null);
             }
             else
             {
@@ -1850,10 +2376,16 @@ namespace Oxide.Plugins
                 PlayerData killerData = GetOrCreateData(killer);
                 BroadcastEvent("EventHuntKilledV4", killerData.Name, targetData.Name, FormatBaldness(bonus));
                 ChangeBaldness(killerData, bonus, true, Lang("ReasonHuntKillV2", null, targetData.Name));
+                CallHuntEnded(targetData.Id, targetData.Name, "killed", killerData.Name);
             }
 
             EndEvent(false);
         }
+
+        // For other plugins (JanoBridge): outcome is "killed", "survived", "died" or "escaped"; killerName is empty unless killed.
+        // An admin stopping the event with /calvoadmin evento parar does not call it.
+        private static void CallHuntEnded(ulong targetId, string targetName, string outcome, string killerName) =>
+            Interface.CallHook("OnIslaHuntEnded", targetId, targetName ?? string.Empty, outcome, killerName ?? string.Empty);
 
         private void AdminEvent(BasePlayer player, string name)
         {
@@ -1936,6 +2468,7 @@ namespace Oxide.Plugins
             if (IsRealPlayer(player))
             {
                 DrawCounter(player);
+                AnnounceWipeWinner();
             }
         }
 
@@ -2448,8 +2981,9 @@ namespace Oxide.Plugins
             }
 
             string[] parts = MenuArgs(arg);
+            MenuTab tab = parts.Length > 0 ? ParseTab(parts[0]) : MenuTab.Ranking;
             int page = parts.Length > 1 && int.TryParse(parts[1], out int p) ? p : 0;
-            OpenRanking(player, page);
+            OpenCalvos(player, tab, page);
         }
 
         [ConsoleCommand("calvos.use")]
@@ -2512,6 +3046,7 @@ namespace Oxide.Plugins
         private const string ColorCard = "0.2 0.12 0.1 1";
         private const string ColorCardDark = "0.26 0.17 0.14 1";
         private const string ColorScalp = "0.96 0.83 0.66 1";
+        private const string ColorOnScalp = "0.12 0.07 0.06 1"; // dark text on a scalp-colored label (active tab)
         private const string ColorText = "0.88 0.82 0.75 1";
         private const string ColorMuted = "0.604 0.573 0.533 1"; // #9a9288, house gray for footnotes
         private const string ColorGold = "0.878 0.647 0.149 1"; // #e0a526, house gold for commands and good figures
@@ -2524,9 +3059,30 @@ namespace Oxide.Plugins
         // Proverb 6 was removed in 1.4.1; its lang key is gone, so the numbers skip it.
         private static readonly int[] ProverbNumbers = { 1, 2, 3, 4, 5, 7, 8 };
 
-        // Salon de la fama calva (/calvos). The cursed items live with the barber (OpenBarber).
-        private void OpenRanking(BasePlayer player, int page)
+        // Tabs of the /calvos window.
+        private enum MenuTab
         {
+            Ranking,
+            Hall,
+            Bounties
+        }
+
+        // Gold, silver and bronze bars of the ranking and the hall of fame podium.
+        private static readonly string[] PodiumColors = { "0.96 0.8 0.3 1", "0.82 0.82 0.86 1", "0.8 0.55 0.35 1" };
+
+        // Word of each tab in "calvos.tab <tab> <page>".
+        private static string TabCommand(MenuTab tab) => tab == MenuTab.Hall ? "salon" : tab == MenuTab.Bounties ? "cabezas" : "ranking";
+
+        private static MenuTab ParseTab(string word) => word == "salon" ? MenuTab.Hall : word == "cabezas" ? MenuTab.Bounties : MenuTab.Ranking;
+
+        // /calvos: ranking, hall of fame and bounties. The cursed items live with the barber (OpenBarber).
+        private void OpenCalvos(BasePlayer player, MenuTab tab, int page)
+        {
+            if (tab == MenuTab.Bounties && !config.Bounties.Enabled)
+            {
+                tab = MenuTab.Ranking;
+            }
+
             PlayerData data = GetOrCreateData(player);
             string userId = player.UserIDString;
             var ui = new CuiElementContainer();
@@ -2559,11 +3115,157 @@ namespace Oxide.Plugins
             DrawTitleProgress(ui, window, data.Baldness, userId);
             AddButton(ui, window, Lang("CalvarioClose", userId), "0.956 0.935", "0.99 0.985", ColorPoleRed, null, UiMenu, 18);
 
-            string section = AddPanel(ui, window, ColorScalp, "0.03 0.81", "0.35 0.86");
-            AddText(ui, section, Lang("CalvarioTabRanking", userId), 13, TextAnchor.MiddleCenter, "0 0", "1 1", "0.12 0.07 0.06 1");
+            DrawTabs(ui, window, tab, userId);
+            DrawCalvoDelDia(ui, window, userId);
+            switch (tab)
+            {
+                case MenuTab.Hall:
+                    DrawHallTab(ui, window, page, userId);
+                    break;
+                case MenuTab.Bounties:
+                    DrawBountiesTab(ui, window, data, page, userId);
+                    break;
+                default:
+                    DrawRankingTab(ui, window, data, page, userId);
+                    break;
+            }
 
-            DrawRankingTab(ui, window, data, page, userId);
             CuiHelper.AddUi(player, ui);
+        }
+
+        // The active tab looks like the old single section label; the others are buttons.
+        private void DrawTabs(CuiElementContainer ui, string window, MenuTab active, string userId)
+        {
+            var tabs = new List<KeyValuePair<MenuTab, string>>
+            {
+                new KeyValuePair<MenuTab, string>(MenuTab.Ranking, "CalvarioTabRankingV2"),
+                new KeyValuePair<MenuTab, string>(MenuTab.Hall, "CalvarioTabHall")
+            };
+
+            if (config.Bounties.Enabled)
+            {
+                tabs.Add(new KeyValuePair<MenuTab, string>(MenuTab.Bounties, "CalvarioTabBounties"));
+            }
+
+            const float width = 0.18f, gap = 0.01f;
+            for (int i = 0; i < tabs.Count; i++)
+            {
+                float x0 = 0.03f + i * (width + gap);
+                bool isActive = tabs[i].Key == active;
+                AddButton(ui, window, Lang(tabs[i].Value, userId), Anchor(x0, 0.81f), Anchor(x0 + width, 0.86f), isActive ? ColorScalp : ColorCardDark,
+                    isActive ? null : "calvos.tab " + TabCommand(tabs[i].Key) + " 0", null, 13, isActive ? ColorOnScalp : ColorText);
+            }
+        }
+
+        // Right of the tabs, on every tab: the current Calvo del Día, if there is one.
+        private void DrawCalvoDelDia(CuiElementContainer ui, string window, string userId)
+        {
+            CalvoDelDiaRecord current = CurrentCalvoDelDia();
+            if (current != null)
+            {
+                AddText(ui, window, Lang("CalvoDelDiaMenu", userId, current.Name, FormatCompact(current.Gained)), 12, TextAnchor.MiddleRight, "0.61 0.81", "0.97 0.86", ColorText);
+            }
+        }
+
+        // One block per finished map, newest first: date, podium (gold, silver, bronze), most kills and most deaths.
+        private void DrawHallTab(CuiElementContainer ui, string window, int page, string userId)
+        {
+            List<HallEntry> entries = Enumerable.Reverse(storedData.HallOfFame).ToList();
+            if (entries.Count == 0)
+            {
+                AddText(ui, window, Lang("HallEmpty", userId), 16, TextAnchor.MiddleCenter, "0.03 0.4", "0.97 0.6", ColorText);
+                return;
+            }
+
+            int pages = (entries.Count + HallPageSize - 1) / HallPageSize;
+            page = Math.Max(0, Math.Min(page, pages - 1));
+
+            const float blockHeight = 0.215f, blockGap = 0.01f;
+            for (int i = 0; i < HallPageSize; i++)
+            {
+                int index = page * HallPageSize + i;
+                if (index >= entries.Count)
+                {
+                    break;
+                }
+
+                HallEntry entry = entries[index];
+                float y1 = 0.79f - i * (blockHeight + blockGap), y0 = y1 - blockHeight;
+                string block = AddPanel(ui, window, ColorCard, Anchor(0.03f, y0), Anchor(0.97f, y1));
+                AddText(ui, block, Lang("HallMapClosed", userId, FormatDate(entry.Date)), 13, TextAnchor.MiddleLeft, "0.015 0.8", "0.8 0.98", ColorScalp);
+                AddText(ui, block, Lang("HallNumber", userId, entry.Number), 11, TextAnchor.MiddleRight, "0.8 0.8", "0.985 0.98", ColorMuted);
+
+                for (int place = 0; place < entry.Podium.Count && place < PodiumColors.Length; place++)
+                {
+                    HallPlayer podium = entry.Podium[place];
+                    float x0 = 0.015f + place * 0.325f;
+                    string card = AddPanel(ui, block, ColorCardDark, Anchor(x0, 0.4f), Anchor(x0 + 0.315f, 0.78f));
+                    AddPanel(ui, card, PodiumColors[place], "0 0", "0.02 1");
+                    AddText(ui, card, Lang("HallPodiumPlace", userId, place + 1, podium.Name), 13, TextAnchor.MiddleLeft, "0.05 0.5", "0.98 1", PodiumColors[place]);
+                    AddText(ui, card, FormatCompact(podium.Value), 12, TextAnchor.MiddleLeft, "0.05 0", "0.98 0.5", ColorGold);
+                }
+
+                if (entry.TopKiller != null)
+                {
+                    AddText(ui, block, Lang("HallTopKiller", userId, entry.TopKiller.Name, FormatBaldness(entry.TopKiller.Value)), 12, TextAnchor.MiddleLeft, "0.015 0.2", "0.985 0.38", ColorText);
+                }
+
+                if (entry.TopDeaths != null)
+                {
+                    AddText(ui, block, Lang("HallTopDeaths", userId, entry.TopDeaths.Name, FormatBaldness(entry.TopDeaths.Value)), 12, TextAnchor.MiddleLeft, "0.015 0.02", "0.985 0.2", ColorText);
+                }
+            }
+
+            DrawPager(ui, window, page, pages, MenuTab.Hall, userId);
+        }
+
+        // Every head with a price, highest first, with the command and your own price at the bottom.
+        private void DrawBountiesTab(CuiElementContainer ui, string window, PlayerData me, int page, string userId)
+        {
+            List<KeyValuePair<string, long>> bounties = storedData.Bounties
+                .Where(b => b.Value > 0)
+                .Select(b => new KeyValuePair<string, long>(storedData.Players.TryGetValue(b.Key, out PlayerData target) ? target.Name : b.Key.ToString(CultureInfo.InvariantCulture), b.Value))
+                .OrderByDescending(b => b.Value)
+                .ThenBy(b => b.Key, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            AddText(ui, window, Lang("BountyMenuHint", userId), 12, TextAnchor.MiddleLeft, "0.03 0.135", "0.97 0.175", ColorText);
+            if (storedData.Bounties.TryGetValue(me.Id, out long mine) && mine > 0)
+            {
+                AddText(ui, window, Lang("BountyMenuYou", userId, UnitText(true, mine, userId)), 12, TextAnchor.MiddleLeft, "0.03 0.095", "0.97 0.135", ColorText);
+            }
+
+            if (bounties.Count == 0)
+            {
+                AddText(ui, window, Lang("BountyListEmpty", userId), 16, TextAnchor.MiddleCenter, "0.03 0.4", "0.97 0.6", ColorText);
+                return;
+            }
+
+            int pages = (bounties.Count + RankingPageSize - 1) / RankingPageSize;
+            page = Math.Max(0, Math.Min(page, pages - 1));
+            for (int i = 0; i < RankingPageSize; i++)
+            {
+                int index = page * RankingPageSize + i;
+                if (index >= bounties.Count)
+                {
+                    break;
+                }
+
+                float y1 = 0.79f - i * 0.06f, y0 = y1 - 0.055f;
+                string row = AddPanel(ui, window, i % 2 == 0 ? ColorCard : ColorCardDark, Anchor(0.03f, y0), Anchor(0.97f, y1));
+                AddText(ui, row, Lang("CalvarioRankingLine", userId, index + 1, bounties[index].Key), 14, TextAnchor.MiddleLeft, "0.02 0", "0.6 1", ColorText);
+                AddText(ui, row, Lang("BountyPriceShort", userId, FormatCompact(bounties[index].Value)), 14, TextAnchor.MiddleRight, "0.6 0", "0.98 1", ColorGold);
+            }
+
+            DrawPager(ui, window, page, pages, MenuTab.Bounties, userId);
+        }
+
+        private void DrawPager(CuiElementContainer ui, string window, int page, int pages, MenuTab tab, string userId)
+        {
+            string command = "calvos.tab " + TabCommand(tab) + " ";
+            AddText(ui, window, Lang("CalvarioPage", userId, page + 1, pages), 13, TextAnchor.MiddleCenter, "0.42 0.03", "0.58 0.09", ColorMuted);
+            AddButton(ui, window, Lang("CalvarioPrev", userId), "0.25 0.03", "0.4 0.09", page > 0 ? ColorCardDark : ColorCard, page > 0 ? command + (page - 1) : null, null, 13, page > 0 ? ColorText : ColorMuted);
+            AddButton(ui, window, Lang("CalvarioNextPage", userId), "0.6 0.03", "0.75 0.09", page < pages - 1 ? ColorCardDark : ColorCard, page < pages - 1 ? command + (page + 1) : null, null, 13, page < pages - 1 ? ColorText : ColorMuted);
         }
 
         // Thin bar under the header: how far you are from the next title.
@@ -2945,7 +3647,7 @@ namespace Oxide.Plugins
                 return;
             }
 
-            string[] medals = { "0.96 0.8 0.3 1", "0.82 0.82 0.86 1", "0.8 0.55 0.35 1" };
+            string[] medals = PodiumColors;
             int pages = (ranking.Count + RankingPageSize - 1) / RankingPageSize;
             page = Math.Max(0, Math.Min(page, pages - 1));
 
@@ -2977,10 +3679,7 @@ namespace Oxide.Plugins
                 ? Lang("CalvarioRankingFirstV2", userId)
                 : Lang("CalvarioRankingYouV3", userId, myIndex + 1, ranking.Count, FormatBaldness(ranking[myIndex - 1].Baldness - me.Baldness + 1), ranking[myIndex - 1].Name);
             AddText(ui, window, footer, 14, TextAnchor.MiddleLeft, "0.03 0.1", "0.97 0.17", ColorText);
-
-            AddText(ui, window, Lang("CalvarioPage", userId, page + 1, pages), 13, TextAnchor.MiddleCenter, "0.42 0.03", "0.58 0.09", ColorMuted);
-            AddButton(ui, window, Lang("CalvarioPrev", userId), "0.25 0.03", "0.4 0.09", page > 0 ? ColorCardDark : ColorCard, page > 0 ? "calvos.tab ranking " + (page - 1) : null, null, 13, page > 0 ? ColorText : ColorMuted);
-            AddButton(ui, window, Lang("CalvarioNextPage", userId), "0.6 0.03", "0.75 0.09", page < pages - 1 ? ColorCardDark : ColorCard, page < pages - 1 ? "calvos.tab ranking " + (page + 1) : null, null, 13, page < pages - 1 ? ColorText : ColorMuted);
+            DrawPager(ui, window, page, pages, MenuTab.Ranking, userId);
         }
 
         private static string AddPanel(CuiElementContainer ui, string parent, string color, string min, string max) =>
@@ -3033,6 +3732,351 @@ namespace Oxide.Plugins
         }
 
         #endregion
+
+        #endregion
+
+        #region Hall of Fame, Bounties and Calvo del Día
+
+        // Saves the current state as a hall of fame entry. Null (nothing saved) if nobody has alopecia or kills on this map.
+        private HallEntry SaveHallEntry(bool manual)
+        {
+            List<PlayerData> players = storedData.Players.Values.Where(d => d != null).ToList();
+            if (!players.Any(d => d.Baldness > 0 || d.WipeKills > 0))
+            {
+                Puts("Hall of fame: nothing to save (nobody has alopecia or kills on this map).");
+                return null;
+            }
+
+            // Same order as the ranking.
+            List<HallPlayer> podium = players
+                .Where(d => d.Baldness > 0)
+                .OrderByDescending(d => d.Baldness)
+                .ThenByDescending(d => d.Kills)
+                .Take(PodiumColors.Length)
+                .Select(d => ToHallPlayer(d, d.Baldness))
+                .ToList();
+            PlayerData killer = players.Where(d => d.WipeKills > 0).OrderByDescending(d => d.WipeKills).ThenByDescending(d => d.Baldness).FirstOrDefault();
+            PlayerData dead = players.Where(d => d.WipeDeaths > 0).OrderByDescending(d => d.WipeDeaths).ThenBy(d => d.Baldness).FirstOrDefault();
+
+            var entry = new HallEntry
+            {
+                Number = storedData.HallNextNumber++,
+                Date = DateTime.Now,
+                Manual = manual,
+                Podium = podium,
+                TopKiller = killer == null ? null : ToHallPlayer(killer, killer.WipeKills),
+                TopDeaths = dead == null ? null : ToHallPlayer(dead, dead.WipeDeaths)
+            };
+
+            storedData.HallOfFame.Add(entry);
+            int max = config.HallOfFame.MaxEntries;
+            if (max > 0 && storedData.HallOfFame.Count > max)
+            {
+                storedData.HallOfFame.RemoveRange(0, storedData.HallOfFame.Count - max);
+            }
+
+            dataDirty = true;
+            Puts($"Hall of fame: entry #{entry.Number} saved ({(manual ? "by hand" : "map wipe")}).");
+
+            // For other plugins (JanoBridge): the saved entry as one line of JSON.
+            Interface.CallHook("OnIslaWipeHallOfFame", HallEntryJson(entry));
+            return entry;
+        }
+
+        private static HallPlayer ToHallPlayer(PlayerData data, long value) =>
+            new HallPlayer { Id = data.Id, Name = data.Name ?? string.Empty, Value = value };
+
+        // SteamIDs go as text: a SteamID64 does not fit in a JavaScript number.
+        private static string HallEntryJson(HallEntry entry) => JsonConvert.SerializeObject(new
+        {
+            number = entry.Number,
+            date = entry.Date.ToString("s", CultureInfo.InvariantCulture),
+            manual = entry.Manual,
+            podium = entry.Podium.Select(p => new { id = p.Id.ToString(CultureInfo.InvariantCulture), name = p.Name ?? string.Empty, alopecia = p.Value }).ToList(),
+            topKiller = entry.TopKiller == null ? null
+                : (object)new { id = entry.TopKiller.Id.ToString(CultureInfo.InvariantCulture), name = entry.TopKiller.Name ?? string.Empty, kills = entry.TopKiller.Value },
+            topDeaths = entry.TopDeaths == null ? null
+                : (object)new { id = entry.TopDeaths.Id.ToString(CultureInfo.InvariantCulture), name = entry.TopDeaths.Name ?? string.Empty, deaths = entry.TopDeaths.Value }
+        }, Formatting.None);
+
+        private bool wipeAnnouncementQueued;
+
+        // Called when a player wakes up: the first one after a wipe triggers the winner's announcement, once.
+        private void AnnounceWipeWinner()
+        {
+            if (wipeAnnouncementQueued || storedData.PendingWipeAnnouncement == 0)
+            {
+                return;
+            }
+
+            wipeAnnouncementQueued = true;
+            timer.Once(WipeAnnouncementDelaySeconds, () =>
+            {
+                wipeAnnouncementQueued = false;
+                int number = storedData.PendingWipeAnnouncement;
+                if (number == 0)
+                {
+                    return;
+                }
+
+                storedData.PendingWipeAnnouncement = 0;
+                dataDirty = true;
+                HallEntry entry = storedData.HallOfFame.FirstOrDefault(e => e.Number == number);
+                if (entry != null && entry.Podium.Count > 0)
+                {
+                    Broadcast("HallWipeWinner", entry.Podium[0].Name, FormatBaldness(entry.Podium[0].Value));
+                }
+            });
+        }
+
+        private static string FormatDate(DateTime date) => date.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
+
+        // A PvP kill pays the victim's whole bounty to the killer, unless they are teammates or (by config) the victim was
+        // asleep or offline. If Server Rewards does not pay, the bounty stays for the next one.
+        private void TryClaimBounty(BasePlayer killer, PlayerData killerData, BasePlayer victim, PlayerData victimData)
+        {
+            if (!config.Bounties.Enabled || !storedData.Bounties.TryGetValue(victimData.Id, out long total) || total <= 0)
+            {
+                return;
+            }
+
+            string whyNot = null;
+            if (killer.currentTeam != 0UL && killer.currentTeam == victim.currentTeam)
+            {
+                whyNot = Lang("NoBountyTeam");
+            }
+            else if (config.Bounties.NotOnSleepers && (victim.IsSleeping() || !victim.IsConnected))
+            {
+                whyNot = Lang("NoBountySleeper");
+            }
+            else if (!RpAvailable)
+            {
+                whyNot = Lang("NoRpPlugin");
+            }
+            else if (!AddRp(killerData.Id, total))
+            {
+                whyNot = Lang("NoRpRefused");
+            }
+
+            if (whyNot != null)
+            {
+                SendDebug("DebugBountyNoClaim", killerData.Name, victimData.Name, whyNot);
+                return;
+            }
+
+            storedData.Bounties.Remove(victimData.Id);
+            dataDirty = true;
+            Broadcast("BountyClaimed", killerData.Name, victimData.Name, UnitText(true, total, null));
+            Interface.CallHook("OnIslaBountyClaimed", killerData.Id, killerData.Name ?? string.Empty, victimData.Id, victimData.Name ?? string.Empty, total);
+            Puts($"Bounty: {killerData.Name} ({killerData.Id}) claimed {total} Puntos de Chola for {victimData.Name} ({victimData.Id}).");
+        }
+
+        private static bool IsOnline(ulong id)
+        {
+            BasePlayer player = BasePlayer.FindByID(id);
+            return player != null && player.IsConnected;
+        }
+
+        private static string TodayKey() => DateTime.Now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+        private void InitCalvoDelDia()
+        {
+            CalvoDelDiaData day = storedData.CalvoDelDia;
+            if (day.SnapshotTime == default(DateTime))
+            {
+                // First load with the Calvo del Día: gains count from now on. Past today's pick time, the first pick is tomorrow.
+                TakeCalvoDelDiaSnapshot(day);
+                if (DateTime.Now.TimeOfDay.TotalMinutes >= calvoDelDiaMinutes)
+                {
+                    day.LastPickDate = TodayKey();
+                }
+
+                Puts("Calvo del Día: first alopecia snapshot taken.");
+            }
+
+            foreach (BasePlayer player in BasePlayer.activePlayerList)
+            {
+                if (IsRealPlayer(player) && player.IsConnected)
+                {
+                    day.Seen.Add((ulong)player.userID);
+                }
+            }
+
+            dataDirty = true;
+            SyncCalvoDelDiaGroup(day.CurrentId);
+        }
+
+        // Every minute: once a day, at the configured time or the first check after it (e.g. the server was down at 21:00).
+        private void CheckCalvoDelDia()
+        {
+            string today = TodayKey();
+            if (storedData.CalvoDelDia.LastPickDate == today || DateTime.Now.TimeOfDay.TotalMinutes < calvoDelDiaMinutes)
+            {
+                return;
+            }
+
+            storedData.CalvoDelDia.LastPickDate = today;
+            dataDirty = true;
+            PickCalvoDelDia();
+        }
+
+        private void MarkSeenForCalvoDelDia(ulong id)
+        {
+            if (config.CalvoDelDia.Enabled && storedData.CalvoDelDia.Seen.Add(id))
+            {
+                dataDirty = true;
+            }
+        }
+
+        // Alopecia of every player right now; only the players online now count as seen for the next pick.
+        private void TakeCalvoDelDiaSnapshot(CalvoDelDiaData day)
+        {
+            day.Snapshot = storedData.Players.ToDictionary(p => p.Key, p => p.Value.Baldness);
+            day.SnapshotTime = DateTime.Now;
+            day.Seen = new HashSet<ulong>(BasePlayer.activePlayerList.Where(p => IsRealPlayer(p) && p.IsConnected).Select(p => (ulong)p.userID));
+            dataDirty = true;
+        }
+
+        // The player who gained the most alopecia since the last snapshot (net: deaths count), among those seen online since
+        // then, becomes the Calvo del Día; then a new snapshot is taken. Null if nobody gained anything: no Calvo del Día.
+        private CalvoDelDiaRecord PickCalvoDelDia()
+        {
+            CalvoDelDiaData day = storedData.CalvoDelDia;
+            foreach (BasePlayer player in BasePlayer.activePlayerList)
+            {
+                if (IsRealPlayer(player) && player.IsConnected)
+                {
+                    day.Seen.Add((ulong)player.userID);
+                }
+            }
+
+            PlayerData best = null;
+            long bestGain = 0;
+            foreach (ulong id in day.Seen)
+            {
+                if (!storedData.Players.TryGetValue(id, out PlayerData data))
+                {
+                    continue;
+                }
+
+                long gained = data.Baldness - (day.Snapshot.TryGetValue(id, out long before) ? before : 0);
+                if (gained <= 0)
+                {
+                    continue;
+                }
+
+                // Ties: more alopecia, then the lower id, so the result does not depend on the set's order.
+                if (best == null || gained > bestGain || (gained == bestGain && (data.Baldness > best.Baldness || (data.Baldness == best.Baldness && id < best.Id))))
+                {
+                    best = data;
+                    bestGain = gained;
+                }
+            }
+
+            TakeCalvoDelDiaSnapshot(day);
+
+            CalvoDelDiaRecord record = null;
+            if (best != null)
+            {
+                record = new CalvoDelDiaRecord { Date = DateTime.Now, Id = best.Id, Name = best.Name ?? string.Empty, Gained = bestGain };
+                day.History.Add(record);
+                int max = config.CalvoDelDia.HistorySize;
+                if (day.History.Count > max)
+                {
+                    day.History.RemoveRange(0, day.History.Count - max);
+                }
+            }
+
+            day.CurrentId = best?.Id ?? 0UL;
+            dataDirty = true;
+            SyncCalvoDelDiaGroup(day.CurrentId);
+
+            if (record == null)
+            {
+                Puts("Calvo del Día: nobody gained alopecia since the last pick; no Calvo del Día until the next one.");
+                return null;
+            }
+
+            Broadcast("CalvoDelDiaChat", record.Name, FormatBaldness(record.Gained));
+            ShowBanner(Lang("CalvoDelDiaBanner", null, record.Name), config.Ui.TitleUpBannerSeconds);
+            PayCalvoDelDiaPrize(best);
+            Interface.CallHook("OnIslaCalvoDelDia", record.Id, record.Name, record.Gained);
+            Puts($"Calvo del Día: {record.Name} ({record.Id}), +{record.Gained} alopecia.");
+            return record;
+        }
+
+        private CalvoDelDiaRecord CurrentCalvoDelDia()
+        {
+            CalvoDelDiaData day = storedData.CalvoDelDia;
+            if (!config.CalvoDelDia.Enabled || day.CurrentId == 0UL || day.History.Count == 0)
+            {
+                return null;
+            }
+
+            CalvoDelDiaRecord last = day.History[day.History.Count - 1];
+            return last.Id == day.CurrentId ? last : null;
+        }
+
+        // Only the current Calvo del Día is in the group: everybody else leaves it (by id, so offline players too).
+        private void SyncCalvoDelDiaGroup(ulong current)
+        {
+            if (calvoDelDiaGroup == null)
+            {
+                return;
+            }
+
+            EnsureGroup(calvoDelDiaGroup);
+            string currentId = current == 0UL ? null : current.ToString(CultureInfo.InvariantCulture);
+
+            // Oxide lists members as "<id> (<last nickname>)".
+            foreach (string member in permission.GetUsersInGroup(calvoDelDiaGroup))
+            {
+                string memberId = member.Split(' ')[0];
+                if (!string.Equals(memberId, currentId, StringComparison.OrdinalIgnoreCase))
+                {
+                    permission.RemoveUserGroup(memberId, calvoDelDiaGroup);
+                }
+            }
+
+            if (currentId != null && !permission.UserHasGroup(currentId, calvoDelDiaGroup))
+            {
+                permission.AddUserGroup(currentId, calvoDelDiaGroup);
+            }
+        }
+
+        // Like a tier prize: Puntos de Chola and pelones always, items only if the winner is online at the pick.
+        private void PayCalvoDelDiaPrize(PlayerData data)
+        {
+            TierPrize prize = config.CalvoDelDia.Prize;
+            if (prize == null || prize.IsEmpty)
+            {
+                return;
+            }
+
+            BasePlayer player = BasePlayer.FindByID(data.Id);
+            var parts = new List<string>();
+            var given = new List<string>();
+            GivePrize(data, player, prize, parts, given);
+            SendDebug("DebugTierPrize", data.Name, Lang("CalvoDelDiaName"), parts.Count + given.Count > 0 ? string.Join(", ", parts.Concat(given).ToArray()) : "-");
+            if (player == null || !player.IsConnected)
+            {
+                return;
+            }
+
+            if (parts.Count > 0)
+            {
+                Reply(player, "CalvoDelDiaPrize", string.Join(", ", parts.ToArray()));
+            }
+            else if (given.Count > 0)
+            {
+                Reply(player, "CalvoDelDiaPrizeItems");
+            }
+
+            if (!string.IsNullOrEmpty(prize.Message))
+            {
+                SendChat(player, prize.Message);
+            }
+        }
 
         #endregion
 
@@ -3381,20 +4425,7 @@ namespace Oxide.Plugins
 
                 var parts = new List<string>();
                 var given = new List<string>();
-                if (prize.Rp > 0 && AddRp(data.Id, prize.Rp)) parts.Add(UnitText(true, prize.Rp, null));
-                if (prize.Coins > 0 && DepositCoins(data.Id, prize.Coins)) parts.Add(UnitText(false, prize.Coins, null));
-                if (prize.Items != null && player != null && player.IsConnected)
-                {
-                    // Silent: Rust shows its own pickup notice for each item.
-                    foreach (PrizeItem item in prize.Items)
-                    {
-                        if (item != null && item.Amount > 0 && !string.IsNullOrEmpty(item.Shortname) && GiveItem(player, item.Shortname, item.Amount, false))
-                        {
-                            given.Add(item.Shortname + " x" + item.Amount);
-                        }
-                    }
-                }
-
+                GivePrize(data, player, prize, parts, given);
                 SendDebug("DebugTierPrize", data.Name, config.Titles[tier].Name, parts.Count + given.Count > 0 ? string.Join(", ", parts.Concat(given).ToArray()) : "-");
                 if (player == null || !player.IsConnected)
                 {
@@ -3413,6 +4444,25 @@ namespace Oxide.Plugins
                 if (!string.IsNullOrEmpty(prize.Message))
                 {
                     SendChat(player, prize.Message);
+                }
+            }
+        }
+
+        // Puntos de Chola and pelones go by id (online or not); items only to an online player. Fills in what was actually
+        // given (parts: Puntos de Chola and pelones; given: items), for the messages.
+        private void GivePrize(PlayerData data, BasePlayer player, TierPrize prize, List<string> parts, List<string> given)
+        {
+            if (prize.Rp > 0 && AddRp(data.Id, prize.Rp)) parts.Add(UnitText(true, prize.Rp, null));
+            if (prize.Coins > 0 && DepositCoins(data.Id, prize.Coins)) parts.Add(UnitText(false, prize.Coins, null));
+            if (prize.Items != null && player != null && player.IsConnected)
+            {
+                // Silent: Rust shows its own pickup notice for each item.
+                foreach (PrizeItem item in prize.Items)
+                {
+                    if (item != null && item.Amount > 0 && !string.IsNullOrEmpty(item.Shortname) && GiveItem(player, item.Shortname, item.Amount, false))
+                    {
+                        given.Add(item.Shortname + " x" + item.Amount);
+                    }
                 }
             }
         }
@@ -3544,7 +4594,7 @@ namespace Oxide.Plugins
             if (!permission.GroupExists(group))
             {
                 permission.CreateGroup(group, group, 0);
-                Puts($"Oxide group '{group}' created for a title.");
+                Puts($"Oxide group '{group}' created.");
             }
         }
 

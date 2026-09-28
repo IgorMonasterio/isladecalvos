@@ -104,6 +104,29 @@ alcance cerrado:
   premio, cartel grande al bajar de título y el hook `OnIslaTitleChanged` para
   JanoBridge. Con 0 de alopecia no hay título real: el premio de Greñas Sucias
   se cobra al pasar de 0 a 1 (antes nunca se pagaba).
+- **Plugin 1.8.0** — encargo de Jano (el que administra los servers), todo en una PR:
+  - **Salón de la fama por wipe**: en `OnNewSave`, antes de cualquier reset (y
+    aunque el reset esté apagado), se guarda una entrada con la fecha, el podio de
+    alopecia y quién más ha matado y más ha muerto **en ese mapa** (contadores
+    nuevos `WipeKills`/`WipeDeaths`, que vuelven a 0 en cada wipe; `Kills`/`Deaths`
+    no se tocan). Pestaña en `/calvos` y anuncio del ganador en el chat cuando
+    despierta el primer jugador tras el wipe. `/calvoadmin salon guardar|borrar <n>`.
+  - **Recompensas por cabeza**: `/cabeza <jugador> <cantidad>` pone Puntos de Chola
+    sobre alguien (se cobran al momento; mínimo 10 por defecto). Se los lleva
+    enteros quien lo mate en PvP (no el propio, ni su equipo, ni si estaba dormido
+    o desconectado). Nada se devuelve y el wipe no borra los botes. `/cabezas` y
+    pestaña en `/calvos`; `/calvoadmin cabeza quitar <jugador>`. `/cabeza` y
+    `/cabezas` son comandos de jugador nuevos, junto a `/calvos`.
+  - **Calvo del Día**: cada día a las 21:00 (hora del server) gana quien más
+    alopecia ha ganado desde la elección anterior (foto de la alopecia de todos en
+    cada elección), entre los que se han conectado en ese tiempo. Anuncio, cartel,
+    grupo de Oxide `calvodeldia` (solo el vigente), premio opcional (a 0) e
+    historial de 30. `/calvoadmin calvodeldia ahora`.
+  - Hooks para JanoBridge (`OnIslaWipeHallOfFame`, `OnIslaBountyPlaced`,
+    `OnIslaBountyClaimed`, `OnIslaCalvoDelDia`, `OnIslaHuntEnded`) y el comando de
+    consola `isla.ranking` (JSON en una línea; solo consola del servidor y RCON).
+  - La pestaña del ranking de `/calvos` pasa a llamarse RANKING, para no chocar
+    con la del Salón de la fama.
 
 Decisiones de diseño de la v1.0 que no venían en la especificación inicial:
 - Toda muerte resta alopecia (PvP, NPC, entorno, suicidio), también la de un
@@ -155,7 +178,9 @@ Cambio de escala (de % a puntos enteros sin límite):
   (`[PluginReference]`): si no están cargadas, el plugin funciona igual, pero
   sin Puntos de Chola o sin pelones. HumanNPC no es dependencia de código: solo se escucha
   su hook `OnUseNPC`. NTeleportation, Backpacks y Better Chat tampoco: el plugin
-  solo mete a cada jugador en el grupo de su título (1.7.0).
+  solo mete a cada jugador en el grupo de su título (1.7.0) y al Calvo del Día en
+  el suyo (1.8.0). Las recompensas por cabeza (1.8.0) necesitan Server Rewards:
+  sin él, `/cabeza` está cerrado.
 
 ## Estructura
 

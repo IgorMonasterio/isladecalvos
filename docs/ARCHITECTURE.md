@@ -66,7 +66,7 @@ Hooks que usa la v1.0 y de dónde sale cada uno:
 | `OnPatrolHelicopterKill(PatrolHelicopter heli, HitInfo info)` | Cuando el daño supera la vida del heli. **El heli no muere ahí**: el juego le pone 10000 de vida y lo manda a estrellarse. Es el momento de "derribado". | Código descompilado (`PatrolHelicopter.Hurt`) |
 | `OnHelicopterAttack(CH47HelicopterAIController heli, HitInfo info)` | Ataque al Chinook, antes de `base.OnAttacked`. | Código descompilado (`CH47HelicopterAIController.OnAttacked`) |
 | `OnEntityKill(BaseNetworkable entity)` | Cualquier entidad destruida (también al despawnear). Solo lo usamos para limpiar memoria. | Código descompilado (`BaseNetworkable.Kill`) |
-| `OnPlayerSleepEnded(BasePlayer player)` | El jugador despierta (tras conectar y tras cada respawn). Es cuando se dibuja el contador en pantalla. | Código descompilado (`BasePlayer.EndSleeping`) |
+| `OnPlayerSleepEnded(BasePlayer player)` | El jugador despierta (tras conectar y tras cada respawn). Es cuando se dibuja el contador en pantalla (y, tras un wipe, cuando sale el anuncio del ganador del mapa). | Código descompilado (`BasePlayer.EndSleeping`) |
 | `OnPlayerDisconnected(BasePlayer player, string reason)` | Jugador desconectado. Termina la cacería si se va el objetivo. | Código descompilado (`ServerMgr`) + `RustHooks.cs` |
 
 ## 3. Configuración
@@ -169,7 +169,7 @@ Para añadir otro evento: decidir qué hook marca "participar" y cuál marca
   contiene `barrel`), NPCs tras cobrar su tier, y placas rojas en
   `PayEventReward` para cada jugador pagado que esté conectado.
 - Ventanas: CUI sobre `Overlay` con `CursorEnabled`. Los botones llaman a
-  comandos de consola del plugin (`calvos.tab` para el ranking;
+  comandos de consola del plugin (`calvos.tab` para las pestañas de `/calvos`;
   `calvos.barber`, `calvos.use` y `calvos.carne` para el barbero), que leen
   `arg.Player()` y `arg.FullString`. Cada acción redibuja la ventana.
 - El barbero (desde la 1.5.0) es un cuadro de conversación: su frase arriba y
@@ -257,9 +257,10 @@ Para añadir otro evento: decidir qué hook marca "participar" y cuál marca
   y estar a `MaxDistance` o menos. Si no, cierran la ventana y mandan al
   jugador a la peluquería. Hace falta porque los comandos de consola se pueden
   escribir desde cualquier sitio.
-- `/calvos` abre solo el ranking (`OpenRanking`). No hay plan B sin barbero
-  (decisión de Igor): si `Calvario NPC ids` está vacío, `ValidateConfig` lo
-  avisa en la consola y nadie puede usar objetos.
+- `/calvos` no abre objetos, solo el ranking (`OpenCalvos`; desde la 1.8.0,
+  con las pestañas del §4j). No hay plan B sin barbero (decisión de Igor): si
+  `Calvario NPC ids` está vacío, `ValidateConfig` lo avisa en la consola y
+  nadie puede usar objetos.
 - Los cadáveres (`*.corpse`) mueren al desollarlos. `IsPossibleNpc` los
   descarta para que no salgan en el log de NPC sin tier.
 - El Mercalvona (GUIShop), Cambio de divisas (Server Rewards; antes Premios
@@ -325,6 +326,63 @@ Para añadir otro evento: decidir qué hook marca "participar" y cuál marca
   y premios, solo si `announce` (no con `/calvoadmin`) y cuando cambia el
   título real. Título vacío = sin título.
 - **Cartel de bajada**: mismo `ShowBanner`, con la duración del de subida.
+
+## 4j. Salón de la fama, cabezas y Calvo del Día (plugin 1.8.0)
+
+Encargo de Jano. Todo el estado nuevo va en el mismo `oxide/data/IslaDeCalvos.json`
+(`StoredData`): `HallOfFame`, `HallNextNumber`, `PendingWipeAnnouncement`,
+`Bounties` y `CalvoDelDia`, con `ObjectCreationHandling.Replace` en las colecciones y
+comprobación de `null` en `LoadData`. `PlayerData` gana `WipeKills` y `WipeDeaths`.
+
+- **Salón de la fama**: `OnNewSave` llama primero a `SaveHallEntry(false)` y después
+  pone `WipeKills`/`WipeDeaths` a 0 y, si toca, resetea la alopecia. La entrada lleva
+  número propio (`HallNextNumber`, no se reutiliza), fecha (`DateTime.Now`), podio
+  (orden del ranking), `TopKiller` y `TopDeaths`. Como al arrancar no hay nadie
+  conectado, el anuncio queda en `PendingWipeAnnouncement` y sale 5 s después del
+  primer `OnPlayerSleepEnded`. `/calvoadmin salon guardar` usa la misma función.
+  - **Cuándo llega `OnNewSave`** (verificado en Oxide.Core/CSharp): `OxideMod.Load` →
+    `LoadAllPlugins(true)` **espera** a que acaben de compilarse y cargarse los
+    plugins C# (`while (loader.LoadingPlugins.Count > 0)`, `OxideMod.cs`), así que
+    `Init` y `LoadData` ya han corrido. `SaveRestore.Load` lanza `OnNewSave` solo si
+    no existe el `.sav` (docs.json). **No verificable**: que `Bootstrap.Init_Tier0`
+    (donde se inyecta `InitOxide`) vaya antes que `SaveRestore.Load` en el arranque
+    de Rust. Un plugin cargado en caliente **nunca** recibe `OnNewSave`, y uno que no
+    compila al arrancar tampoco. `SaveRestore.SaveCreatedTime`/`WipeId` no aparecen
+    en ninguna fuente verificable, así que no hay detección alternativa del wipe.
+- **Cabezas**: `/cabeza` busca al objetivo con `FindStoredPlayers` (la cantidad es la
+  última palabra), cobra con `TakeRp` (API `long` si está el parche) y solo entonces
+  sube el bote. El cobro (`TryClaimBounty`) va en `OnPlayerDeath` justo después de
+  contar la kill y antes del cooldown anti-farmeo; paga con `AddRp` y, si Server
+  Rewards no paga, el bote se queda. Equipo: `currentTeam` del asesino y del muerto
+  (verificado en docs.json).
+- **Calvo del Día**: `CheckCalvoDelDia` cada 60 s compara `DateTime.Now` (hora del
+  server) con la hora de la config y con `LastPickDate`, así que se elige una vez al
+  día aunque se reinicie. `PickCalvoDelDia` mira a los de `Seen` (conectados desde
+  la foto anterior, más los conectados ahora), gana el que más haya subido desde
+  `Snapshot` (neto) y hace la foto nueva. Sin foto previa (primera carga) se hace la
+  foto en `InitCalvoDelDia`. Con el reset del wipe activado, la foto se vacía (todos
+  cuentan desde 0).
+  - **Grupo** (`Oxide.Core/Libraries/Permission.cs`): `GetUsersInGroup` devuelve
+    `"<id> (<último apodo>)"`; `SyncCalvoDelDiaGroup` saca a todo el que no sea el
+    vigente y mete al vigente. `AddUserGroup`/`RemoveUserGroup` funcionan con
+    jugadores desconectados (crean su entrada si no existe). El grupo no puede ser
+    uno de título ni de `ProtectedGroups`.
+- **Hooks** (`Interface.CallHook`, sobrecargas fijas de 1 a 10 argumentos `object`
+  en `Oxide.Core/src/Interface.cs`; no hay versión `params`, y un único argumento
+  de tipo array se repartiría como varios): `OnIslaWipeHallOfFame(string)`,
+  `OnIslaBountyPlaced` (6), `OnIslaBountyClaimed` (5), `OnIslaCalvoDelDia` (3) y
+  `OnIslaHuntEnded` (4). Los JSON llevan los SteamID como texto.
+- **`isla.ranking`**: `[ConsoleCommand]` normal. Oxide lo registra con
+  `ServerUser = true, Client = true` (`Oxide.Rust/src/Libraries/Command.cs`), así
+  que **un jugador puede escribirlo en F1**: se le rechaza con
+  `arg.Connection != null` (la consola y RCON no tienen conexión; así lo trata el
+  propio Oxide en `RustCommandSystem.cs`). La respuesta va por
+  `arg.ReplyWith(string)` (visto en docs.json). **No verificable**: cómo devuelve
+  RCON de Facepunch el texto de `ReplyWith` (su código no está en ninguna fuente
+  pública); con el RCON propio de Oxide (apagado por defecto) no se devuelve.
+- **Ventana**: `/calvos` tiene pestañas (`OpenCalvos` con `MenuTab`); los botones
+  llaman a `calvos.tab <ranking|salon|cabezas> <página>`. El paginador es común
+  (`DrawPager`) y el oro/plata/bronce, `PodiumColors`.
 
 ## 5. Localización (lang)
 
