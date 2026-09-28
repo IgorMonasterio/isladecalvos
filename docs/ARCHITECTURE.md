@@ -338,8 +338,8 @@ comprobación de `null` en `LoadData`. `PlayerData` gana `WipeKills` y `WipeDeat
   pone `WipeKills`/`WipeDeaths` a 0 y, si toca, resetea la alopecia. La entrada lleva
   número propio (`HallNextNumber`, no se reutiliza), fecha (`DateTime.Now`), podio
   (orden del ranking), `TopKiller` y `TopDeaths`. Como al arrancar no hay nadie
-  conectado, el anuncio queda en `PendingWipeAnnouncement` y sale 5 s después del
-  primer `OnPlayerSleepEnded`. `/calvoadmin salon guardar` usa la misma función.
+  conectado, el anuncio queda en `PendingWipeAnnouncement`. `/calvoadmin salon
+  guardar` usa la misma función. (Desde la 1.8.2 todo esto va en `CloseMap`, ver §4k.)
   - **Cuándo llega `OnNewSave`** (verificado en Oxide.Core/CSharp): `OxideMod.Load` →
     `LoadAllPlugins(true)` **espera** a que acaben de compilarse y cargarse los
     plugins C# (`while (loader.LoadingPlugins.Count > 0)`, `OxideMod.cs`), así que
@@ -383,6 +383,51 @@ comprobación de `null` en `LoadData`. `PlayerData` gana `WipeKills` y `WipeDeat
 - **Ventana**: `/calvos` tiene pestañas (`OpenCalvos` con `MenuTab`); los botones
   llaman a `calvos.tab <ranking|salon|cabezas> <página>`. El paginador es común
   (`DrawPager`) y el oro/plata/bronce, `PodiumColors`.
+
+## 4k. Arreglos del cierre de mapa (plugin 1.8.2)
+
+Encargo de Jano antes del wipe del 1 de octubre.
+
+- **`CloseMap(force, source)`**: lo que antes hacía `OnNewSave`, en un método común
+  que llaman `OnNewSave`, `/calvoadmin salon cerrar [forzar]` y `isla.salon cerrar
+  [forzar]` (consola/RCON, rechazado con `arg.Connection != null` como `isla.ranking`;
+  los argumentos salen de `MenuArgs`, que ya usa `FullString.ToString()`). Orden:
+  comprobación de repetición → entrada → anuncio y hook → `WipeKills`/`WipeDeaths`
+  a 0 → reset de alopecia solo con `ResetBaldnessOnWipe` → `SaveData` → grupos de
+  título. Con reset, además redibuja el contador de los conectados (en un cierre a
+  mano puede haber gente dentro).
+- **Un wipe, un cierre**: el día del wipe forzado el server se relanza ~1 min
+  después con semilla nueva, y como cambia el nombre del `.sav`, `OnNewSave` llega
+  dos veces. `CloseMap` no hace nada (solo `PrintWarning`) si el último cierre fue
+  hace menos de `MapCloseRepeatHours` (12). El último cierre es el mayor entre
+  `StoredData.LastMapClose` (nuevo; se pone en cada cierre, se guarde entrada o no)
+  y la fecha de la entrada no manual más nueva (para datos anteriores a la 1.8.2).
+- **Entrada vacía**: la de un cierre solo se guarda si alguien tiene `WipeKills` o
+  `WipeDeaths` > 0; con el reset apagado la alopecia nunca vuelve a 0 y no sirve
+  para saber si hubo mapa. La foto a mano (`Manual`) sigue con la regla vieja
+  (alopecia o kills). En la pestaña, `Manual` dice "Foto del mapa del…"
+  (`HallSnapshot`).
+- **Hook del salón**: `OnNewSave` corre mientras carga el mundo, antes de
+  `OnServerInitialized`, y ahí nadie escucha por RCON. `serverReady` (se pone en
+  `OnServerInitialized`) decide: si es `false`, el número de la entrada se guarda en
+  `StoredData.PendingWipeHook` y `OnServerInitialized` lo entrega con
+  `timer.Once(60 s)`. Está en los datos, así que si el server se reinicia antes de
+  los 60 s (el relanzamiento del cron), sale en el arranque siguiente. `salon
+  guardar` y `salon cerrar` llaman al hook al momento.
+- **Anuncio por jugador**: `PendingWipeAnnouncement` ya no se vacía al anunciar; dura
+  hasta el siguiente cierre. `StoredData.WipeAnnouncementSeen` (se vacía en cada
+  cierre) guarda quién lo ha visto; `OnPlayerSleepEnded` programa el mensaje a los
+  5 s y se marca como visto solo al enviarlo (si sigue conectado). Va por `Reply`,
+  al chat del jugador. `salon borrar` de la entrada pendiente pasa el anuncio a la
+  entrada no manual más nueva con podio a menos de 12 h de la borrada (el caso de
+  la entrada repetida de la 1.8.1); si no hay, lo quita.
+- **Calvo del Día**: `ExcludeFromCalvoDelDia(data, before)` suma a la foto del
+  jugador lo que ha cambiado su alopecia (saturado; puede quedar negativa, y está
+  bien: lo ganado se mantiene). Se llama tras comprar en el barbero y tras
+  `/calvoadmin set`/`reset`. Vender no se excluye. `/calvoadmin calvodeldia ahora`
+  pone `LastPickDate` a hoy antes de elegir.
+- **`OnIslaHuntEnded`**: `outcome = "stopped"` cuando un admin para la cacería con
+  `/calvoadmin evento parar` (se llama después de `EndEvent`).
 
 ## 5. Localización (lang)
 

@@ -131,6 +131,16 @@ alcance cerrado:
   del Día dice "desde la última elección" en vez de "en 24 horas", que no siempre era
   verdad (`CalvoDelDiaChatV2`); y con el Calvo del Día desactivado, el grupo
   `calvodeldia` se vacía al cargar.
+- **Plugin 1.8.2** — arreglos de la revisión, encargo de Jano antes del wipe del
+  1 de octubre: el cierre de mapa sale de `OnNewSave` a `CloseMap` y no se repite si
+  el último fue hace menos de 12 h (el server se relanza con semilla nueva y
+  `OnNewSave` llega dos veces); la entrada del cierre mira kills y muertes del mapa;
+  cierre a mano con `/calvoadmin salon cerrar [forzar]` y `isla.salon cerrar
+  [forzar]` (consola/RCON); el hook del salón del wipe espera a 60 s después de
+  `OnServerInitialized`; el anuncio del ganador llega a cada jugador la primera vez
+  que despierta; la alopecia comprada y la de admin no cuentan para el Calvo del
+  Día, y su `ahora` cuenta como la elección del día; `OnIslaHuntEnded` con
+  `stopped`; y textos repasados con claves nuevas.
 
 Decisiones de diseño de la v1.0 que no venían en la especificación inicial:
 - Toda muerte resta alopecia (PvP, NPC, entorno, suicidio), también la de un
