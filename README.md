@@ -539,6 +539,8 @@ de la alopecia de todos para comparar al día siguiente.
   siguiente.
 - `/calvoadmin calvodeldia ahora` fuerza una elección (para probar). La de
   las 21:00 sigue a su hora.
+- Con `"Enabled": false`, el grupo se vacía al cargar el plugin (1.8.1): nadie
+  se queda con sus ventajas.
 
 ### Más avisos para otros plugins (hooks)
 
@@ -802,7 +804,7 @@ servidor. Desde la 1.8.0 van en el mismo fichero el Salón de la fama
 1. Ten un servidor dedicado de Rust con **Oxide (uMod)** instalado.
 2. Copia `src/IslaDeCalvos.cs` en la carpeta `oxide/plugins/` del servidor.
 3. Oxide lo compila y carga solo. En la consola deberías ver algo como
-   `Loaded plugin Isla de Calvos v1.8.0 by Igor Monasterio`.
+   `Loaded plugin Isla de Calvos v1.8.1 by Igor Monasterio`.
 4. Para recargarlo tras cambiar el fichero (normalmente se recarga solo):
    `oxide.reload IslaDeCalvos`
 

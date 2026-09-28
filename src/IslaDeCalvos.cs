@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Isla de Calvos", "Igor Monasterio", "1.8.0")]
+    [Info("Isla de Calvos", "Igor Monasterio", "1.8.1")]
     [Description("Baldness system for the Isla de Calvos Rust server: being bald is glory, hair is a curse.")]
     public class IslaDeCalvos : RustPlugin
     {
@@ -1232,7 +1232,7 @@ namespace Oxide.Plugins
                 ["AdminBountyRemoved"] = "Anulado el precio por la cabellera de {0} ({1}).",
                 ["AdminBountyNone"] = "Nadie ha puesto precio a la cabellera de {0}.",
                 ["CalvoDelDiaName"] = "Calvo del Día",
-                ["CalvoDelDiaChat"] = "<color=#e0a526>{0}</color> es el <color=#e0a526>CALVO DEL DÍA</color>: +{1} de alopecia en 24 horas. Respetad su autoridad capilar: hasta mañana, su frente es ley.",
+                ["CalvoDelDiaChatV2"] = "<color=#e0a526>{0}</color> es el <color=#e0a526>CALVO DEL DÍA</color>: +{1} de alopecia desde la última elección. Respetad su autoridad capilar: hasta mañana, su frente es ley.",
                 ["CalvoDelDiaBanner"] = "¡{0} es el CALVO DEL DÍA! Su frente es ley.",
                 ["CalvoDelDiaMenu"] = "Calvo del Día: <color=#e0a526>{0}</color> (+{1})",
                 ["CalvoDelDiaPrize"] = "<color=#e0a526>Premio de Calvo del Día:</color> {0}. Que no se te suba a la cabeza, que ahí arriba ya no queda nada.",
@@ -1374,6 +1374,11 @@ namespace Oxide.Plugins
             {
                 InitCalvoDelDia();
                 timer.Every(CalvoDelDiaCheckSeconds, CheckCalvoDelDia);
+            }
+            else
+            {
+                // Switched off: nobody keeps the group (and its perks). The current one is kept in the data for when it comes back.
+                SyncCalvoDelDiaGroup(0UL);
             }
         }
 
@@ -3997,7 +4002,7 @@ namespace Oxide.Plugins
                 return null;
             }
 
-            Broadcast("CalvoDelDiaChat", record.Name, FormatBaldness(record.Gained));
+            Broadcast("CalvoDelDiaChatV2", record.Name, FormatBaldness(record.Gained));
             ShowBanner(Lang("CalvoDelDiaBanner", null, record.Name), config.Ui.TitleUpBannerSeconds);
             PayCalvoDelDiaPrize(best);
             Interface.CallHook("OnIslaCalvoDelDia", record.Id, record.Name, record.Gained);

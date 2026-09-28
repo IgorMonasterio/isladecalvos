@@ -127,6 +127,10 @@ alcance cerrado:
     consola `isla.ranking` (JSON en una línea; solo consola del servidor y RCON).
   - La pestaña del ranking de `/calvos` pasa a llamarse RANKING, para no chocar
     con la del Salón de la fama.
+- **Plugin 1.8.1** — dos arreglos de la revisión de la 1.8.0: el anuncio del Calvo
+  del Día dice "desde la última elección" en vez de "en 24 horas", que no siempre era
+  verdad (`CalvoDelDiaChatV2`); y con el Calvo del Día desactivado, el grupo
+  `calvodeldia` se vacía al cargar.
 
 Decisiones de diseño de la v1.0 que no venían en la especificación inicial:
 - Toda muerte resta alopecia (PvP, NPC, entorno, suicidio), también la de un
