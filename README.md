@@ -283,7 +283,7 @@ respuestas numeradas:
 
    1. Traigo algo maldito
    2. Vengo a sellar el Carné de Calvo
-   3. Vengo a vender (o comprar) calva
+   3. Vengo a vender (o comprar) alopecia
    4. Nada, solo miraba
 ```
 
@@ -329,7 +329,7 @@ lo avisa en la consola al arrancar.
 
 ### El cambio de alopecia (plugin 1.6.0)
 
-Opción **3. Vengo a vender (o comprar) calva** en la conversación con el barbero.
+Opción **3. Vengo a vender (o comprar) alopecia** en la conversación con el barbero.
 Alopecia, Puntos de Chola y pelones se cambian entre sí:
 
 | Operación | Por defecto |
@@ -835,7 +835,7 @@ servidor. Desde la 1.8.0 van en el mismo fichero el Salón de la fama
 1. Ten un servidor dedicado de Rust con **Oxide (uMod)** instalado.
 2. Copia `src/IslaDeCalvos.cs` en la carpeta `oxide/plugins/` del servidor.
 3. Oxide lo compila y carga solo. En la consola deberías ver algo como
-   `Loaded plugin Isla de Calvos v1.8.2 by Igor Monasterio`.
+   `Loaded plugin Isla de Calvos v1.8.3 by Igor Monasterio`.
 4. Para recargarlo tras cambiar el fichero (normalmente se recarga solo):
    `oxide.reload IslaDeCalvos`
 

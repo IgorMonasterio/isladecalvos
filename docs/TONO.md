@@ -66,6 +66,8 @@ Y frases que ha puesto o elegido Igor después:
 - "Gracias por este gran servicio a la comunidad." (alguien caza al peludo)
 - "Ya no tienes que preocuparte por el champú." (calvicie suprema)
 - "Rapado por headshot."
+- "Al rape." (inicio del Brote de alopecia)
+- "Cobra y calla." (paga de Puntos de Chola)
 
 ## Lo que NO (vetado por Igor)
 
@@ -88,6 +90,8 @@ Y frases que ha puesto o elegido Igor después:
 - **Negritas** en el texto (`<b>`): no hacen falta. Solo los títulos de sección de un
   menú pueden ir en negrita. Para resaltar, color.
 - **Emojis**: el chat de Rust no los dibuja (salen como `??`).
+- **Remates largos en mensajes que se repiten** (pagas, eventos): si sale cada 30
+  minutos, dos o tres palabras como mucho.
 
 ## Límites
 
@@ -99,7 +103,7 @@ maldad. La pulla es de colega, no de acosador.
 
 | Se dice | No se dice | Notas |
 |---|---|---|
-| **alopecia** (la cifra: "Alopecia 25.000", "nivel de alopecia") | "calvicie" para la cifra | "calvicie", "calva" y sinónimos solo en chistes y nombres de eventos ("Hora de la calvicie") |
+| **alopecia** (la cifra: "Alopecia 25.000", "nivel de alopecia") | "calvicie" para la cifra | "calvicie", "calva" y sinónimos solo en chistes y nombres de eventos ("Hora de la calvicie"). En botones, menús y textos de compraventa, siempre «alopecia», nunca «calva»: la gente tiene que entender qué está comprando. |
 | **el Mercalvona®** | la Mercalvona, la tienda | Masculino: el/del/en el Mercalvona. En menús, la ® pequeña: `Mercalvona<size=10>®</size>` |
 | **Cambio de divisas** (ServerRewards) · **Cambista de divisas** (su NPC) | Premios Calvos, tienda de puntos | Vende botín por Puntos de Chola y cambia Puntos de Chola ↔ pelones (1 Punto de Chola = 25 pelones) |
 | **la peluquería** | — | `/peluqueria` te teletransporta allí; dentro, el Mercalvona®, el Cambio de divisas y El Calvario |

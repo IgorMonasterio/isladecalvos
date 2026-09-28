@@ -141,6 +141,10 @@ alcance cerrado:
   que despierta; la alopecia comprada y la de admin no cuentan para el Calvo del
   Día, y su `ahora` cuenta como la elección del día; `OnIslaHuntEnded` con
   `stopped`; y textos repasados con claves nuevas.
+- **Plugin 1.8.3** — solo textos, encargo de Jano con frases de Igor: remate nuevo
+  del Brote de alopecia ("Al rape."), paga de Puntos de Chola más corta ("Cobra y
+  calla.") y el cambio del barbero dice "alopecia" en vez de "calva" en botones y
+  textos de compraventa. Claves nuevas; TONO.md con las reglas.
 
 Decisiones de diseño de la v1.0 que no venían en la especificación inicial:
 - Toda muerte resta alopecia (PvP, NPC, entorno, suicidio), también la de un

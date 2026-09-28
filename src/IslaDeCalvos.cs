@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Isla de Calvos", "Igor Monasterio", "1.8.2")]
+    [Info("Isla de Calvos", "Igor Monasterio", "1.8.3")]
     [Description("Baldness system for the Isla de Calvos Rust server: being bald is glory, hair is a curse.")]
     public class IslaDeCalvos : RustPlugin
     {
@@ -1048,12 +1048,12 @@ namespace Oxide.Plugins
             {
                 ["CalvarioTitle"] = "EL CALVARIO",
                 ["BarberName"] = "EL BARBERO",
-                ["BarberOptExchange"] = "Vengo a vender (o comprar) calva",
-                ["BarberExIntroV3"] = "Aquí la calva se compra y se vende. Vender sale barato y comprar sale caro: esto es un negocio, no una ONG.\nTienes {0} de alopecia · {1} Puntos de Chola · {2} pelones.",
-                ["BarberExSellRpV3"] = "Vender calva por Puntos de Chola (cada {0} de alopecia, 1 Punto de Chola)",
-                ["BarberExSellCoinsV3"] = "Vender calva por pelones (cada 100 de alopecia, {0} pelones)",
-                ["BarberExBuyRpV4"] = "Comprar calva con Puntos de Chola ({0} PdC cada 1 de alopecia)",
-                ["BarberExBuyCoinsV3"] = "Comprar calva con pelones ({0} pelones cada 1 de alopecia)",
+                ["BarberOptExchangeV2"] = "Vengo a vender (o comprar) alopecia",
+                ["BarberExIntroV4"] = "Aquí la alopecia se compra y se vende. Vender sale barato y comprar sale caro: esto es un negocio, no una ONG.\nTienes {0} de alopecia · {1} Puntos de Chola · {2} pelones.",
+                ["BarberExSellRpV4"] = "Vender alopecia por Puntos de Chola (cada {0} de alopecia, 1 Punto de Chola)",
+                ["BarberExSellCoinsV4"] = "Vender alopecia por pelones (cada 100 de alopecia, {0} pelones)",
+                ["BarberExBuyRpV5"] = "Comprar alopecia con Puntos de Chola ({0} PdC cada 1 de alopecia)",
+                ["BarberExBuyCoinsV4"] = "Comprar alopecia con pelones ({0} pelones cada 1 de alopecia)",
                 ["BarberExClosedV3"] = "{0}  [cerrado: falta {1}. Vuelve cuando el jefe lo arregle]",
                 ["BarberExPickAmount"] = "¿Cuánto? Piénsatelo bien, que luego lloras.",
                 ["BarberExSellLineV2"] = "Dar {0} de alopecia y llevarme {1}",
@@ -1179,7 +1179,7 @@ namespace Oxide.Plugins
                 ["NoRpPlugin"] = "Server Rewards no está cargado",
                 ["NoRpRefused"] = "Server Rewards no aceptó el pago",
                 ["NoRpCapV2"] = "saldo de Puntos de Chola al tope de Server Rewards",
-                ["RpEarnedV4"] = "<color=#e0a526>+{0} Puntos de Chola</color> por lucir calva de <color=#e0a526>{1}</color>. Es lo único que te va a pagar alguien en la vida por estar calvo: disfrútalo.",
+                ["RpEarnedV5"] = "<color=#e0a526>+{0} Puntos de Chola</color> por lucir calva de <color=#e0a526>{1}</color>. Cobra y calla.",
                 ["ReasonPlayerKill"] = "kill a {0}",
                 ["ReasonPlayerHeadshotKillV2"] = "rapado por headshot a {0}",
                 ["ReasonDeath"] = "muerte (-{0} %)",
@@ -1209,7 +1209,7 @@ namespace Oxide.Plugins
                 ["EventHuntSurvivedV3"] = "{0} ha sobrevivido a la cacería con todo su pelo y gana +{1}. Paquetes.",
                 ["EventHuntDiedV4"] = "{0}, el más peludo de la isla, la ha palmado solito, sin que nadie le meta un tiro. Se ha muerto como vivió: con el pelo en la cara y sin que nadie le haga ni puto caso. Se acabó la cacería.",
                 ["EventHuntEscapedV4"] = "{0} se ha pirado de la isla con su melena, como una rata con extensiones. Volverá cuando se le acabe el acondicionador. Se acabó la cacería.",
-                ["EventBladeStormStartV3"] = "<color=#e0a526>BROTE DE ALOPECIA</color>: durante {0} min el heli, la Bradley y el Chinook dan x{1}. Hoy hasta el cielo se pela.",
+                ["EventBladeStormStartV4"] = "<color=#e0a526>BROTE DE ALOPECIA</color>: durante {0} min el heli, la Bradley y el Chinook dan x{1}. Al rape.",
                 ["EventBladeStormEndV2"] = "Se acabó el brote de alopecia. El heli vuelve a pagar lo de siempre, como un funcionario.",
                 ["EventStoppedByAdminV2"] = "Un admin ha cancelado el evento {0}. Las quejas, a su peluquero.",
                 ["ReasonHuntKillV2"] = "cacería del peludo ({0})",
@@ -2359,7 +2359,7 @@ namespace Oxide.Plugins
                 case GlobalEvent.BladeStorm:
                     if (!events.BladeStorm.Enabled) return false;
                     minutes = events.BladeStorm.DurationMinutes;
-                    BroadcastEvent("EventBladeStormStartV3", minutes, events.BladeStorm.Multiplier);
+                    BroadcastEvent("EventBladeStormStartV4", minutes, events.BladeStorm.Multiplier);
                     break;
                 default:
                     return false;
@@ -3608,12 +3608,12 @@ namespace Oxide.Plugins
                         line += "\n";
                     }
 
-                    line += Lang("BarberExIntroV3", userId, FormatBaldness(data.Baldness),
+                    line += Lang("BarberExIntroV4", userId, FormatBaldness(data.Baldness),
                         RpAvailable ? FormatBaldness(CheckRp(data.Id)) : "-", CoinsAvailable ? FormatBaldness(CoinBalance(data.Id)) : "-");
-                    AddExchangeOption(options, ExchangeMode.SellForRp, Lang("BarberExSellRpV3", userId, FormatBaldness(ex.SellBaldnessPerRp)), userId);
-                    AddExchangeOption(options, ExchangeMode.SellForCoins, Lang("BarberExSellCoinsV3", userId, FormatBaldness(ex.SellCoinsPer100)), userId);
-                    AddExchangeOption(options, ExchangeMode.BuyWithRp, Lang("BarberExBuyRpV4", userId, FormatBaldness(ex.BuyRpPerBaldness)), userId);
-                    AddExchangeOption(options, ExchangeMode.BuyWithCoins, Lang("BarberExBuyCoinsV3", userId, FormatBaldness(ex.BuyCoinsPerBaldness)), userId);
+                    AddExchangeOption(options, ExchangeMode.SellForRp, Lang("BarberExSellRpV4", userId, FormatBaldness(ex.SellBaldnessPerRp)), userId);
+                    AddExchangeOption(options, ExchangeMode.SellForCoins, Lang("BarberExSellCoinsV4", userId, FormatBaldness(ex.SellCoinsPer100)), userId);
+                    AddExchangeOption(options, ExchangeMode.BuyWithRp, Lang("BarberExBuyRpV5", userId, FormatBaldness(ex.BuyRpPerBaldness)), userId);
+                    AddExchangeOption(options, ExchangeMode.BuyWithCoins, Lang("BarberExBuyCoinsV4", userId, FormatBaldness(ex.BuyCoinsPerBaldness)), userId);
                     options.Add(new KeyValuePair<string, string>(Lang("BarberOptBack", userId), "calvos.barber main"));
                     break;
                 case BarberPage.ExchangeAmount:
@@ -3655,7 +3655,7 @@ namespace Oxide.Plugins
                     options.Add(new KeyValuePair<string, string>(Lang("BarberOptCarne", userId), "calvos.barber carne"));
                     if (config.Exchange.Enabled)
                     {
-                        options.Add(new KeyValuePair<string, string>(Lang("BarberOptExchange", userId), "calvos.barber exchange"));
+                        options.Add(new KeyValuePair<string, string>(Lang("BarberOptExchangeV2", userId), "calvos.barber exchange"));
                     }
 
                     options.Add(new KeyValuePair<string, string>(Lang("BarberOptBye", userId), "calvos.barber bye"));
@@ -4529,7 +4529,7 @@ namespace Oxide.Plugins
             SendDebug("DebugRpV2", data.Name, FormatBaldness(amount), GetTitle(data.Baldness));
             if (rp.NotifyPlayer)
             {
-                Reply(player, "RpEarnedV4", FormatBaldness(amount), GetTitle(data.Baldness));
+                Reply(player, "RpEarnedV5", FormatBaldness(amount), GetTitle(data.Baldness));
             }
         }
 
