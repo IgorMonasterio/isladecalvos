@@ -179,6 +179,8 @@ OnIslaTitleChanged(ulong userId, string playerName, string oldTitle, string newT
 `oldTitle` o `newTitle` van vacíos si no había título (alopecia 0). No hace
 falta devolver nada. Lo escucha JanoBridge para que el Gran Calvo Jano felicite
 (o se ría) en el chat.
+Desde la 1.8.0 hay más hooks (salón de la fama, cabezas, Calvo del Día y fin de
+la cacería): ver [Más avisos para otros plugins](#más-avisos-para-otros-plugins-hooks).
 
 Los mensajes van resaltados con los colores de la casa: dorado para cifras
 buenas y comandos, y óxido para lo que duele (ver [docs/TONO.md](docs/TONO.md)).
@@ -214,7 +216,9 @@ escalones por título de la 1.4.0.
   en la consola. La alopecia sigue funcionando igual.
 
 **Estadísticas** por jugador: kills, muertes y kills de headshot (solo contra
-jugadores). Las kills cuentan aunque no den alopecia (sleeper o cooldown).
+jugadores), y desde la 1.8.0 también kills y muertes **del mapa actual**
+(`WipeKills`/`WipeDeaths`, que vuelven a 0 en cada wipe). Las kills cuentan
+aunque no den alopecia (sleeper o cooldown).
 
 ## En pantalla
 
@@ -291,10 +295,13 @@ respuestas numeradas:
 - **3** es el [cambio de alopecia](#el-cambio-de-alopecia-plugin-160). Solo
   sale si está activado en la config.
 
-El **Salón de la fama calva** (`/calvos`) va de barbería calva: rayas de
-poste de barbero, barra de progreso hacia tu siguiente título,
-oro/plata/bronce para el podio y cuánto te falta para adelantar al de
-arriba.
+La ventana de `/calvos` va de barbería calva: rayas de poste de barbero,
+barra de progreso hacia tu siguiente título, oro/plata/bronce para el podio y
+cuánto te falta para adelantar al de arriba. Desde la 1.8.0 tiene tres
+pestañas: **RANKING** (la de siempre), **SALÓN DE LA FAMA** (un bloque por
+mapa) y **CABEZAS** (las recompensas por cabeza), y al lado de las pestañas
+sale el **Calvo del Día** vigente. Ver
+[Salón de la fama, cabezas y Calvo del Día](#salón-de-la-fama-cabezas-y-calvo-del-día-plugin-180).
 
 | Objeto | Cómo se consigue | Qué hace al usarlo |
 |---|---|---|
@@ -448,16 +455,144 @@ está en el servidor con el tono de la isla y no se toca:
 "Message.Notification.Unspent.NPC": "Busca al <color=#B6F34A>cambista</color> con /peluqueria para gastarlos."
 ```
 
+## Salón de la fama, cabezas y Calvo del Día (plugin 1.8.0)
+
+Encargo de Jano, el que administra los servers.
+
+### Salón de la fama por wipe
+
+En cada **wipe** (`OnNewSave`), **antes de cualquier reset** y aunque
+`Reset baldness on map wipe` esté a `false`, se guarda una entrada con el mapa
+que acaba:
+
+- la **fecha** (hora del server);
+- el **podio de alopecia**: los 3 primeros con su cifra (mismo orden que el ranking);
+- quien **más ha matado** y quien **más ha muerto en ese mapa**, con sus números.
+
+Para lo de "en ese mapa" cada jugador lleva `WipeKills` y `WipeDeaths`, que
+suben junto a `Kills`/`Deaths` y vuelven a 0 en el wipe, después de guardar la
+entrada. Los `Kills`/`Deaths` de siempre no se tocan.
+
+- Si nadie tiene alopecia ni kills, no se guarda nada.
+- Se ve en la pestaña **SALÓN DE LA FAMA** de `/calvos`: un bloque por mapa,
+  del más nuevo al más viejo, con el podio en oro, plata y bronce y una pulla
+  para el que más ha muerto. Cada bloque lleva su número (`#3`).
+- Cuando despierta el **primer jugador** tras el wipe, sale una vez en el chat
+  quién se lleva el mapa (el primero del podio).
+- `/calvoadmin salon guardar` guarda a mano una entrada con el estado actual
+  (sin anuncio en el chat, ni resetear nada). `/calvoadmin salon borrar <n>`
+  quita la entrada `#n`.
+- Las entradas se guardan en el fichero de datos del plugin, sin tope por
+  defecto (`Max entries kept`).
+- **Ojo**: `OnNewSave` solo le llega al plugin si está **cargado al arrancar**
+  el servidor con el mapa nuevo (Oxide compila y carga los plugins antes de
+  cargar el mapa). Si tras la actualización de Rust no compilara, o se carga a
+  mano después, la entrada no se guarda sola: toca `/calvoadmin salon guardar`,
+  y los contadores del mapa no vuelven a 0 hasta el siguiente wipe.
+
+### Recompensas por cabeza
+
+"Se paga por su cabellera". Con **`/cabeza <jugador> <cantidad>`** pones
+**Puntos de Chola** sobre la cabeza de alguien. Se te cobran **al momento**.
+Si ya tenía precio, se suma al bote.
+
+- Mínimo: **10 Puntos de Chola** (configurable). La cantidad va al final, así
+  que valen nombres con espacios (`/cabeza Pepe el Calvo 50`) y la cantidad
+  admite puntos de miles (`1.000`).
+- Se puede poner sobre un jugador **desconectado** (que tenga datos). No se
+  puede poner sobre uno mismo.
+- Quien lo **mate en PvP** se lleva **el bote entero** y sale en el chat. No
+  cobra: el propio jugador (suicidio), alguien de su **equipo**, ni nadie si el
+  muerto estaba **dormido o desconectado** (configurable, activado por defecto).
+  Si muere por otra cosa (NPC, caída, suicidio…), el bote sigue ahí.
+- **Nada se devuelve**: lo que se pone, se pierde. El bote dura hasta que
+  alguien lo cobre y **el wipe no lo borra**.
+- Si Server Rewards no paga al que lo mata, el bote se queda para el siguiente.
+- **`/cabezas`** abre la pestaña **CABEZAS** de `/calvos`: todas las cabezas
+  con precio, de la más cara a la más barata, y cuánto dan por la tuya.
+- Sin **Server Rewards** cargado, `/cabeza` está cerrado.
+- `/calvoadmin cabeza quitar <jugador>` anula un bote (sin devolver nada).
+
+### Calvo del Día
+
+Cada día a las **21:00** (hora del server, configurable) se elige al **Calvo
+del Día**: el que más alopecia ha **ganado** desde la elección anterior (lo
+ganado, no el total; las muertes restan). En cada elección se guarda una foto
+de la alopecia de todos para comparar al día siguiente.
+
+- Solo cuenta quien se haya **conectado** desde la elección anterior y haya
+  ganado algo. Si nadie, ese día no hay Calvo del Día (y el anterior lo deja
+  de ser).
+- Se anuncia en el chat y en el **cartel grande** del centro de la pantalla
+  (el de los títulos), y sale en `/calvos`, al lado de las pestañas.
+- Está en el grupo de Oxide **`calvodeldia`** (configurable), y **solo él**:
+  al elegir uno nuevo, el plugin saca del grupo a todos los demás. Si el grupo
+  no existe, lo crea. Sirve para darle permisos, como un prefijo de Better
+  Chat. No puede ser un grupo de título ni `default`, `admin` o `*`.
+- **Premio** opcional (Puntos de Chola, pelones y objetos, con `"Message"`
+  propio), igual que los premios por título y a 0 por defecto. Los objetos
+  solo se dan si está conectado en ese momento.
+- Se guarda el historial de los **últimos 30**.
+- Si el servidor está apagado a las 21:00, se elige en cuanto arranca (si no
+  ha pasado la medianoche). La primera vez que carga la 1.8.0 se hace la
+  primera foto; si ya son más de las 21:00, la primera elección es al día
+  siguiente.
+- `/calvoadmin calvodeldia ahora` fuerza una elección (para probar). La de
+  las 21:00 sigue a su hora.
+
+### Más avisos para otros plugins (hooks)
+
+Además de `OnIslaTitleChanged`, el plugin llama a estos hooks (no hace falta
+devolver nada):
+
+```csharp
+OnIslaWipeHallOfFame(string json)
+OnIslaBountyPlaced(ulong placerId, string placerName, ulong targetId, string targetName, long amount, long total)
+OnIslaBountyClaimed(ulong killerId, string killerName, ulong targetId, string targetName, long total)
+OnIslaCalvoDelDia(ulong userId, string playerName, long gained)
+OnIslaHuntEnded(ulong targetId, string targetName, string outcome, string killerName)
+```
+
+- `OnIslaWipeHallOfFame`: la entrada recién guardada (wipe o a mano), en una
+  línea de JSON:
+  `{"number":3,"date":"2026-10-01T20:00:12","manual":false,"podium":[{"id":"7656…","name":"…","alopecia":123456}],"topKiller":{"id":"7656…","name":"…","kills":12},"topDeaths":{"id":"7656…","name":"…","deaths":34}}`.
+  `topKiller`/`topDeaths` van a `null` si nadie mató o murió. Los SteamID van
+  como texto.
+- `OnIslaBountyPlaced`: `amount` es lo que se acaba de poner y `total`, el bote
+  después de sumarlo.
+- `OnIslaHuntEnded`: al acabar la Cacería del peludo, con `outcome` =
+  `killed`, `survived`, `died` o `escaped`. `killerName` va vacío salvo en
+  `killed`. Si un admin para el evento, no se llama.
+
+### Comando de consola `isla.ranking`
+
+Solo desde la **consola del servidor o RCON** (a un jugador no le contesta).
+Devuelve en **una sola línea de JSON** todos los jugadores, de más a menos
+alopecia:
+
+```json
+[{"name":"…","id":"7656…","alopecia":123456,"title":"Coronilla a la Intemperie","kills":40,"deaths":12,"wipeKills":5,"wipeDeaths":2,"online":true}]
+```
+
+`id` va como texto y `title` va vacío con 0 de alopecia (sin título).
+
 ## Comandos
 
 | Comando | Quién | Qué hace |
 |---|---|---|
-| `/calvos` | Todos | Abre el **Salón de la fama calva**: ranking de todo el servidor, de 10 en 10, con tu posición. Se cierra con la **X**. Los objetos se usan hablando con el barbero de la peluquería. |
+| `/calvos` | Todos | Abre la ventana de la isla: **ranking** de todo el servidor (de 10 en 10, con tu posición), **Salón de la fama** por mapa y **cabezas** con precio. Se cierra con la **X**. Los objetos se usan hablando con el barbero de la peluquería. |
+| `/cabeza <jugador> <cantidad>` | Todos | Pone Puntos de Chola por la cabeza de un jugador (se cobran al momento y no se devuelven). |
+| `/cabezas` | Todos | Abre `/calvos` en la pestaña de cabezas. |
 | `/calvoadmin set <jugador> <valor>` | Admin | Fija la alopecia de un jugador (entero, 0 o más). |
 | `/calvoadmin reset <jugador>` | Admin | Pone la alopecia de un jugador a 0. |
 | `/calvoadmin evento <hora\|champu\|peludo\|alopecia>` | Admin | Lanza ese evento ya, sin esperar a la hora. Para probar. (`cuchillas` también vale para el Brote de alopecia.) |
 | `/calvoadmin evento parar` | Admin | Cancela el evento en marcha. |
 | `/calvoadmin debug on\|off` | Admin | Muestra en tu chat cada cambio de alopecia (de cualquier jugador) con su motivo: NPC, tier, valor… También avisa cuando algo **no** da alopecia y por qué. Para probar. Se apaga al recargar el plugin. |
+| `/calvoadmin salon guardar` | Admin | Guarda a mano una entrada del Salón de la fama con el estado actual. |
+| `/calvoadmin salon borrar <n>` | Admin | Quita la entrada `#n` del Salón de la fama. |
+| `/calvoadmin cabeza quitar <jugador>` | Admin | Anula el bote que haya por la cabeza de ese jugador (no se devuelve a nadie). |
+| `/calvoadmin calvodeldia ahora` | Admin | Elige ya al Calvo del Día (para probar). |
+| `isla.ranking` | Consola del servidor / RCON | Todos los jugadores en una línea de JSON (ver arriba). |
 
 `<jugador>` puede ser el SteamID o el nombre (o parte del nombre). Funciona
 también con jugadores desconectados que ya tengan datos. Los cambios de admin
@@ -626,6 +761,31 @@ Bloque de eventos globales (valores por defecto):
 
 El bloque `Alopecia outbreak` es el **Brote de alopecia**.
 
+Bloques de la 1.8.0 (valores por defecto):
+
+```json
+"Hall of fame (one entry per map wipe)": {
+  "Enabled": true,
+  "Max entries kept (0 = no limit)": 0,
+  "Announce the winner in chat after the wipe": true
+},
+"Bounties (/cabeza)": {
+  "Enabled": true,
+  "Minimum amount (Puntos de Chola)": 10,
+  "Not paid if the victim was sleeping or disconnected": true
+},
+"Calvo del Día (top alopecia gainer of the last 24 h)": {
+  "Enabled": true,
+  "Pick time (server time, HH:mm)": "21:00",
+  "Oxide group": "calvodeldia",
+  "History entries kept": 30,
+  "Prize": { "RP (Server Rewards)": 0, "Coins (Economics)": 0, "Items": [], "Message": "" }
+}
+```
+
+`"Oxide group": ""` = sin grupo. Una hora mal escrita vuelve a `21:00` con un
+aviso en la consola.
+
 Los textos de los mensajes se editan en `oxide/lang/es/IslaDeCalvos.json` y
 `oxide/lang/en/IslaDeCalvos.json`. Los dos están en español por defecto: la
 mayoría de jugadores tienen el cliente en inglés, y Oxide les mostraría el
@@ -633,14 +793,16 @@ fichero `en`.
 
 Los datos de los jugadores se guardan en `oxide/data/IslaDeCalvos.json`, en
 cada guardado automático del servidor y al descargar el plugin o apagar el
-servidor.
+servidor. Desde la 1.8.0 van en el mismo fichero el Salón de la fama
+(`HallOfFame`), las cabezas con precio (`Bounties`) y el Calvo del Día
+(`CalvoDelDia`: foto de alopecia, vigente e historial).
 
 ## Instalación
 
 1. Ten un servidor dedicado de Rust con **Oxide (uMod)** instalado.
 2. Copia `src/IslaDeCalvos.cs` en la carpeta `oxide/plugins/` del servidor.
 3. Oxide lo compila y carga solo. En la consola deberías ver algo como
-   `Loaded plugin Isla de Calvos v1.7.0 by Igor Monasterio`.
+   `Loaded plugin Isla de Calvos v1.8.0 by Igor Monasterio`.
 4. Para recargarlo tras cambiar el fichero (normalmente se recarga solo):
    `oxide.reload IslaDeCalvos`
 
