@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Isla de Calvos", "Igor Monasterio", "1.9.0")]
+    [Info("Isla de Calvos", "Igor Monasterio", "1.9.1")]
     [Description("Baldness system for the Isla de Calvos Rust server: being bald is glory, hair is a curse.")]
     public class IslaDeCalvos : RustPlugin
     {
@@ -101,7 +101,7 @@ namespace Oxide.Plugins
         #region Configuration
 
         // Bump when a release must overwrite values already saved in existing config files.
-        private const int CurrentConfigVersion = 131;
+        private const int CurrentConfigVersion = 191;
 
         private class Configuration
         {
@@ -420,6 +420,10 @@ namespace Oxide.Plugins
             [JsonProperty("Show baldness counter")]
             public bool ShowCounter = true;
 
+            // Puntos de Chola and pelones in a thin strip right under the counter (only with the counter on).
+            [JsonProperty("Show wallet under the counter")]
+            public bool ShowWallet = true;
+
             // Anchors are 0-1 screen fractions (0 0 = bottom left); offsets are pixels from those anchors.
             [JsonProperty("Counter anchor min")] public string CounterAnchorMin = "1 1";
             [JsonProperty("Counter anchor max")] public string CounterAnchorMax = "1 1";
@@ -635,6 +639,12 @@ namespace Oxide.Plugins
                 config.Ui.CounterOffsetMin = uiDefaults.CounterOffsetMin;
                 config.Ui.CounterOffsetMax = uiDefaults.CounterOffsetMax;
                 PrintWarning("Config updated to 1.3.1: baldness counter moved to the top-right corner.");
+            }
+
+            if (config.ConfigVersion < 191)
+            {
+                config.Ui.ShowWallet = new UiConfig().ShowWallet;
+                PrintWarning("Config updated to 1.9.1: wallet (Puntos de Chola and pelones) under the baldness counter.");
             }
 
             config.ConfigVersion = CurrentConfigVersion;
@@ -1281,6 +1291,7 @@ namespace Oxide.Plugins
                 ["AdminCalvoDelDiaUsage"] = "Uso: /calvoadmin calvodeldia ahora",
                 ["AdminCalvoDelDiaOff"] = "El Calvo del Día está desactivado en la config.",
                 ["AdminCalvoDelDiaNone"] = "Nadie ha ganado alopecia desde la última elección: no hay Calvo del Día.",
+                ["HudWallet"] = "<color=#9a9288>PdC</color> <color=#e0a526>{0}</color>     <color=#9a9288>PELONES</color> <color=#e0a526>{1}</color>",
                 ["HudCounterV3"] = "<size=11><color=#9a9288>ALOPECIA</color></size>  <color=#e0a526>{0}</color>\n<size=10><color=#d8d8d8>{1}</color></size>"
             };
 
@@ -1342,6 +1353,25 @@ namespace Oxide.Plugins
             return sign + number + " " + suffix;
         }
 
+        // Wallet figures: full number below a million, then "12,3 M" and, from a thousand million, "1,5 mil M"
+        // (one decimal, truncated like FormatCompact).
+        private static string FormatWallet(long value)
+        {
+            if (value > -1000000L && value < 1000000L)
+            {
+                return FormatBaldness(value);
+            }
+
+            string sign = value < 0 ? "-" : string.Empty;
+            ulong magnitude = value < 0 ? (ulong)(-(value + 1)) + 1UL : (ulong)value;
+            bool thousandMillions = magnitude >= 1000000000UL;
+            ulong unit = thousandMillions ? 1000000000UL : 1000000UL;
+            ulong whole = magnitude / unit;
+            ulong tenth = magnitude % unit / (unit / 10);
+            string number = whole.ToString("#,0", BaldnessFormat) + (tenth > 0 ? "," + tenth.ToString(CultureInfo.InvariantCulture) : string.Empty);
+            return sign + number + (thousandMillions ? " mil M" : " M");
+        }
+
         // Baldness is a long; these keep huge values at long.MaxValue instead of wrapping to negative.
         private static long SaturatingAdd(long a, long b)
         {
@@ -1384,6 +1414,10 @@ namespace Oxide.Plugins
             }
 
             timer.Every(SurvivalTickSeconds, SurvivalTick);
+            if (config.Ui.ShowCounter && config.Ui.ShowWallet)
+            {
+                timer.Every(WalletPollSeconds, PollWallets);
+            }
 
             foreach (BasePlayer player in BasePlayer.activePlayerList)
             {
@@ -2303,6 +2337,7 @@ namespace Oxide.Plugins
                 lastPositions.Remove((ulong)player.userID);
                 calvarioNpcInUse.Remove((ulong)player.userID);
                 pendingExchanges.Remove((ulong)player.userID);
+                walletTexts.Remove((ulong)player.userID);
             }
 
             if (activeEvent == GlobalEvent.HairiestHunt && player != null && (ulong)player.userID == huntTargetId)
@@ -2529,8 +2564,13 @@ namespace Oxide.Plugins
         private const string UiCounter = "IslaDeCalvos.Counter";
         private const string UiDelta = "IslaDeCalvos.Delta";
         private const string UiBanner = "IslaDeCalvos.Banner";
+        private const string UiWallet = "IslaDeCalvos.Wallet";
+        // Pelones and Puntos de Chola change outside this plugin (shops, currency exchange), so the wallet is polled.
+        private const float WalletPollSeconds = 3f;
 
         private readonly Dictionary<ulong, Timer> deltaTimers = new Dictionary<ulong, Timer>();
+        // Last wallet text drawn per player: the poll only redraws when it changes.
+        private readonly Dictionary<ulong, string> walletTexts = new Dictionary<ulong, string>();
         private Timer bannerTimer;
 
         // The client is ready for UI once the player wakes up (after connecting and after every respawn).
@@ -2570,6 +2610,68 @@ namespace Oxide.Plugins
                 RectTransform = { AnchorMin = "0 0", AnchorMax = "1 1" }
             }, UiCounter);
             CuiHelper.AddUi(player, container);
+            DrawWallet(player, true);
+        }
+
+        // With neither Server Rewards nor Economics loaded there is nothing to show.
+        private bool WalletActive => config.Ui.ShowCounter && config.Ui.ShowWallet && (RpAvailable || CoinsAvailable);
+
+        // Thin strip glued under the counter, same width and anchor. force: redraw even if the figures did not change.
+        private void DrawWallet(BasePlayer player, bool force)
+        {
+            if (player == null || !player.IsConnected)
+            {
+                return;
+            }
+
+            ulong userId = (ulong)player.userID;
+            if (!WalletActive)
+            {
+                if (walletTexts.Remove(userId))
+                {
+                    CuiHelper.DestroyUi(player, UiWallet);
+                }
+
+                return;
+            }
+
+            if (player.IsSleeping())
+            {
+                return;
+            }
+
+            string text = Lang("HudWallet", player.UserIDString,
+                RpAvailable ? FormatWallet(CheckRp(userId)) : "-", CoinsAvailable ? FormatWallet(CoinBalance(userId)) : "-");
+            if (!force && walletTexts.TryGetValue(userId, out string previous) && previous == text)
+            {
+                return;
+            }
+
+            walletTexts[userId] = text;
+            UiConfig ui = config.Ui;
+            var container = new CuiElementContainer();
+            container.Add(new CuiPanel
+            {
+                Image = { Color = "0 0 0 0.45" },
+                RectTransform = { AnchorMin = ui.CounterAnchorMin, AnchorMax = ui.CounterAnchorMax, OffsetMin = ShiftY(ui.CounterOffsetMin, -20), OffsetMax = ShiftY(ui.CounterOffsetMin, -1, ui.CounterOffsetMax) }
+            }, "Hud", UiWallet, UiWallet);
+            container.Add(new CuiLabel
+            {
+                Text = { Text = text, FontSize = 11, Align = TextAnchor.MiddleCenter, Color = "1 1 1 1" },
+                RectTransform = { AnchorMin = "0 0", AnchorMax = "1 1" }
+            }, UiWallet);
+            CuiHelper.AddUi(player, container);
+        }
+
+        private void PollWallets()
+        {
+            foreach (BasePlayer player in BasePlayer.activePlayerList)
+            {
+                if (IsRealPlayer(player))
+                {
+                    DrawWallet(player, false);
+                }
+            }
         }
 
         // Redraws the counter of an online player and pops a +X / -X next to it for a moment.
@@ -2584,10 +2686,12 @@ namespace Oxide.Plugins
             DrawCounter(player);
 
             UiConfig ui = config.Ui;
-            // Same width as the counter: below it when the counter is in the top half of the screen, above otherwise.
+            // Same width as the counter: below it (and below the wallet, if shown) when the counter is in the top half
+            // of the screen, above otherwise.
             bool below = CounterIsOnTop();
-            string popupMin = below ? ShiftY(ui.CounterOffsetMin, -28) : ShiftY(ui.CounterOffsetMax, 2, ui.CounterOffsetMin);
-            string popupMax = below ? ShiftY(ui.CounterOffsetMin, -2, ui.CounterOffsetMax) : ShiftY(ui.CounterOffsetMax, 28);
+            float walletGap = WalletActive ? 20f : 0f;
+            string popupMin = below ? ShiftY(ui.CounterOffsetMin, -28 - walletGap) : ShiftY(ui.CounterOffsetMax, 2, ui.CounterOffsetMin);
+            string popupMax = below ? ShiftY(ui.CounterOffsetMin, -2 - walletGap, ui.CounterOffsetMax) : ShiftY(ui.CounterOffsetMax, 28);
 
             var container = new CuiElementContainer();
             container.Add(new CuiLabel
@@ -2677,6 +2781,7 @@ namespace Oxide.Plugins
             }
 
             CuiHelper.DestroyUi(player, UiCounter);
+            CuiHelper.DestroyUi(player, UiWallet);
             CuiHelper.DestroyUi(player, UiDelta);
             CuiHelper.DestroyUi(player, UiBanner);
             CuiHelper.DestroyUi(player, UiMenu);
