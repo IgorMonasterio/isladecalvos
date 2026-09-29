@@ -105,7 +105,7 @@ maldad. La pulla es de colega, no de acosador.
 |---|---|---|
 | **alopecia** (la cifra: "Alopecia 25.000", "nivel de alopecia") | "calvicie" para la cifra | "calvicie", "calva" y sinónimos solo en chistes y nombres de eventos ("Hora de la calvicie"). En botones, menús y textos de compraventa, siempre «alopecia», nunca «calva»: la gente tiene que entender qué está comprando. |
 | **el Mercalvona®** | la Mercalvona, la tienda | Masculino: el/del/en el Mercalvona. En menús, la ® pequeña: `Mercalvona<size=10>®</size>` |
-| **Cambio de divisas** (ServerRewards) · **Cambista de divisas** (su NPC) | Premios Calvos, tienda de puntos | Vende botín por Puntos de Chola y cambia Puntos de Chola ↔ pelones (1 Punto de Chola = 25 pelones) |
+| **Cambio de divisas** (ServerRewards) · **el Traficante** (su NPC; su cartel pone TRAFICANTE) | Premios Calvos, tienda de puntos, Cambista de divisas | Vende botín por Puntos de Chola y cambia Puntos de Chola ↔ pelones (1 Punto de Chola = 25 pelones) |
 | **la peluquería** | — | `/peluqueria` te teletransporta allí; dentro, el Mercalvona®, el Cambio de divisas y El Calvario |
 | **El Calvario** · **el Barbero** | — | Reliquias, Carné de Calvo y el cambio de alopecia |
 | **reliquias** (lejía, cinta, pila, placas, gemas, tarjetas) | objetos malditos | La lejía es la única que puede salir mal |

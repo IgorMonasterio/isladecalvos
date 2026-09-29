@@ -157,6 +157,13 @@ alcance cerrado:
     9202609270) no cambian.
   - El log `Unlisted NPC killed` ya no sale por puertas, construcciones y
     desplegables de las bases reventadas (ARCHITECTURE §4l).
+- **Plugin 1.9.1** — el resto del encargo de la 1.9.0 (Jano, lo pidió Igor):
+  **cartera** debajo del contador de alopecia, en una tira fina: `PdC 1.234
+  PELONES 5.678` (a partir del millón `12,3 M`; desde mil millones `1,5 mil M`).
+  Se redibuja con el contador y con un sondeo cada 3 s (solo si cambia), porque
+  los pelones cambian fuera del mod. Config `"Show wallet under the counter"`
+  (true; migración 191). El `+X`/`-X` baja por debajo de la cartera. El NPC del
+  Cambio de divisas se llama ahora **Traficante** (docs).
 
 Decisiones de diseño de la v1.0 que no venían en la especificación inicial:
 - Toda muerte resta alopecia (PvP, NPC, entorno, suicidio), también la de un
@@ -256,7 +263,7 @@ Lee `docs/ARCHITECTURE.md` antes de tocar código.
   `Message.Notification.Unspent.NPC`). No hay otros plugins que den
   recompensas por kills. Tiendas de la peluquería: **el Mercalvona®**
   (masculino: "al Mercalvona"; GUIShop, pelones) y **Cambio de divisas**
-  (Server Rewards, Puntos de Chola; su NPC es el "Cambista de divisas"). Economics empieza
+  (Server Rewards, Puntos de Chola; su NPC es el "Traficante", antes "Cambista de divisas"). Economics empieza
   en 0 pelones y los saldos no se borran en el wipe. Desde el 2026-09-27 el
   Server Rewards del servidor está parcheado a `long` por Jano
   (`AddPointsLong`/`TakePointsLong`/`CheckPointsLong`; `CheckPoints` y
