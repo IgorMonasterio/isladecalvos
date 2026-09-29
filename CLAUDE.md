@@ -145,6 +145,18 @@ alcance cerrado:
   del Brote de alopecia ("Al rape."), paga de Puntos de Chola más corta ("Cobra y
   calla.") y el cambio del barbero dice "alopecia" en vez de "calva" en botones y
   textos de compraventa. Claves nuevas; TONO.md con las reglas.
+- **Plugin 1.9.0** — encargo de Jano, con lo que pidió Igor:
+  - **Catálogo del barbero**: opción nueva "Enséñame el catálogo" que abre la
+    ventana grande de la 1.3.1 (todas las reliquias con icono, qué hacen y cuántas
+    llevas; botón de usar en las que llevas y gris con "NO LLEVAS" en las demás;
+    fila del Carné de Calvo con botón de sellar), con volver al barbero y X. Solo
+    al lado del barbero, como el resto; sigue sin haber `/calvario`.
+  - **"Objetos malditos" pasa a "reliquias"** en todo texto para jugadores (casi
+    todas dan ventajas; la lejía es la única que puede salir mal). Claves nuevas.
+    Los nombres internos (`CursedItemKeys`, config `"Cursed items"`, skin
+    9202609270) no cambian.
+  - El log `Unlisted NPC killed` ya no sale por puertas, construcciones y
+    desplegables de las bases reventadas (ARCHITECTURE §4l).
 
 Decisiones de diseño de la v1.0 que no venían en la especificación inicial:
 - Toda muerte resta alopecia (PvP, NPC, entorno, suicidio), también la de un

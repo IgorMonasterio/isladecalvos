@@ -262,7 +262,8 @@ Para añadir otro evento: decidir qué hook marca "participar" y cuál marca
   `Calvario NPC ids` está vacío, `ValidateConfig` lo avisa en la consola y
   nadie puede usar objetos.
 - Los cadáveres (`*.corpse`) mueren al desollarlos. `IsPossibleNpc` los
-  descarta para que no salgan en el log de NPC sin tier.
+  descarta para que no salgan en el log de NPC sin tier. Desde la 1.9.0 también
+  descarta construcciones, puertas y desplegables (ver §4l).
 - El Mercalvona (GUIShop), Cambio de divisas (Server Rewards; antes Premios
   Calvos) y el TP `/peluqueria`
   (NTeleportation, "Dynamic Commands") son configuración de esos plugins; el
@@ -429,6 +430,35 @@ Encargo de Jano antes del wipe del 1 de octubre.
 - **`OnIslaHuntEnded`**: `outcome = "stopped"` cuando un admin para la cacería con
   `/calvoadmin evento parar` (se llama después de `EndEvent`).
 
+## 4l. Catálogo del barbero, reliquias y log de NPC sin tier (plugin 1.9.0)
+
+Encargo de Jano.
+
+- **Catálogo**: `OpenCatalog(player, line)` es la ventana de objetos de la 1.3.1
+  (`DrawItemsTab` del código anterior a 8c843db), dentro del barbero: cabecera con
+  poste de barbero, 7 tarjetas con icono (`AddIcon`), cuántas llevas y qué hacen,
+  una tarjeta de refrán y la fila del Carné de Calvo. Se abre con `calvos.barber
+  catalog` (opción del menú principal). Los botones son los mismos comandos de
+  siempre con un argumento más: `calvos.use <clave> catalog` y `calvos.carne
+  catalog` contestan en el catálogo en vez de en la conversación; sin el
+  argumento, todo sigue igual. Todo pasa por `RequireCalvarioNpc`, así que hace
+  falta estar al lado del barbero. No hay comando `/calvario`.
+- **Reliquias**: en los textos para jugadores los objetos del Calvario son
+  "reliquias" (TONO.md). En el código y en la config siguen siendo `Cursed*`
+  (`CursedItemKeys`, `"Cursed items (El Calvario)"`) y la marca 9202609270, para
+  no romper configs ni objetos ya repartidos.
+- **Log de NPC sin tier**: las bases de RaidableBases salen con `OwnerID` 0, así
+  que el último filtro de `IsPossibleNpc` las tomaba por NPC y la consola se llenaba
+  de `Unlisted NPC killed: 'door.hinged.metal'`. Ahora `IsPossibleNpc` devuelve
+  `false` para `BuildingBlock`, `Door`, `DecayEntity` y cualquier prefab acabado en
+  `.deployed` o `_deployed` (p. ej. `chair.deployed`, `repairbench_deployed`). Solo
+  afecta a prefabs que **no** están en `NpcTiers`: lo que está listado (sentries
+  incluidas) sigue su camino, y el heli, la Bradley y el Chinook se tratan antes,
+  en `SharedRewardTargets`. **No verificado**: la jerarquía de clases (que `Door` y
+  los contenedores hereden de `DecayEntity`). docs.json confirma que los tipos
+  existen, no de quién heredan; por eso `BuildingBlock` y `Door` van también a mano
+  y los desplegables se filtran además por nombre.
+
 ## 5. Localización (lang)
 
 - Todos los textos del plugin pasan por `lang`: se registran en
@@ -448,7 +478,9 @@ Encargo de Jano antes del wipe del 1 de octubre.
   sufijo `V2`, `V3`… (`TitleUp` → `TitleUpV2`). La 1.3.1 lo hizo con el
   prefijo `Calvario*`. La 1.6.3 renombró así los 17 textos que llamaban
   "calvicie" a la cifra, que en el juego se llama alopecia
-  (`BarberExIntroV2`, `CalvarioYouV2`, `EventBaldHourStartV3`…).
+  (`BarberExIntroV2`, `CalvarioYouV2`, `EventBaldHourStartV3`…). La 1.9.0
+  cambió "objetos malditos" por "reliquias" del mismo modo (`BarberOptItemsV3`,
+  `BarberItemsIntroV3`…).
 - Nombres de eventos: `EventName(GlobalEvent)` busca `"EventName" + valor +
   "V3"` (p. ej. `EventNameHairiestHuntV3`). Si vuelve a cambiar un nombre, se
   sube el sufijo en ese método y en las cuatro claves a la vez.
