@@ -78,8 +78,10 @@ de 1 a 1.000.
 - Un NPC que no esté en `NpcTiers` **no da nada**, y la primera vez que alguien
   mata uno sale en la consola del servidor:
   `Unlisted NPC killed: '<shortprefabname>'. Add it to NpcTiers…`. Así sabes qué
-  añadir. Ojo: también puede salir algo que no sea un NPC (p. ej. un vehículo
-  sin dueño); ignóralo.
+  añadir. Desde la 1.9.0 no salen las piezas de construcción, puertas ni
+  desplegables (las de una base de RaidableBases no tienen dueño y antes se
+  colaban: `door.hinged.metal`, `wall.frame`, `locker.deployed`…). Aún puede
+  salir algo que no sea un NPC (p. ej. un vehículo sin dueño); ignóralo.
 - Morir a manos de un NPC resta como cualquier muerte (desactivable con
   `Deaths caused by NPCs lower baldness`).
 
@@ -257,9 +259,9 @@ Si toca la cacería y solo hay un jugador conectado, se elige otro evento.
 Todo (intervalo, duraciones, multiplicadores, premios, activar o desactivar
 cada evento) se cambia en el bloque `Global events` de la config.
 
-## El Calvario: objetos calvos (v1.3)
+## El Calvario: las reliquias (v1.3)
 
-Objetos del juego que el plugin reparte **marcados como malditos**: van
+Objetos del juego que el plugin reparte como **reliquias**: van
 **directos a tu inventario** (o
 caen a tus pies si lo llevas lleno) con aviso en el chat. Se pueden cambiar o
 regalar como cualquier objeto, y se usan en **el Calvario de la peluquería**.
@@ -281,18 +283,28 @@ respuestas numeradas:
  EL BARBERO                        Tu alopecia: 2.944 — Coronilla a la Intemperie
  "Siéntate, peludo. ¿Qué te quito hoy, el pelo o la dignidad?"
 
-   1. Traigo algo maldito
-   2. Vengo a sellar el Carné de Calvo
-   3. Vengo a vender (o comprar) alopecia
-   4. Nada, solo miraba
+   1. Traigo una reliquia
+   2. Enséñame el catálogo
+   3. Vengo a sellar el Carné de Calvo
+   4. Vengo a vender (o comprar) alopecia
+   5. Nada, solo miraba
 ```
 
 - Te saluda con una de sus frases o con uno de los **refranes** de la isla.
-- **1** lista los objetos que llevas, cada uno con cuántos tienes y qué hace.
-  Al elegir uno, lo usa y el barbero contesta **en el cuadro** (no en el chat).
-- **2** enseña qué colores del carné tienes sellados y cuáles te faltan, con
+- **1** lista las reliquias que llevas, cada una con cuántas tienes y qué hace.
+  Al elegir una, la usa y el barbero contesta **en el cuadro** (no en el chat).
+- **2** (1.9.0) abre **el catálogo**: la ventana grande del Calvario, con el
+  poste de barbero y los colores de la casa. Salen **todas** las reliquias con
+  su icono, qué hace cada una y cuántas llevas; las que llevas tienen botón
+  **USAR**, y las que no, salen en gris con **NO LLEVAS**. Abajo, la fila de
+  tarjetas del **Carné de Calvo** (selladas en verde, las que llevas con `xN`,
+  las que faltan con FALTA) y el botón **SELLAR**. Lo que contesta el barbero
+  sale arriba, en la misma ventana. **VOLVER AL BARBERO** vuelve a la
+  conversación y la **X** cierra. Como el resto del barbero, solo funciona a
+  su lado.
+- **3** enseña qué colores del carné tienes sellados y cuáles te faltan, con
   la opción de sellar lo que traes.
-- **3** es el [cambio de alopecia](#el-cambio-de-alopecia-plugin-160). Solo
+- **4** es el [cambio de alopecia](#el-cambio-de-alopecia-plugin-160). Solo
   sale si está activado en la config.
 
 La ventana de `/calvos` va de barbería calva: rayas de poste de barbero,
@@ -305,7 +317,7 @@ sale el **Calvo del Día** vigente. Ver
 
 | Objeto | Cómo se consigue | Qué hace al usarlo |
 |---|---|---|
-| **Lejía** (`bleach`) | 5 % al romper un barril | Apuesta: 70 % **+500** / 30 % **−500** |
+| **Lejía** (`bleach`) | 5 % al romper un barril | Apuesta: 70 % **+500** / 30 % **−500**. La única reliquia que puede salir mal |
 | **Cinta americana** (`ducttape`) | 5 % al romper un barril | Tu próxima muerte **no resta** (máx. 1 activa) |
 | **Pila pequeña** (`battery.small`) | 3 % al romper un barril | **x2** en todo lo que ganes durante 10 min |
 | **Placa militar** (`dogtagneutral`) | 50 % al matar un NPC de tier 8-12 | **+200** |
@@ -359,7 +371,7 @@ Tres casitas, cada una con un NPC de **HumanNPC**:
 
 | Casa | NPC | Plugin que la atiende |
 |---|---|---|
-| **El Calvario** | El Barbero | Este plugin: objetos malditos y Carné de Calvo |
+| **El Calvario** | El Barbero | Este plugin: reliquias y Carné de Calvo |
 | **El Mercalvona®** | Tendero del Mercalvona | GUIShop (pelones) |
 | **Cambio de divisas** (antes Premios Calvos) | Cambista de divisas | Server Rewards (Puntos de Chola) |
 
@@ -611,7 +623,7 @@ RCON**. Contesta en la consola qué ha hecho.
 
 | Comando | Quién | Qué hace |
 |---|---|---|
-| `/calvos` | Todos | Abre la ventana de la isla: **ranking** de todo el servidor (de 10 en 10, con tu posición), **Salón de la fama** por mapa y **cabezas** con precio. Se cierra con la **X**. Los objetos se usan hablando con el barbero de la peluquería. |
+| `/calvos` | Todos | Abre la ventana de la isla: **ranking** de todo el servidor (de 10 en 10, con tu posición), **Salón de la fama** por mapa y **cabezas** con precio. Se cierra con la **X**. Las reliquias se usan hablando con el barbero de la peluquería. |
 | `/cabeza <jugador> <cantidad>` | Todos | Pone Puntos de Chola por la cabeza de un jugador (se cobran al momento y no se devuelven). |
 | `/cabezas` | Todos | Abre `/calvos` en la pestaña de cabezas. |
 | `/calvoadmin set <jugador> <valor>` | Admin | Fija la alopecia de un jugador (entero, 0 o más). |
@@ -835,7 +847,7 @@ servidor. Desde la 1.8.0 van en el mismo fichero el Salón de la fama
 1. Ten un servidor dedicado de Rust con **Oxide (uMod)** instalado.
 2. Copia `src/IslaDeCalvos.cs` en la carpeta `oxide/plugins/` del servidor.
 3. Oxide lo compila y carga solo. En la consola deberías ver algo como
-   `Loaded plugin Isla de Calvos v1.8.3 by Igor Monasterio`.
+   `Loaded plugin Isla de Calvos v1.9.0 by Igor Monasterio`.
 4. Para recargarlo tras cambiar el fichero (normalmente se recarga solo):
    `oxide.reload IslaDeCalvos`
 

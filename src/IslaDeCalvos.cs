@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Isla de Calvos", "Igor Monasterio", "1.8.3")]
+    [Info("Isla de Calvos", "Igor Monasterio", "1.9.0")]
     [Description("Baldness system for the Isla de Calvos Rust server: being bald is glory, hair is a curse.")]
     public class IslaDeCalvos : RustPlugin
     {
@@ -1080,13 +1080,14 @@ namespace Oxide.Plugins
                 ["BarberGreetingV2_1"] = "Siéntate, peludo. ¿Qué te quito hoy, el pelo o la dignidad?",
                 ["BarberGreetingV2_2"] = "Pasa, pasa. Esa melena no se va a arrancar sola, y yo cobro por minuto.",
                 ["BarberGreetingV2_3"] = "Otra vez tú. Cada día más frente y menos vergüenza, así me gusta.",
-                ["BarberOptItemsV2"] = "Traigo algo maldito",
+                ["BarberOptItemsV3"] = "Traigo una reliquia",
+                ["BarberOptCatalog"] = "Enséñame el catálogo",
                 ["BarberOptCarne"] = "Vengo a sellar el Carné de Calvo",
                 ["BarberOptBye"] = "Nada, solo miraba",
                 ["BarberOptBack"] = "Volver",
                 ["BarberOptStamp"] = "Séllame lo que traigo",
-                ["BarberItemsIntroV2"] = "A ver qué traes en esos bolsillos. Si es un bocadillo, no cuenta.",
-                ["BarberItemsNoneV2"] = "No llevas nada maldito encima. Vuelve cuando hayas matado algo, que así no se asciende.",
+                ["BarberItemsIntroV3"] = "A ver qué reliquias traes en esos bolsillos. Si es un bocadillo, no cuenta.",
+                ["BarberItemsNoneV3"] = "No llevas ninguna reliquia encima. Vuelve cuando hayas matado algo, que así no se asciende.",
                 ["BarberItemLine"] = "{0} (tienes {1}): {2}",
                 ["BarberTrophyUsedV2"] = "{0}: +{1}. A la pared de los trofeos, al lado del peluquín del último valiente.",
                 ["BarberCarneIntroV2"] = "Enséñame el carné. Llevas {0} de {1} colores sellados. Carnés completos: {2}. El Ministerio no tiene prisa, pero yo sí.",
@@ -1136,15 +1137,27 @@ namespace Oxide.Plugins
                 ["CalvarioItemRedDogTags"] = "Placas rojas",
                 ["CalvarioItemGems"] = "Gemas",
                 ["CalvarioItemIdTag"] = "Tarjeta de identificación",
-                ["CalvarioDescBleach"] = "Champú de la casa. {0} %: te abrasa el cuero cabelludo (+{1}). Si no, mechón rebelde (-{2}).",
+                ["CalvarioDescBleachV2"] = "Champú de la casa y la única reliquia que puede salir mal. {0} %: te abrasa el cuero cabelludo (+{1}). Si no, mechón rebelde (-{2}).",
                 ["CalvarioDescDuctTape"] = "Parche para la calva: si mueres, el pelo ni se entera. Una vez.",
                 ["CalvarioDescBattery"] = "Para la maquinilla: x{0} a todo lo que ganes durante {1} min. Bzzzz.",
                 ["CalvarioDescDogTag"] = "Recuerdo de un científico con flequillo. +{0}.",
                 ["CalvarioDescBlueDogTags"] = "Arrancadas a un heavy con melena. +{0}.",
                 ["CalvarioDescRedDogTags"] = "Del piloto que perdió el tupé con el helicóptero. +{0}.",
                 ["CalvarioDescGems"] = "Joya de la corona de Su Calvísima Majestad. Brilla como tu cabeza. +{0}.",
+                ["CatalogSection"] = "RELIQUIAS",
+                ["CatalogIntro"] = "Todas las reliquias de la casa. Lo que sale en gris no lo llevas encima: mirar es gratis.",
+                ["CatalogBack"] = "VOLVER AL BARBERO",
+                ["CatalogHave"] = "Llevas: {0}",
+                ["CatalogUse"] = "USAR",
+                ["CatalogNone"] = "NO LLEVAS",
+                ["CatalogWisdom"] = "SABIDURÍA CALVA",
+                ["CatalogCarneTitle"] = "CARNÉ DE CALVO  ·  Ministerio de Alopecia de la Isla   ({0}/{1})   ·   Carnés completos: {2}",
+                ["CatalogCarneStamped"] = "SELLADA",
+                ["CatalogCarneMissing"] = "FALTA",
+                ["CatalogCarneDeliver"] = "SELLAR",
+                ["CatalogCarneNone"] = "NADA QUE SELLAR",
                 ["ItemFoundV4"] = "Has encontrado: <color=#e0a526>{0}</color>. Llévalo al Calvario de la peluquería (<color=#e0a526>/peluqueria</color>), que en el bolsillo no hace nada.",
-                ["CalvarioGoToBarberV2"] = "Los objetos malditos se usan en el Calvario de la peluquería. Ve con <color=#e0a526>/peluqueria</color> y háblale al barbero.",
+                ["CalvarioGoToBarberV3"] = "Las reliquias se usan en el Calvario de la peluquería. Ve con <color=#e0a526>/peluqueria</color> y háblale al barbero.",
                 ["ItemNoneV2"] = "No llevas {0} encima. Ni eso.",
                 ["ItemShieldAlready"] = "Ya llevas la calva tapada con cinta. Muere primero.",
                 ["ItemBatteryAlreadyV4"] = "La maquinilla ya está en marcha (quedan {0} min). Más rápido no va a ir, que es una maquinilla, no un Fórmula 1.",
@@ -1157,7 +1170,7 @@ namespace Oxide.Plugins
                 ["CarneNothingV2"] = "No llevas ninguna tarjeta de un color que te falte. Las repes, a tu primo.",
                 ["CarneDeliveredV2"] = "Has entregado {0} tarjeta(s): +{1}. El funcionario ni te ha mirado.",
                 ["CarneCompletedV3"] = "<color=#e0a526>{0}</color> ha completado el CARNÉ DE CALVO y gana +{1}. El Ministerio de Alopecia está orgulloso. Su madre, no tanto.",
-                ["ReasonItemUse"] = "objeto: {0}",
+                ["ReasonItemUseV2"] = "reliquia: {0}",
                 ["ReasonCarne"] = "carné de calvo",
                 ["SupremeBaldnessV6"] = "<color=#e0a526>{0} HA ALCANZADO LA CALVICIE SUPREMA</color>. Ya no tienes que preocuparte por el champú.",
                 ["TitleUpV3"] = "<color=#e0a526>{0}</color> asciende a <color=#e0a526>{1}</color>. Su peluquero ya ha pedido el paro.",
@@ -2762,7 +2775,7 @@ namespace Oxide.Plugins
             CursedItemsConfig c = config.CursedItems;
             switch (key)
             {
-                case "bleach": return Lang("CalvarioDescBleach", null, Mathf.RoundToInt(c.Bleach.WinChance * 100f), FormatBaldness(c.Bleach.WinAmount), FormatBaldness(c.Bleach.LoseAmount));
+                case "bleach": return Lang("CalvarioDescBleachV2", null, Mathf.RoundToInt(c.Bleach.WinChance * 100f), FormatBaldness(c.Bleach.WinAmount), FormatBaldness(c.Bleach.LoseAmount));
                 case "ducttape": return Lang("CalvarioDescDuctTape");
                 case "battery": return Lang("CalvarioDescBattery", null, c.Battery.Multiplier, c.Battery.Minutes);
                 case "dogtag": return Lang("CalvarioDescDogTag", null, FormatBaldness(c.DogTag.Reward));
@@ -2951,7 +2964,7 @@ namespace Oxide.Plugins
                 return null;
             }
 
-            string reason = Lang("ReasonItemUse", null, name);
+            string reason = Lang("ReasonItemUseV2", null, name);
             switch (key)
             {
                 case "bleach":
@@ -3054,19 +3067,35 @@ namespace Oxide.Plugins
                 return;
             }
 
-            OpenBarber(player, BarberPage.Items, UseCursedItem(player, parts[0]));
+            // "calvos.use <key> catalog" comes from the catalog window and answers there.
+            string line = UseCursedItem(player, parts[0]);
+            if (parts.Length > 1 && parts[1] == "catalog")
+            {
+                OpenCatalog(player, line);
+                return;
+            }
+
+            OpenBarber(player, BarberPage.Items, line);
         }
 
         [ConsoleCommand("calvos.carne")]
         private void CcmdCarne(ConsoleSystem.Arg arg)
         {
             BasePlayer player = arg.Player();
+            string[] parts = MenuArgs(arg);
             if (!IsRealPlayer(player) || !RequireCalvarioNpc(player))
             {
                 return;
             }
 
-            OpenBarber(player, BarberPage.Carne, DeliverIdTags(player));
+            string line = DeliverIdTags(player);
+            if (parts.Length > 0 && parts[0] == "catalog")
+            {
+                OpenCatalog(player, line);
+                return;
+            }
+
+            OpenBarber(player, BarberPage.Carne, line);
         }
 
         // HumanNPC hook: called when a player presses USE on one of its NPCs (5 m max).
@@ -3092,7 +3121,7 @@ namespace Oxide.Plugins
 
             calvarioNpcInUse.Remove((ulong)player.userID);
             CuiHelper.DestroyUi(player, UiMenu);
-            Reply(player, "CalvarioGoToBarberV2");
+            Reply(player, "CalvarioGoToBarberV3");
             return false;
         }
 
@@ -3144,7 +3173,29 @@ namespace Oxide.Plugins
             PlayerData data = GetOrCreateData(player);
             string userId = player.UserIDString;
             var ui = new CuiElementContainer();
+            string window = DrawCalvarioWindow(ui, data, userId);
 
+            DrawTabs(ui, window, tab, userId);
+            DrawCalvoDelDia(ui, window, userId);
+            switch (tab)
+            {
+                case MenuTab.Hall:
+                    DrawHallTab(ui, window, page, userId);
+                    break;
+                case MenuTab.Bounties:
+                    DrawBountiesTab(ui, window, data, page, userId);
+                    break;
+                default:
+                    DrawRankingTab(ui, window, data, page, userId);
+                    break;
+            }
+
+            CuiHelper.AddUi(player, ui);
+        }
+
+        // Big El Calvario window shared by /calvos and the barber's catalog: dim layer, barber pole, header, progress and X.
+        private string DrawCalvarioWindow(CuiElementContainer ui, PlayerData data, string userId)
+        {
             // Full-screen dim layer that grabs the mouse; the window sits on top of it.
             ui.Add(new CuiPanel
             {
@@ -3172,23 +3223,7 @@ namespace Oxide.Plugins
             AddText(ui, window, Lang("CalvarioYouV3", userId, FormatCompact(data.Baldness), GetTitle(data.Baldness)), 15, TextAnchor.MiddleRight, "0.45 0.93", "0.935 0.975");
             DrawTitleProgress(ui, window, data.Baldness, userId);
             AddButton(ui, window, Lang("CalvarioClose", userId), "0.956 0.935", "0.99 0.985", ColorPoleRed, null, UiMenu, 18);
-
-            DrawTabs(ui, window, tab, userId);
-            DrawCalvoDelDia(ui, window, userId);
-            switch (tab)
-            {
-                case MenuTab.Hall:
-                    DrawHallTab(ui, window, page, userId);
-                    break;
-                case MenuTab.Bounties:
-                    DrawBountiesTab(ui, window, data, page, userId);
-                    break;
-                default:
-                    DrawRankingTab(ui, window, data, page, userId);
-                    break;
-            }
-
-            CuiHelper.AddUi(player, ui);
+            return window;
         }
 
         // The active tab looks like the old single section label; the others are buttons.
@@ -3399,6 +3434,9 @@ namespace Oxide.Plugins
                 case "items":
                     OpenBarber(player, BarberPage.Items, null);
                     break;
+                case "catalog":
+                    OpenCatalog(player, null);
+                    break;
                 case "carne":
                     OpenBarber(player, BarberPage.Carne, null);
                     break;
@@ -3578,7 +3616,7 @@ namespace Oxide.Plugins
 
                     if (line == null)
                     {
-                        var status = new List<string> { Lang(options.Count > 0 ? "BarberItemsIntroV2" : "BarberItemsNoneV2", userId) };
+                        var status = new List<string> { Lang(options.Count > 0 ? "BarberItemsIntroV3" : "BarberItemsNoneV3", userId) };
                         if (data.HasDeathShield) status.Add(Lang("CalvarioShieldOn", userId));
                         if (IsBatteryActive(data.Id)) status.Add(Lang("CalvarioBatteryOn", userId, BatteryMinutesLeft(data.Id)));
                         line = string.Join(" ", status.ToArray());
@@ -3651,7 +3689,8 @@ namespace Oxide.Plugins
                     options.Add(new KeyValuePair<string, string>(Lang("BarberExCancel", userId), "calvos.barber exchange"));
                     break;
                 default:
-                    options.Add(new KeyValuePair<string, string>(Lang("BarberOptItemsV2", userId), "calvos.barber items"));
+                    options.Add(new KeyValuePair<string, string>(Lang("BarberOptItemsV3", userId), "calvos.barber items"));
+                    options.Add(new KeyValuePair<string, string>(Lang("BarberOptCatalog", userId), "calvos.barber catalog"));
                     options.Add(new KeyValuePair<string, string>(Lang("BarberOptCarne", userId), "calvos.barber carne"));
                     if (config.Exchange.Enabled)
                     {
@@ -3692,6 +3731,94 @@ namespace Oxide.Plugins
                 AddButton(ui, box, (i + 1) + ". " + options[i].Key, Anchor(0.03f, y0), Anchor(0.97f, y0 + rowHeight),
                     enabled ? ColorDialogOption : ColorDisabled, options[i].Value, null, 12, enabled ? ColorText : ColorMuted, TextAnchor.MiddleLeft);
             }
+
+            CuiHelper.AddUi(player, ui);
+        }
+
+        // The barber's catalog: the 1.3 El Calvario window (every relic with its icon, what it does and how many you carry,
+        // and the Carne de Calvo row), opened from the barber's main page. Buttons answer back in this window.
+        private void OpenCatalog(BasePlayer player, string line)
+        {
+            PlayerData data = GetOrCreateData(player);
+            string userId = player.UserIDString;
+            var ui = new CuiElementContainer();
+            string window = DrawCalvarioWindow(ui, data, userId);
+
+            // Section label, the barber's last word (or the intro) and the way back to the conversation.
+            string section = AddPanel(ui, window, ColorScalp, "0.03 0.81", "0.21 0.86");
+            AddText(ui, section, Lang("CatalogSection", userId), 13, TextAnchor.MiddleCenter, "0 0", "1 1", ColorOnScalp);
+            AddText(ui, window, line ?? Lang("CatalogIntro", userId), 12, TextAnchor.MiddleLeft, "0.225 0.805", "0.78 0.865", line != null ? ColorScalp : ColorText);
+            AddButton(ui, window, Lang("CatalogBack", userId), "0.79 0.81", "0.97 0.86", ColorCardDark, "calvos.barber main", null, 12, ColorText);
+
+            // 7 relic cards (4 + 3) and a proverb card in the eighth slot.
+            for (int i = 0; i <= CursedItemKeys.Length; i++)
+            {
+                int row = i / 4, col = i % 4;
+                float x0 = 0.03f + col * 0.2375f, x1 = x0 + 0.2275f;
+                float y1 = 0.79f - row * 0.245f, y0 = y1 - 0.235f;
+                string card = AddPanel(ui, window, ColorCard, Anchor(x0, y0), Anchor(x1, y1));
+
+                if (i == CursedItemKeys.Length)
+                {
+                    AddText(ui, card, Lang("CatalogWisdom", userId), 14, TextAnchor.UpperCenter, "0.05 0.7", "0.95 0.93", ColorScalp);
+                    AddText(ui, card, "\"" + Lang("CalvarioProverb" + ProverbNumbers[random.Next(ProverbNumbers.Length)], userId) + "\"", 14, TextAnchor.MiddleCenter, "0.07 0.1", "0.93 0.7", ColorText);
+                    break;
+                }
+
+                string key = CursedItemKeys[i];
+                ItemDropConfig item = CursedItemConfig(key);
+                int count = CountItem(player, item.Shortname);
+                AddPanel(ui, card, ColorCardDark, "0.04 0.52", "0.3 0.95");
+                AddIcon(ui, card, item.Shortname, "0.06 0.55", "0.28 0.92", count > 0 ? "1 1 1 1" : "1 1 1 0.35");
+                AddText(ui, card, CursedItemName(key), 14, TextAnchor.UpperLeft, "0.34 0.74", "0.98 0.95", count > 0 ? ColorScalp : ColorMuted);
+                AddText(ui, card, Lang("CatalogHave", userId, count), 12, TextAnchor.UpperLeft, "0.34 0.54", "0.98 0.74", count > 0 ? ColorText : ColorMuted);
+
+                string status = null;
+                if (key == "ducttape" && data.HasDeathShield) status = Lang("CalvarioShieldOn", userId);
+                if (key == "battery" && IsBatteryActive(data.Id)) status = Lang("CalvarioBatteryOn", userId, BatteryMinutesLeft(data.Id));
+                AddText(ui, card, status ?? CursedItemDescription(key), 11, TextAnchor.UpperLeft, "0.05 0.22", "0.97 0.5", status != null ? ColorGold : count > 0 ? ColorText : ColorMuted);
+
+                AddButton(ui, card, Lang(count > 0 ? "CatalogUse" : "CatalogNone", userId), "0.05 0.05", "0.95 0.2",
+                    count > 0 ? ColorPoleRed : ColorDisabled, count > 0 ? "calvos.use " + key + " catalog" : null, null, 13, count > 0 ? "1 1 1 1" : ColorMuted);
+            }
+
+            // Carne de Calvo: one slot per ID tag color, stamped or still missing.
+            IdTagsConfig tags = config.CursedItems.IdTags;
+            string carne = AddPanel(ui, window, ColorCard, "0.03 0.03", "0.97 0.295");
+
+            int done = tags.Shortnames.Count(c => data.CarneColors.Contains(c));
+            AddText(ui, carne, Lang("CatalogCarneTitle", userId, done, tags.Shortnames.Count, data.CarnesCompleted), 14, TextAnchor.MiddleLeft, "0.02 0.78", "0.98 0.97", ColorScalp);
+            AddText(ui, carne, Lang("CalvarioCarneHintV2", userId, FormatBaldness(tags.Reward), FormatBaldness(tags.CollectionBonus)), 11, TextAnchor.MiddleLeft, "0.02 0.62", "0.98 0.78", ColorText);
+
+            bool canDeliver = false;
+            int slots = Math.Max(1, tags.Shortnames.Count);
+            float slotWidth = 0.82f / slots;
+            for (int i = 0; i < tags.Shortnames.Count; i++)
+            {
+                string color = tags.Shortnames[i];
+                bool delivered = data.CarneColors.Contains(color);
+                int carried = CountItem(player, color);
+                canDeliver |= !delivered && carried > 0;
+
+                float x0 = 0.02f + i * slotWidth, x1 = x0 + slotWidth - 0.006f;
+                string slot = AddPanel(ui, carne, delivered ? ColorGood : ColorCardDark, Anchor(x0, 0.08f), Anchor(x1, 0.58f));
+                AddIcon(ui, slot, color, "0.1 0.28", "0.9 0.95", delivered || carried > 0 ? "1 1 1 1" : "1 1 1 0.25");
+                if (delivered)
+                {
+                    AddText(ui, slot, Lang("CatalogCarneStamped", userId), 9, TextAnchor.LowerCenter, "0 0.02", "1 0.28", ColorScalp);
+                }
+                else if (carried > 0)
+                {
+                    AddText(ui, slot, "x" + carried, 11, TextAnchor.LowerCenter, "0 0.02", "1 0.28");
+                }
+                else
+                {
+                    AddText(ui, slot, Lang("CatalogCarneMissing", userId), 9, TextAnchor.LowerCenter, "0 0.02", "1 0.28", ColorMuted);
+                }
+            }
+
+            AddButton(ui, carne, Lang(canDeliver ? "CatalogCarneDeliver" : "CatalogCarneNone", userId), "0.86 0.12", "0.98 0.52",
+                canDeliver ? ColorPoleRed : ColorDisabled, canDeliver ? "calvos.carne catalog" : null, null, 12, canDeliver ? "1 1 1 1" : ColorMuted);
 
             CuiHelper.AddUi(player, ui);
         }
@@ -4335,9 +4462,20 @@ namespace Oxide.Plugins
                 return true;
             }
 
+            // Building pieces, doors and deployables of a raided base (RaidableBases spawns them with OwnerID 0) are not
+            // NPCs: door.hinged.metal, wall.frame, locker.deployed, chair.deployed, repairbench_deployed...
             BaseEntity baseEntity = entity;
+            if (baseEntity is BuildingBlock || baseEntity is Door || baseEntity is DecayEntity || IsDeployedPrefab(entity.ShortPrefabName))
+            {
+                return false;
+            }
+
             return entity.OwnerID == 0UL && !(baseEntity is LootContainer) && !(baseEntity is ResourceEntity);
         }
+
+        // Deployables are named "<item>.deployed" or "<item>_deployed" (chair.deployed, repairbench_deployed).
+        private static bool IsDeployedPrefab(string prefab) =>
+            prefab.EndsWith(".deployed", StringComparison.OrdinalIgnoreCase) || prefab.EndsWith("_deployed", StringComparison.OrdinalIgnoreCase);
 
         private bool IsKilledByNpc(HitInfo info, BasePlayer killer)
         {
