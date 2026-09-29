@@ -233,8 +233,14 @@ aunque no den alopecia (sleeper o cooldown).
   millones: `2.147,4 M` (millones), `1,5 B` (billones) o `9,2 T` (trillones),
   con un decimal y sin redondear hacia arriba. Por debajo sale entera, como
   siempre. En el chat y los anuncios siempre sale entera.
-- Al ganar alopecia sale debajo un **`+18`** en dorado durante 2,5 s; al
-  perderla, un **`-117`** en óxido.
+- **Cartera** (1.9.1): pegada debajo del contador, una tira fina con tus
+  Puntos de Chola y tus pelones: `PdC 1.234     PELONES 5.678`. A partir del
+  millón sale `12,3 M` y desde mil millones `1,5 mil M`. Se actualiza con el
+  contador y, además, cada 3 s si ha cambiado algo (los pelones se gastan
+  fuera del mod: tienda, Cambio de divisas…). Sin Server Rewards o sin
+  Economics, su cifra sale como `-`; sin ninguno de los dos, no sale.
+- Al ganar alopecia sale debajo (debajo de la cartera, si está) un
+  **`+18`** en dorado durante 2,5 s; al perderla, un **`-117`** en óxido.
 - Los **eventos globales** salen además en un **cartel grande en el centro
   de la pantalla** durante 8 s (y en el chat, como siempre).
 - La posición del contador, los tiempos y activar o desactivar cada cosa se
@@ -373,7 +379,7 @@ Tres casitas, cada una con un NPC de **HumanNPC**:
 |---|---|---|
 | **El Calvario** | El Barbero | Este plugin: reliquias y Carné de Calvo |
 | **El Mercalvona®** | Tendero del Mercalvona | GUIShop (pelones) |
-| **Cambio de divisas** (antes Premios Calvos) | Cambista de divisas | Server Rewards (Puntos de Chola) |
+| **Cambio de divisas** (antes Premios Calvos) | Traficante | Server Rewards (Puntos de Chola) |
 
 Se llega con **`/peluqueria`**, igual que `/bandit` o `/outpost`. `/shop` y
 `/s` dejan de funcionar fuera de allí, y `/calvos` solo muestra el ranking.
@@ -410,7 +416,7 @@ versión es otra, los nombres pueden cambiar un poco.
    abra nada fuera de la casa, deja `"Set Default Global Shop to open": ""`
    (vacío). Es la forma que indica el propio GUIShop para desactivar las
    tiendas globales.
-4. **Cambio de divisas (Server Rewards).** Mirando al cambista, `/srnpc add`. En su
+4. **Cambio de divisas (Server Rewards).** Mirando al Traficante, `/srnpc add`. En su
    config, `"Use NPC dealers only": true`: así `/s` solo funciona para
    admins.
 5. **El TP (NTeleportation).** En `"Dynamic Commands"`, añade una entrada
@@ -442,7 +448,7 @@ y después `/npc name "…"`, `/npc hello "…" "…"`, `/npc use "…"` y
 /npc bye "Vuelve cuando te asome algo. Aquí no se deja crecer ni la duda."
 
 # Cambio de divisas
-/npc name "Cambista de divisas"
+/npc name "Traficante"
 /npc hello "Cambio de divisas: tu calva vale Puntos de Chola y aquí se cobra. Pasa por caja."
 /npc use "A ver cuánto te ha pagado esa cabeza. Dale a la E."
 /npc bye "Sigue brillando, que cada media hora te cae algo."
@@ -464,7 +470,7 @@ está en el servidor con el tono de la isla y no se toca:
 (conservar la etiqueta de color):
 
 ```json
-"Message.Notification.Unspent.NPC": "Busca al <color=#B6F34A>cambista</color> con /peluqueria para gastarlos."
+"Message.Notification.Unspent.NPC": "Busca al <color=#B6F34A>Traficante</color> con /peluqueria para gastarlos."
 ```
 
 ## Salón de la fama, cabezas y Calvo del Día (plugin 1.8.0)
@@ -705,6 +711,7 @@ Bloque de pantalla (valores por defecto):
 ```json
 "On-screen UI": {
   "Show baldness counter": true,
+  "Show wallet under the counter": true,
   "Counter anchor min": "1 1",
   "Counter anchor max": "1 1",
   "Counter offset min": "-212 -58",
@@ -786,7 +793,8 @@ En `"On-screen UI"` están
 
 La config lleva además un `Config version (do not edit)`. Sirve para que una
 actualización pueda corregir valores ya guardados (la 1.3.1 mueve el contador
-a la esquina superior derecha una sola vez). No lo toques.
+a la esquina superior derecha una sola vez; la 1.9.1 añade la cartera). No lo
+toques.
 
 Bloque de eventos globales (valores por defecto):
 
@@ -847,7 +855,7 @@ servidor. Desde la 1.8.0 van en el mismo fichero el Salón de la fama
 1. Ten un servidor dedicado de Rust con **Oxide (uMod)** instalado.
 2. Copia `src/IslaDeCalvos.cs` en la carpeta `oxide/plugins/` del servidor.
 3. Oxide lo compila y carga solo. En la consola deberías ver algo como
-   `Loaded plugin Isla de Calvos v1.9.0 by Igor Monasterio`.
+   `Loaded plugin Isla de Calvos v1.9.1 by Igor Monasterio`.
 4. Para recargarlo tras cambiar el fichero (normalmente se recarga solo):
    `oxide.reload IslaDeCalvos`
 

@@ -136,8 +136,8 @@ Para añadir otro evento: decidir qué hook marca "participar" y cuál marca
 - Se usa la CUI de Oxide.Rust (`Oxide.Game.Rust.Cui`: `CuiHelper.AddUi`/
   `DestroyUi`, `CuiElementContainer`, `CuiPanel`, `CuiLabel`), verificada en
   `src/RustCui.cs`.
-- Tres elementos con nombre fijo: `IslaDeCalvos.Counter`, `IslaDeCalvos.Delta`
-  e `IslaDeCalvos.Banner`. Se añaden con `destroyUi` = su propio nombre, así
+- Elementos con nombre fijo: `IslaDeCalvos.Counter`, `IslaDeCalvos.Delta`
+  e `IslaDeCalvos.Banner` (y desde la 1.9.1 `IslaDeCalvos.Wallet`, §4m). Se añaden con `destroyUi` = su propio nombre, así
   cada redibujado sustituye al anterior sin parpadeo.
 - El contador se redibuja desde `ChangeBaldness` (todo cambio pasa por ahí) y
   al despertar (`OnPlayerSleepEnded`). No se manda UI a jugadores dormidos.
@@ -458,6 +458,24 @@ Encargo de Jano.
   los contenedores hereden de `DecayEntity`). docs.json confirma que los tipos
   existen, no de quién heredan; por eso `BuildingBlock` y `Door` van también a mano
   y los desplegables se filtran además por nombre.
+
+## 4m. Cartera bajo el contador (plugin 1.9.1)
+
+- Elemento `IslaDeCalvos.Wallet`: tira de 19 px pegada debajo del contador, con
+  el mismo ancla y ancho (`ShiftY` sobre `Counter offset min`: con la config por
+  defecto, `-212 -78` / `-16 -59`). Texto `HudWallet`, tamaño 11.
+- Cifras con `FormatWallet`: entera por debajo del millón, `12,3 M` hasta mil
+  millones y `1,5 mil M` desde ahí (un decimal, truncado). No es `FormatCompact`,
+  que no abrevia hasta mil millones y usa B/T.
+- Puntos por `CheckRp` (`CheckPointsLong` si está el parche; si no, `CheckPoints`);
+  pelones por `CoinBalance` (Economics `Balance`). Si falta uno, su cifra es `-`;
+  si faltan los dos, no hay cartera (`WalletActive`).
+- Se dibuja desde `DrawCounter` (forzado) y con `PollWallets` cada 3 s, que solo
+  manda UI si el texto cambió (`walletTexts`). Nada a jugadores dormidos. El
+  sondeo solo se arranca con `Show baldness counter` y `Show wallet under the
+  counter` activos.
+- El `+X`/`-X` baja 20 px más cuando la cartera está activa y el contador está en
+  la mitad de arriba; en la de abajo sigue saliendo encima del contador.
 
 ## 5. Localización (lang)
 
