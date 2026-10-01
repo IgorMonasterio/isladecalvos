@@ -152,8 +152,9 @@ afilado. Empieza a raparte solito."
 Se cobra **una sola vez por jugador y
 título**: bajar y volver a subir no paga otra vez. A los jugadores que ya
 existían se les apunta como cobrado el título que tenían la primera vez que
-cambian de título. La alopecia **comprada** en el cambio no cobra premios,
-salvo que se active en la config.
+cambian de título. La alopecia **comprada** en el barbero cobra premios como
+cualquier otra (desde la 1.10.0; antes no cobraba salvo que se activara en la
+config, y esa opción ya no existe).
 
 Desde la 1.7.0:
 - El premio de **Greñas Sucias** se cobra al pasar de 0 a 1 o más. Antes nunca
@@ -177,8 +178,8 @@ plugin solo mueve a los jugadores de grupo.
 - Se sincroniza al cargar el plugin (los conectados), al conectarse y en cada
   cambio de alopecia que cambie de título: al subir y al bajar, también con
   alopecia comprada, con `/calvoadmin` y con el reset del wipe.
-- A diferencia del premio, el grupo **sigue siempre al título actual**: se
-  pierde al bajar, y la alopecia comprada también cuenta.
+- A diferencia del premio, que se cobra una vez, el grupo **sigue siempre al
+  título actual**: se pierde al bajar. La alopecia comprada cuenta para los dos.
 - Si un grupo no existe, el plugin lo crea. Los grupos que no están en la lista
   (`default`, `admin`…) no se tocan nunca; `default`, `admin` y `*` no se
   pueden poner como grupo de título.
@@ -383,8 +384,8 @@ Alopecia, Puntos de Chola y pelones se cambian entre sí:
 - Primero se paga o se cobra en Server Rewards o Economics, y solo si eso sale
   bien se toca la alopecia.
 - Vender puede bajarte de título (se anuncia en el chat, como cualquier
-  bajada). Lo comprado sube de título normal, pero ni se multiplica con
-  eventos o la pila ni cobra premios de título.
+  bajada). Lo comprado sube de título normal y cobra sus premios (desde la
+  1.10.0), pero no se multiplica con eventos o la pila.
 - Si Server Rewards o Economics no están cargados, sus opciones salen cerradas.
 
 ## La peluquería (plugin 1.5.0)
@@ -780,7 +781,6 @@ los premios son la alopecia mínima de cada título:
   "1000": { "RP (Server Rewards)": 100, "Coins (Economics)": 10000, "Items": [], "Message": "" },
   ...
 },
-"Tier prizes also for bought baldness": false,
 "Sync title groups": true,
 "Title groups (title minimum baldness -> Oxide group)": {
   "1": "calvo1", "1000": "calvo2", "10000": "calvo3", "100000": "calvo4",
