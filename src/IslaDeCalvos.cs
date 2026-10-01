@@ -167,32 +167,32 @@ namespace Oxide.Plugins
             {
                 ["1"] = new TierPrize
                 {
-                    Coins = 250,
+                    Coins = 2500,
                     Items = new List<PrizeItem> { new PrizeItem { Shortname = "knife.bone", Amount = 1 } },
                     Message = "Toma este trozo de hueso afilado. Empieza a raparte solito."
                 },
-                ["1000"] = new TierPrize { Rp = 10, Coins = 1000 },
-                ["10000"] = new TierPrize { Rp = 50, Coins = 5000 },
+                ["1000"] = new TierPrize { Rp = 100, Coins = 10000 },
+                ["10000"] = new TierPrize { Rp = 500, Coins = 50000 },
                 ["100000"] = new TierPrize
                 {
-                    Rp = 250,
+                    Rp = 2500,
                     Items = new List<PrizeItem> { new PrizeItem { Shortname = "explosive.timed", Amount = 4 } }
                 },
                 ["1000000"] = new TierPrize
                 {
-                    Rp = 1500,
+                    Rp = 15000,
                     Items = new List<PrizeItem> { new PrizeItem { Shortname = "minicopter", Amount = 1 } }
                 },
                 ["10000000"] = new TierPrize
                 {
-                    Rp = 5000,
+                    Rp = 50000,
                     Items = new List<PrizeItem>
                     {
                         new PrizeItem { Shortname = "metal.facemask", Amount = 1 },
                         new PrizeItem { Shortname = "metal.plate.torso", Amount = 1 }
                     }
                 },
-                ["100000000"] = new TierPrize { Rp = 25000 }
+                ["100000000"] = new TierPrize { Rp = 250000 }
             };
 
             [JsonProperty("Tier prizes also for bought baldness")]
@@ -572,13 +572,14 @@ namespace Oxide.Plugins
             return tiers;
         }
 
-        // Geometric curve from 1 (tier 1) to 1000 (tier 20), about x1.44 per tier, rounded to strictly increasing integers.
+        // Geometric curve from 10 (tier 1) to 10000 (tier 20), about x1.44 per tier: the 1.0 curve (1 to 1000) times 10,
+        // as on the live server since 2026-10-01.
         private static Dictionary<string, long> DefaultTierRewards()
         {
             long[] rewards =
             {
-                1, 2, 3, 4, 5, 6, 9, 13, 18, 26,
-                38, 55, 78, 113, 162, 234, 336, 483, 695, 1000
+                10, 20, 30, 40, 50, 60, 90, 130, 180, 260,
+                380, 550, 780, 1130, 1620, 2340, 3360, 4830, 6950, 10000
             };
 
             var result = new Dictionary<string, long>();
