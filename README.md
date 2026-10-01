@@ -25,7 +25,7 @@ Todos los valores se pueden cambiar en la config. Estos son los de por defecto:
 | Qué pasa | Alopecia |
 |---|---|
 | Matas a otro jugador (headshot o no) | **+10.000** |
-| Matas a un NPC | según su tier, de **+1** (T1) a **+1.000** (T20) |
+| Matas a un NPC | según su tier, de **+10** (T1) a **+10.000** (T20) |
 | Cada 30 min vivo, conectado y moviéndote (no AFK) | **+100** |
 | Mueres, sea como sea (PvP, headshot, NPC, caída, suicidio…) | **−10 % de tu alopecia** (redondeado hacia arriba) |
 
@@ -46,30 +46,30 @@ derribó.
 Cada NPC tiene un **tier del 1 (fácil) al 20 (difícil)** según su
 `ShortPrefabName`, y cada tier da una alopecia fija (config `NpcTiers` y
 `TierRewards`). Recompensas por defecto: curva creciente de ×1,44 por tier,
-de 1 a 1.000.
+de 10 a 10.000 (desde la 1.10.0, la de antes ×10, como en el servidor).
 
 | Tier | Alopecia | NPCs |
 |---|---|---|
-| 1 | +1 | chicken |
-| 2 | +2 | zombie |
-| 3 | +3 | snake.entity, boar, stag |
-| 4 | +4 | beeswarm, scientistnpc_ptboat, scientistnpc_rhib |
-| 5 | +5 | beemasterswarm, wolf2, frankensteinpet |
-| 6 | +6 | npc_tunneldweller, npc_tunneldwellerspawned |
-| 7 | +9 | scientistnpc_junkpile_pistol, npc_underwaterdweller, simpleshark |
-| 8 | +13 | scientistnpc_full_pistol, scientistnpc_full_shotgun, scientistnpc_full_mp5, scientistnpc_full_lr300, scientistnpc_full_any |
-| 9 | +18 | scientistnpc_roam, scientistnpc_roamtethered, scientistnpc_patrol, scientistnpc_patrol_arctic, scientistnpc_arena |
-| 10 | +26 | scientistnpc_outbreak, scientistnpc_excavator, scientistnpc_ch47_gunner, scientistnpc_bradley, panther, tiger, scarecrow, scarecrow_dungeon, scarecrow_dungeonnoroam |
-| 11 | +38 | bear, scientist2, scientist2.shotgun, npc_bandit_guard ⛔ |
-| 12 | +55 | scientistnpc_oilrig, scientistnpc_cargo, scientistnpc_cargo_turret_any, scientistnpc_cargo_turret_lr300 |
-| 13 | +78 | polarbear, crocodile, gingerbread_dungeon |
-| 14 | +113 | scientistnpc_heavy, scientistnpc_peacekeeper, scientistnpc_roam_nvg_variant, gingerbread_meleedungeon |
-| 15 | +162 | scientistnpc_bradley_heavy |
-| 16 | +234 | sentry.scientist.static ⛔, sentry.scientist.barge ⛔, sentry.scientist.barge.static ⛔, sentry.bandit.static ⛔ |
-| 17 | +336 | scientist2.heavy |
-| 18 | +483 | bradleyapc 👥 |
-| 19 | +695 | ch47scientists.entity 👥 |
-| 20 | +1.000 | patrolhelicopter 👥 |
+| 1 | +10 | chicken |
+| 2 | +20 | zombie |
+| 3 | +30 | snake.entity, boar, stag |
+| 4 | +40 | beeswarm, scientistnpc_ptboat, scientistnpc_rhib |
+| 5 | +50 | beemasterswarm, wolf2, frankensteinpet |
+| 6 | +60 | npc_tunneldweller, npc_tunneldwellerspawned |
+| 7 | +90 | scientistnpc_junkpile_pistol, npc_underwaterdweller, simpleshark |
+| 8 | +130 | scientistnpc_full_pistol, scientistnpc_full_shotgun, scientistnpc_full_mp5, scientistnpc_full_lr300, scientistnpc_full_any |
+| 9 | +180 | scientistnpc_roam, scientistnpc_roamtethered, scientistnpc_patrol, scientistnpc_patrol_arctic, scientistnpc_arena |
+| 10 | +260 | scientistnpc_outbreak, scientistnpc_excavator, scientistnpc_ch47_gunner, scientistnpc_bradley, panther, tiger, scarecrow, scarecrow_dungeon, scarecrow_dungeonnoroam |
+| 11 | +380 | bear, scientist2, scientist2.shotgun, npc_bandit_guard ⛔ |
+| 12 | +550 | scientistnpc_oilrig, scientistnpc_cargo, scientistnpc_cargo_turret_any, scientistnpc_cargo_turret_lr300 |
+| 13 | +780 | polarbear, crocodile, gingerbread_dungeon |
+| 14 | +1.130 | scientistnpc_heavy, scientistnpc_peacekeeper, scientistnpc_roam_nvg_variant, gingerbread_meleedungeon |
+| 15 | +1.620 | scientistnpc_bradley_heavy |
+| 16 | +2.340 | sentry.scientist.static ⛔, sentry.scientist.barge ⛔, sentry.scientist.barge.static ⛔, sentry.bandit.static ⛔ |
+| 17 | +3.360 | scientist2.heavy |
+| 18 | +4.830 | bradleyapc 👥 |
+| 19 | +6.950 | ch47scientists.entity 👥 |
+| 20 | +10.000 | patrolhelicopter 👥 |
 
 ⛔ = en la config pero **desactivado por defecto** (`DisabledNpcs`).
 👥 = **recompensa compartida** (ver abajo).
@@ -138,13 +138,13 @@ objetos. Los de por defecto (1.10.0, los mismos que tiene el servidor):
 
 | Título | Puntos de Chola | Pelones | Objetos |
 |---|---|---|---|
-| Greñas Sucias | — | 250 | 1 cuchillo de hueso (`knife.bone`) |
-| Pelambrera Lamentable | 10 | 1.000 | — |
-| Entradas Incipientes | 50 | 5.000 | — |
-| Coronilla a la Intemperie | 250 | — | 4 C4 (`explosive.timed`) |
-| Caballero de la Tonsura | 1.500 | — | 1 minicóptero (`minicopter`) |
-| Lord Bola de Billar | 5.000 | — | máscara y peto de metal (`metal.facemask`, `metal.plate.torso`) |
-| Su Calvísima Majestad | 25.000 | — | — |
+| Greñas Sucias | — | 2.500 | 1 cuchillo de hueso (`knife.bone`) |
+| Pelambrera Lamentable | 100 | 10.000 | — |
+| Entradas Incipientes | 500 | 50.000 | — |
+| Coronilla a la Intemperie | 2.500 | — | 4 C4 (`explosive.timed`) |
+| Caballero de la Tonsura | 15.000 | — | 1 minicóptero (`minicopter`) |
+| Lord Bola de Billar | 50.000 | — | máscara y peto de metal (`metal.facemask`, `metal.plate.torso`) |
+| Su Calvísima Majestad | 250.000 | — | — |
 
 El de Greñas Sucias lleva además su mensaje propio: "Toma este trozo de hueso
 afilado. Empieza a raparte solito."
@@ -698,7 +698,7 @@ plugin. Después de editarla: `oxide.reload IslaDeCalvos`.
 | `Reset baldness on map wipe (stats are kept)` | false | Si el wipe pone a todos a 0. |
 | `Titles (minimum baldness -> title)` | ver tabla | Lista de títulos y desde cuántos puntos se consiguen. |
 | `NpcTiers` | ver tabla | `"<shortprefabname>": <tier>` para cada NPC que da alopecia. |
-| `TierRewards` | curva 1 … 1000 | `"<tier>": <alopecia>` para los tiers 1-20. Números enteros. |
+| `TierRewards` | curva 10 … 10000 | `"<tier>": <alopecia>` para los tiers 1-20. Números enteros. |
 | `DisabledNpcs` | bandit guard y sentries | NPCs que están en `NpcTiers` pero no dan nada. |
 | `SharedRewardTargets` | heli, Bradley, CH47 | Objetivos con recompensa compartida. Tienen que estar también en `NpcTiers`. |
 | `Shared reward: teammate radius from the target (meters)` | 300 | Distancia máxima de los compañeros de equipo al objetivo. |
@@ -713,9 +713,9 @@ Ejemplo del bloque de NPCs:
   "patrolhelicopter": 20
 },
 "TierRewards": {
-  "1": 1,
-  "9": 18,
-  "20": 1000
+  "1": 10,
+  "9": 180,
+  "20": 10000
 },
 "DisabledNpcs": [ "npc_bandit_guard" ],
 "SharedRewardTargets": [ "patrolhelicopter", "bradleyapc", "ch47scientists.entity" ]
@@ -774,10 +774,10 @@ los premios son la alopecia mínima de cada título:
 
 ```json
 "Tier prizes (title minimum baldness -> prize)": {
-  "1": { "RP (Server Rewards)": 0, "Coins (Economics)": 250,
+  "1": { "RP (Server Rewards)": 0, "Coins (Economics)": 2500,
          "Items": [ { "Item shortname": "knife.bone", "Amount": 1 } ],
          "Message": "Toma este trozo de hueso afilado. Empieza a raparte solito." },
-  "1000": { "RP (Server Rewards)": 10, "Coins (Economics)": 1000, "Items": [], "Message": "" },
+  "1000": { "RP (Server Rewards)": 100, "Coins (Economics)": 10000, "Items": [], "Message": "" },
   ...
 },
 "Tier prizes also for bought baldness": false,
