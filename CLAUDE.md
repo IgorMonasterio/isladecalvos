@@ -178,6 +178,21 @@ alcance cerrado:
   los configs existentes no se tocan (la clave vieja se ignora y desaparece al
   guardar). Si cambia la config
   del server y Igor quiere que el repo la siga, se repite esto.
+- **Plugin 1.11.0** — encargo de Igor (issue #40), alopecia ×10 en lo que faltaba:
+  - **El Calvario ×10** por defecto (en el server desde el 1 de octubre, 17:35): lejía
+    ±5.000, placa militar 2.000, azules 5.000, rojas 15.000, gemas 50.000; Carné de
+    Calvo 1.000 por tarjeta y 100.000 al completarlo.
+  - **Cambio ×10** con claves nuevas: vender 1.000 de alopecia = 1 Punto de Chola =
+    25 pelones (mínimo 1.000); comprar 1 Punto de Chola o 25 pelones por cada 10.
+    Claves `Sell: coins per 1000 baldness`, `Buy: RP per 10 baldness`, `Buy: coins per
+    10 baldness`; textos del barbero con claves nuevas. **Migración 1110**: si el
+    fichero trae las claves viejas, se convierten (ARCHITECTURE §4n). Las cantidades
+    ofrecidas no cambian (100 solo sale para comprar).
+  - **Premio de Caballero de la Tonsura**: el objeto `minicopter` no existe en Rust.
+    Ahora son los 15.000 Puntos de Chola y un **helicóptero de combate** spawneado
+    delante del jugador, donde esté. Los premios admiten `"Spawn prefabs"` además de
+    `Items`. La migración cambia el `minicopter` por el helicóptero en los configs que
+    lo tenían.
 
 Decisiones de diseño de la v1.0 que no venían en la especificación inicial:
 - Toda muerte resta alopecia (PvP, NPC, entorno, suicidio), también la de un
