@@ -195,9 +195,6 @@ namespace Oxide.Plugins
                 ["100000000"] = new TierPrize { Rp = 250000 }
             };
 
-            [JsonProperty("Tier prizes also for bought baldness")]
-            public bool TierPrizesForBoughtBaldness = false;
-
             // Every player sits in the group of their current title and in no other group of this list; the perks of each
             // title (homes, teleport cooldowns, backpack size, chat title) are permissions granted to these groups.
             [JsonProperty("Sync title groups")]
@@ -3714,10 +3711,10 @@ namespace Oxide.Plugins
                 return Lang("BarberExDoneSellV2", userId, FormatBaldness(baldness), priceText);
             }
 
-            // Bought baldness is not multiplied by events or the battery, only pays tier prizes if the config says so and
-            // does not count for the Calvo del Día.
+            // Bought baldness is not multiplied by events or the battery and does not count for the Calvo del Día. It does
+            // pay tier prizes, like any other baldness (1.10.0).
             long before = data.Baldness;
-            ChangeBaldness(data, baldness, true, Lang("ReasonExchange"), true);
+            ChangeBaldness(data, baldness, true, Lang("ReasonExchange"));
             ExcludeFromCalvoDelDia(data, before);
             return Lang("BarberExDoneBuyV2", userId, FormatBaldness(baldness), priceText);
         }
@@ -4819,7 +4816,7 @@ namespace Oxide.Plugins
             return amount;
         }
 
-        private void ChangeBaldness(PlayerData data, long delta, bool announce, string reason, bool bought = false)
+        private void ChangeBaldness(PlayerData data, long delta, bool announce, string reason)
         {
             long oldValue = data.Baldness;
             long newValue = Math.Max(MinBaldness, SaturatingAdd(oldValue, delta));
@@ -4885,7 +4882,7 @@ namespace Oxide.Plugins
             if (newTitle > oldTitle)
             {
                 // From -1 too, so the first title (Greñas Sucias) has its prize.
-                PayTierPrizes(data, oldTitle, newTitle, bought);
+                PayTierPrizes(data, oldTitle, newTitle);
             }
 
             if (newTitle != oldTitle)
@@ -4896,8 +4893,8 @@ namespace Oxide.Plugins
             }
         }
 
-        // Pays each newly reached title's prize once. Bought baldness only counts if the config allows it.
-        private void PayTierPrizes(PlayerData data, int oldTier, int newTier, bool bought)
+        // Pays each newly reached title's prize once, however the baldness came (bought baldness too, since 1.10.0).
+        private void PayTierPrizes(PlayerData data, int oldTier, int newTier)
         {
             if (data.PrizedTier < 0)
             {
@@ -4913,10 +4910,6 @@ namespace Oxide.Plugins
             int from = data.PrizedTier + 1;
             data.PrizedTier = newTier;
             dataDirty = true;
-            if (bought && !config.TierPrizesForBoughtBaldness)
-            {
-                return;
-            }
 
             BasePlayer player = BasePlayer.FindByID(data.Id);
             for (int tier = from; tier <= newTier; tier++)
