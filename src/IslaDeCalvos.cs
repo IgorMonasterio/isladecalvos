@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Isla de Calvos", "Igor Monasterio", "1.10.0")]
+    [Info("Isla de Calvos", "Igor Monasterio", "1.11.0")]
     [Description("Baldness system for the Isla de Calvos Rust server: being bald is glory, hair is a curse.")]
     public class IslaDeCalvos : RustPlugin
     {
@@ -101,7 +101,10 @@ namespace Oxide.Plugins
         #region Configuration
 
         // Bump when a release must overwrite values already saved in existing config files.
-        private const int CurrentConfigVersion = 191;
+        private const int CurrentConfigVersion = 1110;
+
+        // The Caballero de la Tonsura prize since 1.11.0 (Rust has no "minicopter" item to hand out).
+        private const string AttackHelicopterPrefab = "assets/content/vehicles/attackhelicopter/attackhelicopter.entity.prefab";
 
         private class Configuration
         {
@@ -181,7 +184,7 @@ namespace Oxide.Plugins
                 ["1000000"] = new TierPrize
                 {
                     Rp = 15000,
-                    Items = new List<PrizeItem> { new PrizeItem { Shortname = "minicopter", Amount = 1 } }
+                    SpawnPrefabs = new List<string> { AttackHelicopterPrefab }
                 },
                 ["10000000"] = new TierPrize
                 {
@@ -307,12 +310,16 @@ namespace Oxide.Plugins
             [JsonProperty("Items", ObjectCreationHandling = ObjectCreationHandling.Replace)]
             public List<PrizeItem> Items = new List<PrizeItem>();
 
+            // Entities spawned in front of the player (full prefab paths), e.g. a vehicle. Only for an online player.
+            [JsonProperty("Spawn prefabs", ObjectCreationHandling = ObjectCreationHandling.Replace)]
+            public List<string> SpawnPrefabs = new List<string>();
+
             // Said to the player along with the prize, as written (no lang key: each prize has its own).
             [JsonProperty("Message")] public string Message = string.Empty;
 
             [JsonIgnore]
             public bool IsEmpty => Rp <= 0 && Coins <= 0 && (Items == null || Items.All(i => i == null || i.Amount <= 0))
-                && string.IsNullOrEmpty(Message);
+                && (SpawnPrefabs == null || SpawnPrefabs.All(string.IsNullOrEmpty)) && string.IsNullOrEmpty(Message);
         }
 
         private class PrizeItem
@@ -322,17 +329,23 @@ namespace Oxide.Plugins
         }
 
         // Selling baldness is cheap and buying it is expensive on purpose: baldness pays RP every 30 min forever.
+        // Since 1.11.0 the rates are per 1000 (selling for coins) and per 10 (buying) baldness, to fit the x10 scale.
         private class ExchangeConfig
         {
             [JsonProperty("Enabled")] public bool Enabled = true;
-            [JsonProperty("Sell: baldness for 1 RP")] public long SellBaldnessPerRp = 100;
-            [JsonProperty("Sell: coins per 100 baldness")] public long SellCoinsPer100 = 25;
-            [JsonProperty("Buy: RP per 1 baldness")] public long BuyRpPerBaldness = 1;
-            [JsonProperty("Buy: coins per 1 baldness")] public long BuyCoinsPerBaldness = 25;
-            [JsonProperty("Minimum baldness to sell")] public long MinSell = 100;
+            [JsonProperty("Sell: baldness for 1 RP")] public long SellBaldnessPerRp = 1000;
+            [JsonProperty("Sell: coins per 1000 baldness")] public long SellCoinsPer1000 = 25;
+            [JsonProperty("Buy: RP per 10 baldness")] public long BuyRpPer10 = 1;
+            [JsonProperty("Buy: coins per 10 baldness")] public long BuyCoinsPer10 = 25;
+            [JsonProperty("Minimum baldness to sell")] public long MinSell = 1000;
 
             [JsonProperty("Amounts offered (baldness)", ObjectCreationHandling = ObjectCreationHandling.Replace)]
             public List<long> Amounts = new List<long> { 100, 1000, 10000, 100000 };
+
+            // Pre-1.11.0 keys: read only to migrate them (null = not in the file), never written back.
+            [JsonProperty("Sell: coins per 100 baldness", NullValueHandling = NullValueHandling.Ignore)] public long? OldSellCoinsPer100;
+            [JsonProperty("Buy: RP per 1 baldness", NullValueHandling = NullValueHandling.Ignore)] public long? OldBuyRpPerBaldness;
+            [JsonProperty("Buy: coins per 1 baldness", NullValueHandling = NullValueHandling.Ignore)] public long? OldBuyCoinsPerBaldness;
         }
 
         // Pays Server Rewards RP to bald players who stay alive, connected and not AFK.
@@ -365,8 +378,8 @@ namespace Oxide.Plugins
         private class BleachConfig : ItemDropConfig
         {
             [JsonProperty("Win chance (0-1)")] public float WinChance = 0.7f;
-            [JsonProperty("Baldness on win")] public long WinAmount = 500;
-            [JsonProperty("Baldness lost on fail")] public long LoseAmount = 500;
+            [JsonProperty("Baldness on win")] public long WinAmount = 5000;
+            [JsonProperty("Baldness lost on fail")] public long LoseAmount = 5000;
         }
 
         private class BatteryConfig : ItemDropConfig
@@ -394,8 +407,8 @@ namespace Oxide.Plugins
             [JsonProperty("Drop chance per NPC kill (0-1)")] public float DropChance = 0.05f;
             [JsonProperty("Drops from NPC tier (min)")] public int MinTier = 1;
             [JsonProperty("Drops from NPC tier (max)")] public int MaxTier = 17;
-            [JsonProperty("Baldness per delivered tag")] public long Reward = 100;
-            [JsonProperty("Bonus for completing all colors")] public long CollectionBonus = 10000;
+            [JsonProperty("Baldness per delivered tag")] public long Reward = 1000;
+            [JsonProperty("Bonus for completing all colors")] public long CollectionBonus = 100000;
         }
 
         // Items that exist in Rust's code but never spawn on normal servers; only this plugin hands them out.
@@ -413,16 +426,16 @@ namespace Oxide.Plugins
             public BatteryConfig Battery = new BatteryConfig { Shortname = "battery.small", DropChance = 0.03f };
 
             [JsonProperty("Dog tag")]
-            public TrophyConfig DogTag = new TrophyConfig { Shortname = "dogtagneutral", Reward = 200, DropChance = 0.5f, MinTier = 8, MaxTier = 12 };
+            public TrophyConfig DogTag = new TrophyConfig { Shortname = "dogtagneutral", Reward = 2000, DropChance = 0.5f, MinTier = 8, MaxTier = 12 };
 
             [JsonProperty("Blue dog tags")]
-            public TrophyConfig BlueDogTags = new TrophyConfig { Shortname = "bluedogtags", Reward = 500, DropChance = 0.3f, MinTier = 13, MaxTier = 17 };
+            public TrophyConfig BlueDogTags = new TrophyConfig { Shortname = "bluedogtags", Reward = 5000, DropChance = 0.3f, MinTier = 13, MaxTier = 17 };
 
             [JsonProperty("Red dog tags (heli/Bradley/CH47, every paid player; tiers ignored)")]
-            public TrophyConfig RedDogTags = new TrophyConfig { Shortname = "reddogtags", Reward = 1500, DropChance = 1f, MinTier = 18, MaxTier = 20 };
+            public TrophyConfig RedDogTags = new TrophyConfig { Shortname = "reddogtags", Reward = 15000, DropChance = 1f, MinTier = 18, MaxTier = 20 };
 
             [JsonProperty("Gems")]
-            public TrophyConfig Gems = new TrophyConfig { Shortname = "kickgems", Reward = 5000, DropChance = 0.01f, MinTier = 12, MaxTier = 20 };
+            public TrophyConfig Gems = new TrophyConfig { Shortname = "kickgems", Reward = 50000, DropChance = 0.01f, MinTier = 12, MaxTier = 20 };
 
             [JsonProperty("ID tags (Carne de Calvo collection)")]
             public IdTagsConfig IdTags = new IdTagsConfig();
@@ -613,6 +626,43 @@ namespace Oxide.Plugins
 
         protected override void SaveConfig() => Config.WriteObject(config, true);
 
+        // 1.11.0 puts the exchange on the x10 baldness scale: every baldness amount of the old rates is worth x10.
+        // The renamed rates keep their number with the new unit (25 coins per 100 -> 25 per 1000, 1 RP per 1 -> 1 per 10);
+        // the two that keep their key are multiplied by 10. Only when the old keys are in the file (a pre-1.11.0 exchange).
+        private void MigrateExchangeTo1110(ExchangeConfig ex)
+        {
+            if (!ex.OldSellCoinsPer100.HasValue && !ex.OldBuyRpPerBaldness.HasValue && !ex.OldBuyCoinsPerBaldness.HasValue)
+            {
+                return;
+            }
+
+            if (ex.OldSellCoinsPer100.HasValue) ex.SellCoinsPer1000 = ex.OldSellCoinsPer100.Value;
+            if (ex.OldBuyRpPerBaldness.HasValue) ex.BuyRpPer10 = ex.OldBuyRpPerBaldness.Value;
+            if (ex.OldBuyCoinsPerBaldness.HasValue) ex.BuyCoinsPer10 = ex.OldBuyCoinsPerBaldness.Value;
+            ex.SellBaldnessPerRp = SaturatingMultiply(ex.SellBaldnessPerRp, 10);
+            ex.MinSell = SaturatingMultiply(ex.MinSell, 10);
+            PrintWarning($"Config updated to 1.11.0: baldness exchange on the x10 scale (sell {ex.SellBaldnessPerRp} for 1 RP, "
+                + $"{ex.SellCoinsPer1000} coins per 1000; buy {ex.BuyRpPer10} RP or {ex.BuyCoinsPer10} coins per 10; minimum {ex.MinSell}).");
+        }
+
+        // "minicopter" is not an item in Rust, so a prize with it gave nothing: 1.11.0 swaps it for a spawned attack helicopter.
+        private void MigrateMinicopterPrizes()
+        {
+            if (config.TierPrizes == null) return;
+            foreach (KeyValuePair<string, TierPrize> entry in config.TierPrizes)
+            {
+                TierPrize prize = entry.Value;
+                if (prize?.Items == null || prize.Items.RemoveAll(i => i != null && string.Equals(i.Shortname, "minicopter", StringComparison.OrdinalIgnoreCase)) == 0)
+                {
+                    continue;
+                }
+
+                if (prize.SpawnPrefabs == null) prize.SpawnPrefabs = new List<string>();
+                if (prize.SpawnPrefabs.Count == 0) prize.SpawnPrefabs.Add(AttackHelicopterPrefab);
+                PrintWarning($"Config updated to 1.11.0: tier prize '{entry.Key}' spawns an attack helicopter instead of the 'minicopter' item, which does not exist.");
+            }
+        }
+
         private void ValidateConfig()
         {
             if (config.Titles == null)
@@ -665,6 +715,18 @@ namespace Oxide.Plugins
                 config.Ui.ShowWallet = new UiConfig().ShowWallet;
                 PrintWarning("Config updated to 1.9.1: wallet (Puntos de Chola and pelones) under the baldness counter.");
             }
+
+            if (config.Exchange == null) config.Exchange = new ExchangeConfig();
+            if (config.ConfigVersion < 1110)
+            {
+                MigrateExchangeTo1110(config.Exchange);
+                MigrateMinicopterPrizes();
+            }
+
+            // Old exchange keys never go back to the file, whatever the version says.
+            config.Exchange.OldSellCoinsPer100 = null;
+            config.Exchange.OldBuyRpPerBaldness = null;
+            config.Exchange.OldBuyCoinsPerBaldness = null;
 
             config.ConfigVersion = CurrentConfigVersion;
             if (config.CursedItems == null) config.CursedItems = new CursedItemsConfig();
@@ -735,9 +797,9 @@ namespace Oxide.Plugins
             if (config.Exchange == null) config.Exchange = new ExchangeConfig();
             ExchangeConfig ex = config.Exchange;
             ex.SellBaldnessPerRp = Math.Max(1, ex.SellBaldnessPerRp);
-            ex.SellCoinsPer100 = Math.Max(0, ex.SellCoinsPer100);
-            ex.BuyRpPerBaldness = Math.Max(1, ex.BuyRpPerBaldness);
-            ex.BuyCoinsPerBaldness = Math.Max(1, ex.BuyCoinsPerBaldness);
+            ex.SellCoinsPer1000 = Math.Max(0, ex.SellCoinsPer1000);
+            ex.BuyRpPer10 = Math.Max(1, ex.BuyRpPer10);
+            ex.BuyCoinsPer10 = Math.Max(1, ex.BuyCoinsPer10);
             ex.MinSell = Math.Max(1, ex.MinSell);
             ex.Amounts = (ex.Amounts ?? new List<long>()).Where(a => a > 0).Distinct().OrderBy(a => a).ToList();
 
@@ -1081,9 +1143,9 @@ namespace Oxide.Plugins
                 ["BarberOptExchangeV2"] = "Vengo a vender (o comprar) alopecia",
                 ["BarberExIntroV4"] = "Aquí la alopecia se compra y se vende. Vender sale barato y comprar sale caro: esto es un negocio, no una ONG.\nTienes {0} de alopecia · {1} Puntos de Chola · {2} pelones.",
                 ["BarberExSellRpV4"] = "Vender alopecia por Puntos de Chola (cada {0} de alopecia, 1 Punto de Chola)",
-                ["BarberExSellCoinsV4"] = "Vender alopecia por pelones (cada 100 de alopecia, {0} pelones)",
-                ["BarberExBuyRpV5"] = "Comprar alopecia con Puntos de Chola ({0} PdC cada 1 de alopecia)",
-                ["BarberExBuyCoinsV4"] = "Comprar alopecia con pelones ({0} pelones cada 1 de alopecia)",
+                ["BarberExSellCoinsV5"] = "Vender alopecia por pelones (cada 1.000 de alopecia, {0} pelones)",
+                ["BarberExBuyRpV6"] = "Comprar alopecia con Puntos de Chola ({0} PdC cada 10 de alopecia)",
+                ["BarberExBuyCoinsV5"] = "Comprar alopecia con pelones ({0} pelones cada 10 de alopecia)",
                 ["BarberExClosedV3"] = "{0}  [cerrado: falta {1}. Vuelve cuando el jefe lo arregle]",
                 ["BarberExPickAmount"] = "¿Cuánto? Piénsatelo bien, que luego lloras.",
                 ["BarberExSellLineV2"] = "Dar {0} de alopecia y llevarme {1}",
@@ -1104,6 +1166,8 @@ namespace Oxide.Plugins
                 ["TitleUpBanner"] = "¡{0} ya es {1}! Gafas de sol, que deslumbra.",
                 ["TierPrizeV2"] = "<color=#e0a526>Premio por ascender a {0}:</color> {1}. Invita la casa, que tú no tienes ni para peine.",
                 ["TierPrizeItems"] = "<color=#e0a526>Premio por ascender a {0}:</color> ya lo tienes en el inventario (o a tus pies, si no te cabe). Invita la casa.",
+                ["PrizeSpawned"] = "<color=#e0a526>Tu premio está aparcado delante de ti.</color> Mira al frente, frente soberana.",
+                ["PrizeSpawnFailed"] = "<color=#e0662f>Lo que te tocaba aparcar delante no cabe aquí.</color> Avisa a un admin y que te lo dé a mano.",
                 ["TitleDropBanner"] = "{0} baja a {1}. Ya no se le ve el cartón.",
                 ["DebugTierPrize"] = "[debug] {0}: premio de {1} · {2}",
                 ["ReasonExchange"] = "cambio en el Calvario",
@@ -3623,19 +3687,20 @@ namespace Oxide.Plugins
 
         private bool ExchangeModeAvailable(ExchangeMode mode) =>
             mode == ExchangeMode.SellForRp || mode == ExchangeMode.BuyWithRp ? RpAvailable
-                : mode == ExchangeMode.SellForCoins ? CoinsAvailable && config.Exchange.SellCoinsPer100 > 0 : CoinsAvailable;
+                : mode == ExchangeMode.SellForCoins ? CoinsAvailable && config.Exchange.SellCoinsPer1000 > 0 : CoinsAvailable;
 
         private bool IsSell(ExchangeMode mode) => mode == ExchangeMode.SellForRp || mode == ExchangeMode.SellForCoins;
 
-        // Selling needs whole RP/coins: at least the minimum and an exact multiple of the rate.
+        // Whole RP/coins only: selling needs at least the minimum and an exact multiple of the rate (1000 for coins);
+        // buying, a multiple of 10 (the rates are per 10 baldness).
         private bool ExchangeAmountValid(ExchangeMode mode, long baldness)
         {
             ExchangeConfig ex = config.Exchange;
             switch (mode)
             {
                 case ExchangeMode.SellForRp: return baldness >= ex.MinSell && baldness % ex.SellBaldnessPerRp == 0;
-                case ExchangeMode.SellForCoins: return baldness >= ex.MinSell && baldness % 100 == 0;
-                default: return baldness > 0;
+                case ExchangeMode.SellForCoins: return baldness >= ex.MinSell && baldness % 1000 == 0;
+                default: return baldness > 0 && baldness % 10 == 0;
             }
         }
 
@@ -3646,9 +3711,9 @@ namespace Oxide.Plugins
             switch (mode)
             {
                 case ExchangeMode.SellForRp: return baldness / ex.SellBaldnessPerRp;
-                case ExchangeMode.SellForCoins: return SaturatingMultiply(baldness / 100, ex.SellCoinsPer100);
-                case ExchangeMode.BuyWithRp: return SaturatingMultiply(baldness, ex.BuyRpPerBaldness);
-                default: return SaturatingMultiply(baldness, ex.BuyCoinsPerBaldness);
+                case ExchangeMode.SellForCoins: return SaturatingMultiply(baldness / 1000, ex.SellCoinsPer1000);
+                case ExchangeMode.BuyWithRp: return SaturatingMultiply(baldness / 10, ex.BuyRpPer10);
+                default: return SaturatingMultiply(baldness / 10, ex.BuyCoinsPer10);
             }
         }
 
@@ -3774,9 +3839,9 @@ namespace Oxide.Plugins
                     line += Lang("BarberExIntroV4", userId, FormatBaldness(data.Baldness),
                         RpAvailable ? FormatBaldness(CheckRp(data.Id)) : "-", CoinsAvailable ? FormatBaldness(CoinBalance(data.Id)) : "-");
                     AddExchangeOption(options, ExchangeMode.SellForRp, Lang("BarberExSellRpV4", userId, FormatBaldness(ex.SellBaldnessPerRp)), userId);
-                    AddExchangeOption(options, ExchangeMode.SellForCoins, Lang("BarberExSellCoinsV4", userId, FormatBaldness(ex.SellCoinsPer100)), userId);
-                    AddExchangeOption(options, ExchangeMode.BuyWithRp, Lang("BarberExBuyRpV5", userId, FormatBaldness(ex.BuyRpPerBaldness)), userId);
-                    AddExchangeOption(options, ExchangeMode.BuyWithCoins, Lang("BarberExBuyCoinsV4", userId, FormatBaldness(ex.BuyCoinsPerBaldness)), userId);
+                    AddExchangeOption(options, ExchangeMode.SellForCoins, Lang("BarberExSellCoinsV5", userId, FormatBaldness(ex.SellCoinsPer1000)), userId);
+                    AddExchangeOption(options, ExchangeMode.BuyWithRp, Lang("BarberExBuyRpV6", userId, FormatBaldness(ex.BuyRpPer10)), userId);
+                    AddExchangeOption(options, ExchangeMode.BuyWithCoins, Lang("BarberExBuyCoinsV5", userId, FormatBaldness(ex.BuyCoinsPer10)), userId);
                     options.Add(new KeyValuePair<string, string>(Lang("BarberOptBack", userId), "calvos.barber main"));
                     break;
                 case BarberPage.ExchangeAmount:
@@ -4545,8 +4610,9 @@ namespace Oxide.Plugins
             BasePlayer player = BasePlayer.FindByID(data.Id);
             var parts = new List<string>();
             var given = new List<string>();
-            GivePrize(data, player, prize, parts, given);
-            SendDebug("DebugTierPrize", data.Name, Lang("CalvoDelDiaName"), parts.Count + given.Count > 0 ? string.Join(", ", parts.Concat(given).ToArray()) : "-");
+            var spawned = new List<string>();
+            int spawnFailed = GivePrize(data, player, prize, parts, given, spawned);
+            SendDebug("DebugTierPrize", data.Name, Lang("CalvoDelDiaName"), PrizeDebugText(parts, given, spawned));
             if (player == null || !player.IsConnected)
             {
                 return;
@@ -4561,6 +4627,7 @@ namespace Oxide.Plugins
                 Reply(player, "CalvoDelDiaPrizeItems");
             }
 
+            ReplySpawnedPrize(player, spawned, spawnFailed);
             if (!string.IsNullOrEmpty(prize.Message))
             {
                 SendChat(player, prize.Message);
@@ -4921,8 +4988,9 @@ namespace Oxide.Plugins
 
                 var parts = new List<string>();
                 var given = new List<string>();
-                GivePrize(data, player, prize, parts, given);
-                SendDebug("DebugTierPrize", data.Name, config.Titles[tier].Name, parts.Count + given.Count > 0 ? string.Join(", ", parts.Concat(given).ToArray()) : "-");
+                var spawned = new List<string>();
+                int spawnFailed = GivePrize(data, player, prize, parts, given, spawned);
+                SendDebug("DebugTierPrize", data.Name, config.Titles[tier].Name, PrizeDebugText(parts, given, spawned));
                 if (player == null || !player.IsConnected)
                 {
                     continue;
@@ -4937,6 +5005,7 @@ namespace Oxide.Plugins
                     Reply(player, "TierPrizeItems", config.Titles[tier].Name);
                 }
 
+                ReplySpawnedPrize(player, spawned, spawnFailed);
                 if (!string.IsNullOrEmpty(prize.Message))
                 {
                     SendChat(player, prize.Message);
@@ -4944,9 +5013,10 @@ namespace Oxide.Plugins
             }
         }
 
-        // Puntos de Chola and pelones go by id (online or not); items only to an online player. Fills in what was actually
-        // given (parts: Puntos de Chola and pelones; given: items), for the messages.
-        private void GivePrize(PlayerData data, BasePlayer player, TierPrize prize, List<string> parts, List<string> given)
+        // Puntos de Chola and pelones go by id (online or not); items and spawned prefabs only to an online player. Fills in
+        // what was actually given (parts: Puntos de Chola and pelones; given: items; spawned: prefabs), for the messages, and
+        // returns how many prefabs could not be spawned.
+        private int GivePrize(PlayerData data, BasePlayer player, TierPrize prize, List<string> parts, List<string> given, List<string> spawned)
         {
             if (prize.Rp > 0 && AddRp(data.Id, prize.Rp)) parts.Add(UnitText(true, prize.Rp, null));
             if (prize.Coins > 0 && DepositCoins(data.Id, prize.Coins)) parts.Add(UnitText(false, prize.Coins, null));
@@ -4961,6 +5031,113 @@ namespace Oxide.Plugins
                     }
                 }
             }
+
+            int failed = 0;
+            if (prize.SpawnPrefabs != null)
+            {
+                foreach (string prefab in prize.SpawnPrefabs.Where(p => !string.IsNullOrEmpty(p)))
+                {
+                    if (player == null || !player.IsConnected)
+                    {
+                        // Prizes are paid when the title goes up, so the player is almost always online; if not, an admin decides.
+                        PrintWarning($"Prize prefab '{prefab}' not spawned for {data.Name} ({data.Id}): the player is not connected.");
+                        failed++;
+                    }
+                    else if (SpawnPrizePrefab(player, prefab))
+                    {
+                        spawned.Add(prefab.Substring(prefab.LastIndexOf('/') + 1));
+                    }
+                    else
+                    {
+                        failed++;
+                    }
+                }
+            }
+
+            return failed;
+        }
+
+        private static string PrizeDebugText(List<string> parts, List<string> given, List<string> spawned)
+        {
+            string[] all = parts.Concat(given).Concat(spawned).ToArray();
+            return all.Length > 0 ? string.Join(", ", all) : "-";
+        }
+
+        private void ReplySpawnedPrize(BasePlayer player, List<string> spawned, int failed)
+        {
+            if (spawned.Count > 0) Reply(player, "PrizeSpawned");
+            if (failed > 0) Reply(player, "PrizeSpawnFailed");
+        }
+
+        // Ground, buildings, rocks and trees: the mask Rust itself uses to land hackable crates (HackableLockedCrate.LandCheck:
+        // Default, Deployed, World, Construction, Terrain, Tree).
+        private const int SpawnGroundMask = 1084293377;
+
+        // Rust's own line-of-sight mask (the entity visibility check before OnEntityVisibilityCheck): also has the vehicle layers.
+        private const int SpawnSightMask = 1218519041;
+
+        // 3-4 m in front of the player first; further on if that spot is no good.
+        private static readonly float[] SpawnDistances = { 4f, 7f, 10f, 14f, 18f };
+
+        // Spawns the prefab in front of the player, facing where they face, on the ground. Owned by the player.
+        private bool SpawnPrizePrefab(BasePlayer player, string prefab)
+        {
+            Vector3 forward = player.eyes.BodyForward();
+            forward.y = 0f;
+            if (forward.sqrMagnitude < 0.01f) forward = Vector3.forward;
+            forward.Normalize();
+
+            if (!TryFindSpawnSpot(player, forward, out Vector3 spot))
+            {
+                PrintWarning($"Prize prefab '{prefab}' not spawned for {player.displayName} ({(ulong)player.userID}): no free spot in front of them at {player.transform.position}.");
+                return false;
+            }
+
+            BaseEntity entity = GameManager.server.CreateEntity(prefab, spot, Quaternion.LookRotation(forward));
+            if (entity == null)
+            {
+                PrintWarning($"Prize prefab '{prefab}' does not exist in this Rust version; fix it in the config.");
+                return false;
+            }
+
+            entity.OwnerID = (ulong)player.userID;
+            entity.Spawn();
+            return true;
+        }
+
+        // A spot on the ground in front of the player with room around it and nothing between them and it.
+        private bool TryFindSpawnSpot(BasePlayer player, Vector3 forward, out Vector3 spot)
+        {
+            Vector3 feet = player.transform.position;
+            Vector3 eyes = player.eyes.position;
+            foreach (float distance in SpawnDistances)
+            {
+                // From a bit above the player's head straight down: the ground (or floor) ahead, not the roof over the player.
+                Vector3 from = feet + forward * distance + Vector3.up * 3f;
+                if (!Physics.Raycast(from, Vector3.down, out RaycastHit hit, 12f, SpawnGroundMask))
+                {
+                    continue;
+                }
+
+                // Below sea level means in the sea.
+                if (hit.point.y < 0f)
+                {
+                    continue;
+                }
+
+                // Room for the helicopter: nothing (wall, rock, tree, ceiling, another vehicle) within 3 m of a point 3.5 m up.
+                Vector3 centre = hit.point + Vector3.up * 3.5f;
+                if (Physics.CheckSphere(centre, 3f, SpawnGroundMask | SpawnSightMask) || !GamePhysics.LineOfSight(eyes, centre, SpawnSightMask))
+                {
+                    continue;
+                }
+
+                spot = hit.point + Vector3.up * 0.3f;
+                return true;
+            }
+
+            spot = Vector3.zero;
+            return false;
         }
 
         private bool RpAvailable => ServerRewards != null && ServerRewards.IsLoaded;

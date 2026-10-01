@@ -479,6 +479,53 @@ Encargo de Jano.
 - El `+X`/`-X` baja 20 px más cuando la cartera está activa y el contador está en
   la mitad de arriba; en la de abajo sigue saliendo encima del contador.
 
+## 4n. El Calvario ×10, cambio en la escala ×10 y premios que se spawnean (plugin 1.11.0)
+
+- **Cambio**: las tasas de la escala vieja (por 1 o por 100 de alopecia) no admiten
+  ×10 en enteros, así que hay claves nuevas: `Sell: coins per 1000 baldness`,
+  `Buy: RP per 10 baldness` y `Buy: coins per 10 baldness` (campos `SellCoinsPer1000`,
+  `BuyRpPer10`, `BuyCoinsPer10`). `ExchangeAmountValid` pide múltiplos de 1.000 para
+  vender por pelones y de 10 para comprar; `ExchangePrice` divide por 1.000 o por 10.
+  Textos con claves nuevas: `BarberExSellCoinsV5`, `BarberExBuyRpV6`, `BarberExBuyCoinsV5`.
+- **Migración 1110** (`MigrateExchangeTo1110`): las claves viejas se leen en campos
+  `long?` con `NullValueHandling.Ignore` (`OldSellCoinsPer100`, `OldBuyRpPerBaldness`,
+  `OldBuyCoinsPerBaldness`) y se ponen a `null` siempre después de validar, así que no
+  vuelven al fichero. Si alguna estaba en el fichero: las renombradas conservan el
+  número con la unidad nueva (25 por 100 → 25 por 1.000; 1 por 1 → 1 por 10) y
+  `Sell: baldness for 1 RP` y `Minimum baldness to sell` se multiplican por 10. Sin
+  claves viejas (config sin cambio, o ya migrada) no se toca nada. `Amounts offered`
+  no cambia. Probado con la config del server de las 17:20, en imitación: sale 1.000 /
+  25 / 1 / 25 / 1.000 y una segunda carga no cambia nada.
+- **`MigrateMinicopterPrizes`** (misma migración): quita de cualquier premio por título
+  los objetos `minicopter` (en el `items.json` de Oxide.Docs solo existe
+  `minicopter.repair.item`, y Jano lo confirmó en el server) y, si el premio no tenía
+  `Spawn prefabs`, le pone el helicóptero de combate.
+- **`Spawn prefabs`** en `TierPrize` (también en el premio del Calvo del Día, que usa
+  la misma clase). `GivePrize` devuelve cuántos no se pudieron spawnear;
+  `ReplySpawnedPrize` manda `PrizeSpawned` o `PrizeSpawnFailed` después del mensaje
+  del premio.
+- **`SpawnPrizePrefab` / `TryFindSpawnSpot`**: dirección = `player.eyes.BodyForward()`
+  sin componente vertical. Para 4, 7, 10, 14 y 18 m: `Physics.Raycast` hacia abajo
+  desde 3 m sobre los pies del jugador (12 m de largo) con la máscara `1084293377`;
+  se descarta si el suelo está por debajo de 0 (mar), si `Physics.CheckSphere` (3 m
+  de radio, centro a 3,5 m sobre el suelo) toca algo con `1084293377 | 1218519041`,
+  o si `GamePhysics.LineOfSight(player.eyes.position, centro, 1218519041)` es falso.
+  Luego `GameManager.server.CreateEntity(prefab, sitio, Quaternion.LookRotation(dir))`,
+  `OwnerID` y `Spawn()`. Si `CreateEntity` devuelve `null` (prefab mal escrito), aviso
+  en consola.
+- **Verificado** en el código del juego de `docs.json`: `GameManager.server.CreateEntity
+  (string, Vector3, Quaternion)` + `Spawn()` (`CH47HelicopterAIController`, `CargoPlane`),
+  `eyes.BodyForward()` y `eyes.position`, `Physics.Raycast(origen, dirección, out hit,
+  distancia, máscara)`, `GamePhysics.LineOfSight(a, b, máscara)`. Las dos máscaras son
+  las que usa el juego: `1084293377` en `HackableLockedCrate.LandCheck` (capas 0, 8,
+  16, 21, 23 y 30: Default, Deployed, World, Construction, Terrain y Tree, según los
+  nombres de capa de Rust que conozco) y `1218519041` en la comprobación de visibilidad
+  previa a `OnEntityVisibilityCheck`.
+- **No verificado**: `Physics.CheckSphere` (es la API estándar de Unity, pero no sale
+  en `docs.json`); que el mar esté en y = 0 (lagos y ríos por encima no se detectan
+  como agua); y que 3 m de radio basten para el helicóptero de combate (las aspas son
+  más anchas). La prueba real es en el server.
+
 ## 5. Localización (lang)
 
 - Todos los textos del plugin pasan por `lang`: se registran en

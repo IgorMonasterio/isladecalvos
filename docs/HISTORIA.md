@@ -497,6 +497,9 @@ Bases, `/info`, NPCs y el Gran Calvo Jano). En el repo cambiaron:
   de la config del servidor a 1 de octubre, 15:30 (kill +10.000, NPC ×10, premios por
   título ×10, Calvo del Día a las 19:00, barbero 4211000001); y, a las 17:20, la alopecia
   comprada en el barbero cobra premios de título siempre (fuera la opción).
+- **1.11.0** (issue #40): El Calvario y el cambio de alopecia ×10 (claves nuevas y
+  migración); el premio de Caballero de la Tonsura pasa del `minicopter`, que no existía,
+  a un helicóptero de combate spawneado delante del jugador (`Spawn prefabs`).
 
 ---
 
