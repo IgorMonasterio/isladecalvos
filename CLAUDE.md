@@ -167,8 +167,9 @@ alcance cerrado:
 - **Plugin 1.10.0** — encargo de Igor (issue #38): **los valores por defecto de la
   config son los del servidor**. Una instalación limpia genera exactamente el
   `oxide/config/IslaDeCalvos.json` del server a 2026-10-01 (salvo el icono del
-  chat, que ya era el del código). Cambia: kill PvP +10.000 (PR #37, incluida),
-  premios por título con valores (pelones, Puntos de Chola y objetos; mensaje
+  chat, que ya era el del código), versión de las 15:30. Cambia: kill PvP +10.000
+  (PR #37, incluida), `TierRewards` de NPC ×10 (de 10 a 10.000), premios por
+  título con valores (pelones y Puntos de Chola ya ×10, y objetos; mensaje
   propio en Greñas Sucias), Calvo del Día a las 19:00, el `userid` del barbero
   (4211000001) y la tabla de Puntos de Chola por título vacía (la paga es la
   lineal). Sin migración: los configs existentes no se tocan. Si cambia la config
@@ -187,7 +188,7 @@ Decisiones de diseño de la v1.0 que no venían en la especificación inicial:
 Cambio de diseño de la v1.0 (el servidor tiene pocos jugadores, así que los
 NPCs tienen que dar alopecia):
 - NPCs por **tiers 1-20**: `NpcTiers` (por `ShortPrefabName`, nunca por la ruta
-  completa) y `TierRewards` (alopecia por tier: de 1 a 1000).
+  completa) y `TierRewards` (alopecia por tier: de 1 a 1000; de 10 a 10.000 desde la 1.10.0).
 - NPC no listado → no da nada, y se loguea una vez en consola.
 - `npc_bandit_guard` y `sentry.*` están en la config pero desactivados
   (`DisabledNpcs`).
