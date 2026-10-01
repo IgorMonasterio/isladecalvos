@@ -65,7 +65,7 @@ alcance cerrado:
   dependientes vanilla.)
 - **Plugin 1.6.0** — encargo de Igor: cartel grande al subir de título; premios
   por título (RP, monedas, objetos; una vez por jugador y título, todo a 0 por
-  defecto); RP lineal (`floor(alopecia/100)`); títulos ×10 por defecto; y
+  defecto hasta la 1.10.0); RP lineal (`floor(alopecia/100)`); títulos ×10 por defecto; y
   **cambio de alopecia** en el barbero, con tasas asimétricas y confirmación.
 - **Plugin 1.6.1–1.6.3** — la cifra pasa a llamarse alopecia en el juego: el
   contador pone `ALOPECIA` (1.6.1), el Brote de alopecia se renombra a
@@ -117,7 +117,7 @@ alcance cerrado:
     o desconectado). Nada se devuelve y el wipe no borra los botes. `/cabezas` y
     pestaña en `/calvos`; `/calvoadmin cabeza quitar <jugador>`. `/cabeza` y
     `/cabezas` son comandos de jugador nuevos, junto a `/calvos`.
-  - **Calvo del Día**: cada día a las 21:00 (hora del server) gana quien más
+  - **Calvo del Día**: cada día a las 21:00 (hora del server; 19:00 desde la 1.10.0) gana quien más
     alopecia ha ganado desde la elección anterior (foto de la alopecia de todos en
     cada elección), entre los que se han conectado en ese tiempo. Anuncio, cartel,
     grupo de Oxide `calvodeldia` (solo el vigente), premio opcional (a 0) e
@@ -164,6 +164,20 @@ alcance cerrado:
   los pelones cambian fuera del mod. Config `"Show wallet under the counter"`
   (true; migración 191). El `+X`/`-X` baja por debajo de la cartera. El NPC del
   Cambio de divisas se llama ahora **Traficante** (docs).
+- **Plugin 1.10.0** — encargo de Igor (issue #38): **los valores por defecto de la
+  config son los del servidor**. Una instalación limpia genera exactamente el
+  `oxide/config/IslaDeCalvos.json` del server a 2026-10-01 (salvo el icono del
+  chat, que ya era el del código y sin la opción que se elimina). Cambia: kill PvP +10.000
+  (PR #37, incluida), `TierRewards` de NPC ×10 (de 10 a 10.000), premios por
+  título con valores (pelones y Puntos de Chola ya ×10, y objetos; mensaje
+  propio en Greñas Sucias), Calvo del Día a las 19:00, el `userid` del barbero
+  (4211000001) y la tabla de Puntos de Chola por título vacía (la paga es la
+  lineal). Versión de las 17:20: **la alopecia comprada en el barbero cobra
+  premios de título siempre** (Igor: "la alopecia es alopecia"); fuera la opción
+  `Tier prizes also for bought baldness` y el parámetro `bought`. Sin migración:
+  los configs existentes no se tocan (la clave vieja se ignora y desaparece al
+  guardar). Si cambia la config
+  del server y Igor quiere que el repo la siga, se repite esto.
 
 Decisiones de diseño de la v1.0 que no venían en la especificación inicial:
 - Toda muerte resta alopecia (PvP, NPC, entorno, suicidio), también la de un
@@ -178,7 +192,7 @@ Decisiones de diseño de la v1.0 que no venían en la especificación inicial:
 Cambio de diseño de la v1.0 (el servidor tiene pocos jugadores, así que los
 NPCs tienen que dar alopecia):
 - NPCs por **tiers 1-20**: `NpcTiers` (por `ShortPrefabName`, nunca por la ruta
-  completa) y `TierRewards` (alopecia por tier: de 1 a 1000).
+  completa) y `TierRewards` (alopecia por tier: de 1 a 1000; de 10 a 10.000 desde la 1.10.0).
 - NPC no listado → no da nada, y se loguea una vez en consola.
 - `npc_bandit_guard` y `sentry.*` están en la config pero desactivados
   (`DisabledNpcs`).
@@ -191,7 +205,7 @@ NPCs tienen que dar alopecia):
 - Las estadísticas (kills, headshots) siguen siendo solo contra jugadores.
 
 Cambio de escala (de % a puntos enteros sin límite):
-- PvP: **toda kill +1000** (headshot o no). **Toda muerte −10 % de la
+- PvP: **toda kill +10000** (headshot o no; Igor, 2026-10-01: antes 1000). **Toda muerte −10 % de la
   alopecia actual** (redondeado hacia arriba), sea cual sea la causa;
   Lluvia de champú −20 %.
 - Supervivencia: +100 cada 30 min vivo y conectado (y moviéndose, desde la 1.6.8).
@@ -291,8 +305,9 @@ Lee `docs/ARCHITECTURE.md` antes de tocar código.
   (salen como `??`, comprobado en el servidor). Para resaltar, usar `<color>`.
 - **Ganancias de alopecia siempre por `GainBaldness`** (para que los eventos
   puedan multiplicarlas). `ChangeBaldness` directo solo para admin, muertes,
-  premios de eventos y alopecia comprada en el cambio (esta con `bought: true`,
-  para que no cobre premios de título).
+  premios de eventos y alopecia comprada en el cambio (esta cobra premios de
+  título como cualquier otra desde la 1.10.0; lo que no hace es multiplicarse ni
+  contar para el Calvo del Día).
 - **Mensajes al chat siempre por `Broadcast`/`SendChat`** del plugin (nunca
   `PrintToChat`/`SendReply` directos): así llevan como icono el avatar de la
   cuenta de Steam de la isla (`ChatIconSteamId`, 76561198635630459). Es el

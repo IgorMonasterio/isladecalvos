@@ -283,8 +283,10 @@ Para añadir otro evento: decidir qué hook marca "participar" y cuál marca
   `announce` es verdadero (así que no se paga con los cambios de admin).
   `PlayerData.PrizedTier` guarda el título más alto ya tratado. Vale -1 hasta
   el primer cambio de título; entonces se inicializa con el título que tenía,
-  para no pagar títulos ya conseguidos antes de la 1.6.0. Con `bought` (cambio)
-  y la opción desactivada, se marca como tratado sin pagar.
+  para no pagar títulos ya conseguidos antes de la 1.6.0. La alopecia comprada
+  en el cambio paga como cualquier otra desde la 1.10.0 (antes, con `bought` y la
+  opción `Tier prizes also for bought baldness` apagada, se marcaba como tratado
+  sin pagar; el parámetro y la opción ya no existen).
 - **Cartel de subida**: `ShowBanner(texto, segundos)`, compartido con
   `BroadcastEvent`.
 - **Paga lineal de Puntos de Chola**: `GetRpRate` = `calvicie / X` en `long` (sin tope desde la 1.6.7).

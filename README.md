@@ -24,8 +24,8 @@ Todos los valores se pueden cambiar en la config. Estos son los de por defecto:
 
 | Qué pasa | Alopecia |
 |---|---|
-| Matas a otro jugador (headshot o no) | **+1.000** |
-| Matas a un NPC | según su tier, de **+1** (T1) a **+1.000** (T20) |
+| Matas a otro jugador (headshot o no) | **+10.000** |
+| Matas a un NPC | según su tier, de **+10** (T1) a **+10.000** (T20) |
 | Cada 30 min vivo, conectado y moviéndote (no AFK) | **+100** |
 | Mueres, sea como sea (PvP, headshot, NPC, caída, suicidio…) | **−10 % de tu alopecia** (redondeado hacia arriba) |
 
@@ -46,30 +46,30 @@ derribó.
 Cada NPC tiene un **tier del 1 (fácil) al 20 (difícil)** según su
 `ShortPrefabName`, y cada tier da una alopecia fija (config `NpcTiers` y
 `TierRewards`). Recompensas por defecto: curva creciente de ×1,44 por tier,
-de 1 a 1.000.
+de 10 a 10.000 (desde la 1.10.0, la de antes ×10, como en el servidor).
 
 | Tier | Alopecia | NPCs |
 |---|---|---|
-| 1 | +1 | chicken |
-| 2 | +2 | zombie |
-| 3 | +3 | snake.entity, boar, stag |
-| 4 | +4 | beeswarm, scientistnpc_ptboat, scientistnpc_rhib |
-| 5 | +5 | beemasterswarm, wolf2, frankensteinpet |
-| 6 | +6 | npc_tunneldweller, npc_tunneldwellerspawned |
-| 7 | +9 | scientistnpc_junkpile_pistol, npc_underwaterdweller, simpleshark |
-| 8 | +13 | scientistnpc_full_pistol, scientistnpc_full_shotgun, scientistnpc_full_mp5, scientistnpc_full_lr300, scientistnpc_full_any |
-| 9 | +18 | scientistnpc_roam, scientistnpc_roamtethered, scientistnpc_patrol, scientistnpc_patrol_arctic, scientistnpc_arena |
-| 10 | +26 | scientistnpc_outbreak, scientistnpc_excavator, scientistnpc_ch47_gunner, scientistnpc_bradley, panther, tiger, scarecrow, scarecrow_dungeon, scarecrow_dungeonnoroam |
-| 11 | +38 | bear, scientist2, scientist2.shotgun, npc_bandit_guard ⛔ |
-| 12 | +55 | scientistnpc_oilrig, scientistnpc_cargo, scientistnpc_cargo_turret_any, scientistnpc_cargo_turret_lr300 |
-| 13 | +78 | polarbear, crocodile, gingerbread_dungeon |
-| 14 | +113 | scientistnpc_heavy, scientistnpc_peacekeeper, scientistnpc_roam_nvg_variant, gingerbread_meleedungeon |
-| 15 | +162 | scientistnpc_bradley_heavy |
-| 16 | +234 | sentry.scientist.static ⛔, sentry.scientist.barge ⛔, sentry.scientist.barge.static ⛔, sentry.bandit.static ⛔ |
-| 17 | +336 | scientist2.heavy |
-| 18 | +483 | bradleyapc 👥 |
-| 19 | +695 | ch47scientists.entity 👥 |
-| 20 | +1.000 | patrolhelicopter 👥 |
+| 1 | +10 | chicken |
+| 2 | +20 | zombie |
+| 3 | +30 | snake.entity, boar, stag |
+| 4 | +40 | beeswarm, scientistnpc_ptboat, scientistnpc_rhib |
+| 5 | +50 | beemasterswarm, wolf2, frankensteinpet |
+| 6 | +60 | npc_tunneldweller, npc_tunneldwellerspawned |
+| 7 | +90 | scientistnpc_junkpile_pistol, npc_underwaterdweller, simpleshark |
+| 8 | +130 | scientistnpc_full_pistol, scientistnpc_full_shotgun, scientistnpc_full_mp5, scientistnpc_full_lr300, scientistnpc_full_any |
+| 9 | +180 | scientistnpc_roam, scientistnpc_roamtethered, scientistnpc_patrol, scientistnpc_patrol_arctic, scientistnpc_arena |
+| 10 | +260 | scientistnpc_outbreak, scientistnpc_excavator, scientistnpc_ch47_gunner, scientistnpc_bradley, panther, tiger, scarecrow, scarecrow_dungeon, scarecrow_dungeonnoroam |
+| 11 | +380 | bear, scientist2, scientist2.shotgun, npc_bandit_guard ⛔ |
+| 12 | +550 | scientistnpc_oilrig, scientistnpc_cargo, scientistnpc_cargo_turret_any, scientistnpc_cargo_turret_lr300 |
+| 13 | +780 | polarbear, crocodile, gingerbread_dungeon |
+| 14 | +1.130 | scientistnpc_heavy, scientistnpc_peacekeeper, scientistnpc_roam_nvg_variant, gingerbread_meleedungeon |
+| 15 | +1.620 | scientistnpc_bradley_heavy |
+| 16 | +2.340 | sentry.scientist.static ⛔, sentry.scientist.barge ⛔, sentry.scientist.barge.static ⛔, sentry.bandit.static ⛔ |
+| 17 | +3.360 | scientist2.heavy |
+| 18 | +4.830 | bradleyapc 👥 |
+| 19 | +6.950 | ch47scientists.entity 👥 |
+| 20 | +10.000 | patrolhelicopter 👥 |
 
 ⛔ = en la config pero **desactivado por defecto** (`DisabledNpcs`).
 👥 = **recompensa compartida** (ver abajo).
@@ -134,11 +134,27 @@ del chat al bajar sigue saliendo como antes. Se desactiva con
 `"Show title drop banner"` y dura lo mismo que el de subida.
 
 **Premio por subir de título** (1.6.0): cada título puede dar Puntos de Chola, pelones y/o
-objetos. Por defecto todo está a 0. Se cobra **una sola vez por jugador y
+objetos. Los de por defecto (1.10.0, los mismos que tiene el servidor):
+
+| Título | Puntos de Chola | Pelones | Objetos |
+|---|---|---|---|
+| Greñas Sucias | — | 2.500 | 1 cuchillo de hueso (`knife.bone`) |
+| Pelambrera Lamentable | 100 | 10.000 | — |
+| Entradas Incipientes | 500 | 50.000 | — |
+| Coronilla a la Intemperie | 2.500 | — | 4 C4 (`explosive.timed`) |
+| Caballero de la Tonsura | 15.000 | — | 1 minicóptero (`minicopter`) |
+| Lord Bola de Billar | 50.000 | — | máscara y peto de metal (`metal.facemask`, `metal.plate.torso`) |
+| Su Calvísima Majestad | 250.000 | — | — |
+
+El de Greñas Sucias lleva además su mensaje propio: "Toma este trozo de hueso
+afilado. Empieza a raparte solito."
+
+Se cobra **una sola vez por jugador y
 título**: bajar y volver a subir no paga otra vez. A los jugadores que ya
 existían se les apunta como cobrado el título que tenían la primera vez que
-cambian de título. La alopecia **comprada** en el cambio no cobra premios,
-salvo que se active en la config.
+cambian de título. La alopecia **comprada** en el barbero cobra premios como
+cualquier otra (desde la 1.10.0; antes no cobraba salvo que se activara en la
+config, y esa opción ya no existe).
 
 Desde la 1.7.0:
 - El premio de **Greñas Sucias** se cobra al pasar de 0 a 1 o más. Antes nunca
@@ -162,8 +178,8 @@ plugin solo mueve a los jugadores de grupo.
 - Se sincroniza al cargar el plugin (los conectados), al conectarse y en cada
   cambio de alopecia que cambie de título: al subir y al bajar, también con
   alopecia comprada, con `/calvoadmin` y con el reset del wipe.
-- A diferencia del premio, el grupo **sigue siempre al título actual**: se
-  pierde al bajar, y la alopecia comprada también cuenta.
+- A diferencia del premio, que se cobra una vez, el grupo **sigue siempre al
+  título actual**: se pierde al bajar. La alopecia comprada cuenta para los dos.
 - Si un grupo no existe, el plugin lo crea. Los grupos que no están en la lista
   (`default`, `admin`…) no se tocan nunca; `default`, `admin` y `*` no se
   pueden poner como grupo de título.
@@ -205,8 +221,9 @@ vender alopecia por Puntos de Chola se rechaza si no cabe. Si Server Rewards est
 para trabajar en 64 bits (métodos `AddPointsLong`, `TakePointsLong` y
 `CheckPointsLong`), el plugin los usa solo y el límite desaparece.
 
-Con `"RP per X baldness (0 = use the table)": 0` se vuelve a la tabla de
-escalones por título de la 1.4.0.
+Con `"RP per X baldness (0 = use the table)": 0` se paga por la tabla de
+escalones por título de la 1.4.0 (`"RP per interval by title"`), que desde la
+1.10.0 viene vacía, como en el servidor: si se vuelve a ella, hay que rellenarla.
 
 - Solo cobra quien se haya **movido** durante esos 30 minutos (anti-AFK). Se
   mira cada minuto; basta con moverse 1 m entre dos comprobaciones.
@@ -367,8 +384,8 @@ Alopecia, Puntos de Chola y pelones se cambian entre sí:
 - Primero se paga o se cobra en Server Rewards o Economics, y solo si eso sale
   bien se toca la alopecia.
 - Vender puede bajarte de título (se anuncia en el chat, como cualquier
-  bajada). Lo comprado sube de título normal, pero ni se multiplica con
-  eventos o la pila ni cobra premios de título.
+  bajada). Lo comprado sube de título normal y cobra sus premios (desde la
+  1.10.0), pero no se multiplica con eventos o la pila.
 - Si Server Rewards o Economics no están cargados, sus opciones salen cerradas.
 
 ## La peluquería (plugin 1.5.0)
@@ -410,7 +427,9 @@ versión es otra, los nombres pueden cambiar un poco.
      "Max distance to the Calvario NPC to use items (meters)": 5.0
    }
    ```
-   Después: `oxide.reload IslaDeCalvos`.
+   Después: `oxide.reload IslaDeCalvos`. Por defecto (1.10.0) viene el
+   `userid` del barbero del servidor, `4211000001`; en otro servidor hay que
+   cambiarlo por el suyo.
 3. **El Mercalvona (GUIShop).** En la tienda que quieras asignar, activa
    `EnableNPC` y pon el `userid` del tendero en `NpcIds`. Para que `/shop` no
    abra nada fuera de la casa, deja `"Set Default Global Shop to open": ""`
@@ -548,7 +567,7 @@ Si ya tenía precio, se suma al bote.
 
 ### Calvo del Día
 
-Cada día a las **21:00** (hora del server, configurable) se elige al **Calvo
+Cada día a las **19:00** (hora del server, configurable; hasta la 1.9.1, a las 21:00) se elige al **Calvo
 del Día**: el que más alopecia ha **ganado** desde la elección anterior (lo
 ganado, no el total; las muertes restan). En cada elección se guarda una foto
 de la alopecia de todos para comparar al día siguiente.
@@ -563,19 +582,19 @@ de la alopecia de todos para comparar al día siguiente.
   no existe, lo crea. Sirve para darle permisos, como un prefijo de Better
   Chat. No puede ser un grupo de título ni `default`, `admin` o `*`.
 - **Premio** opcional (Puntos de Chola, pelones y objetos, con `"Message"`
-  propio), igual que los premios por título y a 0 por defecto. Los objetos
+  propio), con la misma forma que los premios por título; a 0 por defecto. Los objetos
   solo se dan si está conectado en ese momento.
 - Se guarda el historial de los **últimos 30**.
-- Si el servidor está apagado a las 21:00, se elige en cuanto arranca (si no
+- Si el servidor está apagado a las 19:00, se elige en cuanto arranca (si no
   ha pasado la medianoche). La primera vez que carga la 1.8.0 se hace la
-  primera foto; si ya son más de las 21:00, la primera elección es al día
+  primera foto; si ya son más de las 19:00, la primera elección es al día
   siguiente.
 - **No se compra** (1.8.2): la alopecia comprada en el barbero y los cambios de
   admin (`/calvoadmin set` y `reset`) no cuentan, ni para sumar ni para restar
   (se mueve la foto de ese jugador en la misma cantidad). Vender alopecia sí
   resta, como morir.
 - `/calvoadmin calvodeldia ahora` fuerza una elección, y **cuenta como la del
-  día** (1.8.2): ese día ya no se elige otra vez a las 21:00 ni se paga dos veces.
+  día** (1.8.2): ese día ya no se elige otra vez a las 19:00 ni se paga dos veces.
 - Con `"Enabled": false`, el grupo se vacía al cargar el plugin (1.8.1): nadie
   se queda con sus ventajas.
 
@@ -641,7 +660,7 @@ RCON**. Contesta en la consola qué ha hecho.
 | `/calvoadmin salon cerrar [forzar]` | Admin | Cierre de mapa completo, como el wipe: entrada, anuncio, hook, kills y muertes del mapa a 0 y reset de alopecia si la config lo dice. Sin `forzar`, no hace nada si el último cierre fue hace menos de 12 horas. |
 | `/calvoadmin salon borrar <n>` | Admin | Quita la entrada `#n` del Salón de la fama. |
 | `/calvoadmin cabeza quitar <jugador>` | Admin | Anula el bote que haya por la cabeza de ese jugador (no se devuelve a nadie). |
-| `/calvoadmin calvodeldia ahora` | Admin | Elige ya al Calvo del Día. Cuenta como la elección del día: a las 21:00 ya no hay otra. |
+| `/calvoadmin calvodeldia ahora` | Admin | Elige ya al Calvo del Día. Cuenta como la elección del día: a las 19:00 ya no hay otra. |
 | `isla.ranking` | Consola del servidor / RCON | Todos los jugadores en una línea de JSON (ver arriba). |
 | `isla.salon cerrar [forzar]` | Consola del servidor / RCON | Lo mismo que `/calvoadmin salon cerrar`. |
 
@@ -666,8 +685,8 @@ plugin. Después de editarla: `oxide.reload IslaDeCalvos`.
 
 | Opción | Por defecto | Qué hace |
 |---|---|---|
-| `Baldness gained per player kill` | 1000 | Alopecia por kill. |
-| `Baldness gained per headshot kill (instead of the normal kill reward)` | 1000 | Alopecia por kill de headshot. |
+| `Baldness gained per player kill` | 10000 | Alopecia por kill. |
+| `Baldness gained per headshot kill (instead of the normal kill reward)` | 10000 | Alopecia por kill de headshot. |
 | `Baldness gained per survival interval` | 100 | Alopecia por sobrevivir. |
 | `Survival interval (minutes alive and connected)` | 30 | Cada cuántos minutos se gana. |
 | `Survival reward only if the player moved during the interval (not AFK)` | true | Si no te has movido en el intervalo, no cobras (misma comprobación que la paga de Puntos de Chola). |
@@ -680,7 +699,7 @@ plugin. Después de editarla: `oxide.reload IslaDeCalvos`.
 | `Reset baldness on map wipe (stats are kept)` | false | Si el wipe pone a todos a 0. |
 | `Titles (minimum baldness -> title)` | ver tabla | Lista de títulos y desde cuántos puntos se consiguen. |
 | `NpcTiers` | ver tabla | `"<shortprefabname>": <tier>` para cada NPC que da alopecia. |
-| `TierRewards` | curva 1 … 1000 | `"<tier>": <alopecia>` para los tiers 1-20. Números enteros. |
+| `TierRewards` | curva 10 … 10000 | `"<tier>": <alopecia>` para los tiers 1-20. Números enteros. |
 | `DisabledNpcs` | bandit guard y sentries | NPCs que están en `NpcTiers` pero no dan nada. |
 | `SharedRewardTargets` | heli, Bradley, CH47 | Objetivos con recompensa compartida. Tienen que estar también en `NpcTiers`. |
 | `Shared reward: teammate radius from the target (meters)` | 300 | Distancia máxima de los compañeros de equipo al objetivo. |
@@ -695,9 +714,9 @@ Ejemplo del bloque de NPCs:
   "patrolhelicopter": 20
 },
 "TierRewards": {
-  "1": 1,
-  "9": 18,
-  "20": 1000
+  "1": 10,
+  "9": 180,
+  "20": 10000
 },
 "DisabledNpcs": [ "npc_bandit_guard" ],
 "SharedRewardTargets": [ "patrolhelicopter", "bradleyapc", "ch47scientists.entity" ]
@@ -747,12 +766,7 @@ que los títulos:
   "Minimum movement between checks to count as active (meters)": 1.0,
   "Tell the player in chat when RP is paid": true,
   "RP per X baldness (0 = use the table)": 100,
-  "RP per interval by title (minimum baldness -> RP)": {
-    "1000": 1,
-    "10000": 3,
-    "100000": 10,
-    "1000000": 30
-  }
+  "RP per interval by title (minimum baldness -> RP)": {}
 }
 ```
 
@@ -761,12 +775,12 @@ los premios son la alopecia mínima de cada título:
 
 ```json
 "Tier prizes (title minimum baldness -> prize)": {
-  "1000": { "RP (Server Rewards)": 0, "Coins (Economics)": 0,
-            "Items": [ { "Item shortname": "scrap", "Amount": 100 } ],
-            "Message": "" },
+  "1": { "RP (Server Rewards)": 0, "Coins (Economics)": 2500,
+         "Items": [ { "Item shortname": "knife.bone", "Amount": 1 } ],
+         "Message": "Toma este trozo de hueso afilado. Empieza a raparte solito." },
+  "1000": { "RP (Server Rewards)": 100, "Coins (Economics)": 10000, "Items": [], "Message": "" },
   ...
 },
-"Tier prizes also for bought baldness": false,
 "Sync title groups": true,
 "Title groups (title minimum baldness -> Oxide group)": {
   "1": "calvo1", "1000": "calvo2", "10000": "calvo3", "100000": "calvo4",
@@ -783,8 +797,8 @@ los premios son la alopecia mínima de cada título:
 }
 ```
 
-(El `scrap` es solo un ejemplo: por defecto los premios vienen vacíos, con el
-mensaje en blanco.)
+(Los demás títulos, en la tabla de **Premio por subir de título**. Hasta la
+1.9.1 los premios venían vacíos por defecto.)
 
 En `"On-screen UI"` están
 `"Show a banner to everyone when a player rises to a higher title": true`,
@@ -829,15 +843,15 @@ Bloques de la 1.8.0 (valores por defecto):
 },
 "Calvo del Día (top alopecia gainer of the last 24 h)": {
   "Enabled": true,
-  "Pick time (server time, HH:mm)": "21:00",
+  "Pick time (server time, HH:mm)": "19:00",
   "Oxide group": "calvodeldia",
   "History entries kept": 30,
   "Prize": { "RP (Server Rewards)": 0, "Coins (Economics)": 0, "Items": [], "Message": "" }
 }
 ```
 
-`"Oxide group": ""` = sin grupo. Una hora mal escrita vuelve a `21:00` con un
-aviso en la consola.
+`"Oxide group": ""` = sin grupo. Una hora mal escrita vuelve a la de por defecto
+(`19:00`) con un aviso en la consola.
 
 Los textos de los mensajes se editan en `oxide/lang/es/IslaDeCalvos.json` y
 `oxide/lang/en/IslaDeCalvos.json`. Los dos están en español por defecto: la
@@ -855,7 +869,7 @@ servidor. Desde la 1.8.0 van en el mismo fichero el Salón de la fama
 1. Ten un servidor dedicado de Rust con **Oxide (uMod)** instalado.
 2. Copia `src/IslaDeCalvos.cs` en la carpeta `oxide/plugins/` del servidor.
 3. Oxide lo compila y carga solo. En la consola deberías ver algo como
-   `Loaded plugin Isla de Calvos v1.9.1 by Igor Monasterio`.
+   `Loaded plugin Isla de Calvos v1.10.0 by Igor Monasterio`.
 4. Para recargarlo tras cambiar el fichero (normalmente se recarga solo):
    `oxide.reload IslaDeCalvos`
 

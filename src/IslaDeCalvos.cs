@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Isla de Calvos", "Igor Monasterio", "1.9.1")]
+    [Info("Isla de Calvos", "Igor Monasterio", "1.10.0")]
     [Description("Baldness system for the Isla de Calvos Rust server: being bald is glory, hair is a curse.")]
     public class IslaDeCalvos : RustPlugin
     {
@@ -110,10 +110,10 @@ namespace Oxide.Plugins
             public int ConfigVersion;
 
             [JsonProperty("Baldness gained per player kill")]
-            public long KillReward = 1000;
+            public long KillReward = 10000;
 
             [JsonProperty("Baldness gained per headshot kill (instead of the normal kill reward)")]
-            public long HeadshotKillReward = 1000;
+            public long HeadshotKillReward = 10000;
 
             [JsonProperty("Baldness gained per survival interval")]
             public long SurvivalReward = 100;
@@ -161,16 +161,39 @@ namespace Oxide.Plugins
                 new TitleTier { MinBaldness = 100000000, Name = "Su Calvísima Majestad" }
             };
 
-            // Paid once per player and title, the first time they reach it. All zero by default.
+            // Paid once per player and title, the first time they reach it. Defaults are the live server's values.
             [JsonProperty("Tier prizes (title minimum baldness -> prize)", ObjectCreationHandling = ObjectCreationHandling.Replace)]
             public Dictionary<string, TierPrize> TierPrizes = new Dictionary<string, TierPrize>
             {
-                ["1"] = new TierPrize(), ["1000"] = new TierPrize(), ["10000"] = new TierPrize(), ["100000"] = new TierPrize(),
-                ["1000000"] = new TierPrize(), ["10000000"] = new TierPrize(), ["100000000"] = new TierPrize()
+                ["1"] = new TierPrize
+                {
+                    Coins = 2500,
+                    Items = new List<PrizeItem> { new PrizeItem { Shortname = "knife.bone", Amount = 1 } },
+                    Message = "Toma este trozo de hueso afilado. Empieza a raparte solito."
+                },
+                ["1000"] = new TierPrize { Rp = 100, Coins = 10000 },
+                ["10000"] = new TierPrize { Rp = 500, Coins = 50000 },
+                ["100000"] = new TierPrize
+                {
+                    Rp = 2500,
+                    Items = new List<PrizeItem> { new PrizeItem { Shortname = "explosive.timed", Amount = 4 } }
+                },
+                ["1000000"] = new TierPrize
+                {
+                    Rp = 15000,
+                    Items = new List<PrizeItem> { new PrizeItem { Shortname = "minicopter", Amount = 1 } }
+                },
+                ["10000000"] = new TierPrize
+                {
+                    Rp = 50000,
+                    Items = new List<PrizeItem>
+                    {
+                        new PrizeItem { Shortname = "metal.facemask", Amount = 1 },
+                        new PrizeItem { Shortname = "metal.plate.torso", Amount = 1 }
+                    }
+                },
+                ["100000000"] = new TierPrize { Rp = 250000 }
             };
-
-            [JsonProperty("Tier prizes also for bought baldness")]
-            public bool TierPrizesForBoughtBaldness = false;
 
             // Every player sits in the group of their current title and in no other group of this list; the perks of each
             // title (homes, teleport cooldowns, backpack size, chat title) are permissions granted to these groups.
@@ -256,7 +279,7 @@ namespace Oxide.Plugins
         private class CalvoDelDiaConfig
         {
             [JsonProperty("Enabled")] public bool Enabled = true;
-            [JsonProperty("Pick time (server time, HH:mm)")] public string PickTime = "21:00";
+            [JsonProperty("Pick time (server time, HH:mm)")] public string PickTime = "19:00";
 
             // Only the current Calvo del Día is in it. Empty = no group.
             [JsonProperty("Oxide group")] public string Group = "calvodeldia";
@@ -271,7 +294,7 @@ namespace Oxide.Plugins
         private class BarberShopConfig
         {
             [JsonProperty("Calvario NPC ids (HumanNPC userid)", ObjectCreationHandling = ObjectCreationHandling.Replace)]
-            public List<ulong> CalvarioNpcIds = new List<ulong>();
+            public List<ulong> CalvarioNpcIds = new List<ulong> { 4211000001UL };
 
             [JsonProperty("Max distance to the Calvario NPC to use items (meters)")] public float MaxDistance = 5f;
         }
@@ -328,14 +351,9 @@ namespace Oxide.Plugins
             // Linear RP: floor(baldness / X), no cap. 0 = use the table below instead.
             [JsonProperty("RP per X baldness (0 = use the table)")] public long RpPerBaldness = 100;
 
+            // Only used with "RP per X baldness" at 0. Empty by default, as on the live server.
             [JsonProperty("RP per interval by title (minimum baldness -> RP)", ObjectCreationHandling = ObjectCreationHandling.Replace)]
-            public Dictionary<string, int> RpByMinBaldness = new Dictionary<string, int>
-            {
-                ["1000"] = 1,
-                ["10000"] = 3,
-                ["100000"] = 10,
-                ["1000000"] = 30
-            };
+            public Dictionary<string, int> RpByMinBaldness = new Dictionary<string, int>();
         }
 
         private class ItemDropConfig
@@ -551,13 +569,14 @@ namespace Oxide.Plugins
             return tiers;
         }
 
-        // Geometric curve from 1 (tier 1) to 1000 (tier 20), about x1.44 per tier, rounded to strictly increasing integers.
+        // Geometric curve from 10 (tier 1) to 10000 (tier 20), about x1.44 per tier: the 1.0 curve (1 to 1000) times 10,
+        // as on the live server since 2026-10-01.
         private static Dictionary<string, long> DefaultTierRewards()
         {
             long[] rewards =
             {
-                1, 2, 3, 4, 5, 6, 9, 13, 18, 26,
-                38, 55, 78, 113, 162, 234, 336, 483, 695, 1000
+                10, 20, 30, 40, 50, 60, 90, 130, 180, 260,
+                380, 550, 780, 1130, 1620, 2340, 3360, 4830, 6950, 10000
             };
 
             var result = new Dictionary<string, long>();
@@ -807,9 +826,10 @@ namespace Oxide.Plugins
             if (day.Prize == null) day.Prize = new TierPrize();
             if (!TryParseClock(day.PickTime, out calvoDelDiaMinutes))
             {
-                PrintWarning($"Calvo del Día: '{day.PickTime}' is not a time (HH:mm); using 21:00.");
-                day.PickTime = "21:00";
-                calvoDelDiaMinutes = 21 * 60;
+                string fallback = new CalvoDelDiaConfig().PickTime;
+                PrintWarning($"Calvo del Día: '{day.PickTime}' is not a time (HH:mm); using {fallback}.");
+                day.PickTime = fallback;
+                TryParseClock(fallback, out calvoDelDiaMinutes);
             }
 
             calvoDelDiaGroup = day.Group?.Trim();
@@ -3691,10 +3711,10 @@ namespace Oxide.Plugins
                 return Lang("BarberExDoneSellV2", userId, FormatBaldness(baldness), priceText);
             }
 
-            // Bought baldness is not multiplied by events or the battery, only pays tier prizes if the config says so and
-            // does not count for the Calvo del Día.
+            // Bought baldness is not multiplied by events or the battery and does not count for the Calvo del Día. It does
+            // pay tier prizes, like any other baldness (1.10.0).
             long before = data.Baldness;
-            ChangeBaldness(data, baldness, true, Lang("ReasonExchange"), true);
+            ChangeBaldness(data, baldness, true, Lang("ReasonExchange"));
             ExcludeFromCalvoDelDia(data, before);
             return Lang("BarberExDoneBuyV2", userId, FormatBaldness(baldness), priceText);
         }
@@ -4361,7 +4381,7 @@ namespace Oxide.Plugins
             SyncCalvoDelDiaGroup(day.CurrentId);
         }
 
-        // Every minute: once a day, at the configured time or the first check after it (e.g. the server was down at 21:00).
+        // Every minute: once a day, at the configured time or the first check after it (e.g. the server was down at pick time).
         private void CheckCalvoDelDia()
         {
             string today = TodayKey();
@@ -4796,7 +4816,7 @@ namespace Oxide.Plugins
             return amount;
         }
 
-        private void ChangeBaldness(PlayerData data, long delta, bool announce, string reason, bool bought = false)
+        private void ChangeBaldness(PlayerData data, long delta, bool announce, string reason)
         {
             long oldValue = data.Baldness;
             long newValue = Math.Max(MinBaldness, SaturatingAdd(oldValue, delta));
@@ -4862,7 +4882,7 @@ namespace Oxide.Plugins
             if (newTitle > oldTitle)
             {
                 // From -1 too, so the first title (Greñas Sucias) has its prize.
-                PayTierPrizes(data, oldTitle, newTitle, bought);
+                PayTierPrizes(data, oldTitle, newTitle);
             }
 
             if (newTitle != oldTitle)
@@ -4873,8 +4893,8 @@ namespace Oxide.Plugins
             }
         }
 
-        // Pays each newly reached title's prize once. Bought baldness only counts if the config allows it.
-        private void PayTierPrizes(PlayerData data, int oldTier, int newTier, bool bought)
+        // Pays each newly reached title's prize once, however the baldness came (bought baldness too, since 1.10.0).
+        private void PayTierPrizes(PlayerData data, int oldTier, int newTier)
         {
             if (data.PrizedTier < 0)
             {
@@ -4890,10 +4910,6 @@ namespace Oxide.Plugins
             int from = data.PrizedTier + 1;
             data.PrizedTier = newTier;
             dataDirty = true;
-            if (bought && !config.TierPrizesForBoughtBaldness)
-            {
-                return;
-            }
 
             BasePlayer player = BasePlayer.FindByID(data.Id);
             for (int tier = from; tier <= newTier; tier++)

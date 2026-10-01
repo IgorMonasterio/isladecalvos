@@ -493,6 +493,10 @@ Bases, `/info`, NPCs y el Gran Calvo Jano). En el repo cambiaron:
   - recompensas por cabeza (`/cabeza`, `/cabezas`);
   - Calvo del Día (21:00, grupo `calvodeldia`);
   - hooks nuevos para JanoBridge y el comando de consola `isla.ranking`.
+- **1.10.0** (issue #38, con la PR #37 dentro): los valores por defecto pasan a ser los
+  de la config del servidor a 1 de octubre, 15:30 (kill +10.000, NPC ×10, premios por
+  título ×10, Calvo del Día a las 19:00, barbero 4211000001); y, a las 17:20, la alopecia
+  comprada en el barbero cobra premios de título siempre (fuera la opción).
 
 ---
 
