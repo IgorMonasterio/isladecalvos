@@ -193,6 +193,13 @@ alcance cerrado:
     delante del jugador, donde esté. Los premios admiten `"Spawn prefabs"` además de
     `Items`. La migración cambia el `minicopter` por el helicóptero en los configs que
     lo tenían.
+- **Plugin 1.12.0** — encargo de Igor (issue #42), para la web de la isla
+  (isladecalvos.martigor.org, que lee por RCON): cuatro comandos de consola/RCON más
+  que devuelven JSON en una línea, como `isla.ranking`: `isla.salon` (sin argumentos;
+  `isla.salon cerrar` sigue igual), `isla.calvodeldia`, `isla.cabezas` e `isla.evento`.
+  **Sin SteamIDs**; horas en ISO 8601 UTC. Para las cabezas se apunta desde ahora quién
+  puso y desde cuándo (`BountyInfo`); el juego no cambia. Formato en el README y
+  ARCHITECTURE §4o.
 
 Decisiones de diseño de la v1.0 que no venían en la especificación inicial:
 - Toda muerte resta alopecia (PvP, NPC, entorno, suicidio), también la de un
