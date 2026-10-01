@@ -191,7 +191,7 @@ NPCs tienen que dar alopecia):
 - Las estadísticas (kills, headshots) siguen siendo solo contra jugadores.
 
 Cambio de escala (de % a puntos enteros sin límite):
-- PvP: **toda kill +1000** (headshot o no). **Toda muerte −10 % de la
+- PvP: **toda kill +10000** (headshot o no; Igor, 2026-10-01: antes 1000). **Toda muerte −10 % de la
   alopecia actual** (redondeado hacia arriba), sea cual sea la causa;
   Lluvia de champú −20 %.
 - Supervivencia: +100 cada 30 min vivo y conectado (y moviéndose, desde la 1.6.8).

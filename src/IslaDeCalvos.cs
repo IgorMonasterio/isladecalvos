@@ -110,10 +110,10 @@ namespace Oxide.Plugins
             public int ConfigVersion;
 
             [JsonProperty("Baldness gained per player kill")]
-            public long KillReward = 1000;
+            public long KillReward = 10000;
 
             [JsonProperty("Baldness gained per headshot kill (instead of the normal kill reward)")]
-            public long HeadshotKillReward = 1000;
+            public long HeadshotKillReward = 10000;
 
             [JsonProperty("Baldness gained per survival interval")]
             public long SurvivalReward = 100;
