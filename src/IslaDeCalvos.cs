@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Isla de Calvos", "Igor Monasterio", "1.11.0")]
+    [Info("Isla de Calvos", "Igor Monasterio", "1.12.0")]
     [Description("Baldness system for the Isla de Calvos Rust server: being bald is glory, hair is a curse.")]
     public class IslaDeCalvos : RustPlugin
     {
@@ -956,7 +956,22 @@ namespace Oxide.Plugins
             [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
             public Dictionary<ulong, long> Bounties = new Dictionary<ulong, long>();
 
+            // Who put Puntos de Chola on each head and since when, only for isla.cabezas (1.12.0). Bounties placed before
+            // 1.12.0 have no entry; it goes away with the bounty.
+            [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
+            public Dictionary<ulong, BountyRecord> BountyInfo = new Dictionary<ulong, BountyRecord>();
+
             public CalvoDelDiaData CalvoDelDia = new CalvoDelDiaData();
+        }
+
+        private class BountyRecord
+        {
+            // Server time of the first Puntos de Chola on that head.
+            public DateTime Since;
+
+            // Everyone who has put Puntos de Chola on it, in order, once each.
+            [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
+            public List<ulong> PlacedBy = new List<ulong>();
         }
 
         private class HallEntry
@@ -1513,7 +1528,12 @@ namespace Oxide.Plugins
 
             if (config.GlobalEvents.Enabled)
             {
-                timer.Every(config.GlobalEvents.IntervalMinutes * 60f, () => StartRandomEvent());
+                nextRandomEventUtc = DateTime.UtcNow.AddMinutes(config.GlobalEvents.IntervalMinutes);
+                timer.Every(config.GlobalEvents.IntervalMinutes * 60f, () =>
+                {
+                    nextRandomEventUtc = DateTime.UtcNow.AddMinutes(config.GlobalEvents.IntervalMinutes);
+                    StartRandomEvent();
+                });
             }
 
             ValidateCursedItemNames();
@@ -2069,6 +2089,18 @@ namespace Oxide.Plugins
 
             long total = SaturatingAdd(storedData.Bounties.TryGetValue(target.Id, out long previous) ? previous : 0, amount);
             storedData.Bounties[target.Id] = total;
+            if (!storedData.BountyInfo.TryGetValue(target.Id, out BountyRecord info))
+            {
+                // A bounty from before 1.12.0 has no record: its start is unknown, so it is not made up here.
+                info = new BountyRecord { Since = previous > 0 ? default(DateTime) : DateTime.Now };
+                storedData.BountyInfo[target.Id] = info;
+            }
+
+            if (!info.PlacedBy.Contains(placer.Id))
+            {
+                info.PlacedBy.Add(placer.Id);
+            }
+
             dataDirty = true;
 
             if (total > amount)
@@ -2313,6 +2345,7 @@ namespace Oxide.Plugins
             }
 
             storedData.Bounties.Remove(target.Id);
+            storedData.BountyInfo.Remove(target.Id);
             dataDirty = true;
             Reply(player, "AdminBountyRemoved", target.Name, UnitText(true, total, player.UserIDString));
             Puts($"{player.displayName} ({player.UserIDString}) removed the bounty on {target.Name} ({target.Id}): {total} Puntos de Chola.");
@@ -2343,6 +2376,7 @@ namespace Oxide.Plugins
             }
         }
 
+        // isla.salon: the whole hall of fame as one line of JSON, for the website (1.12.0).
         // isla.salon cerrar [forzar]: "/calvoadmin salon cerrar" from the server console or RCON. Replies in the console.
         [ConsoleCommand("isla.salon")]
         private void CcmdIslaSalon(ConsoleSystem.Arg arg)
@@ -2354,6 +2388,12 @@ namespace Oxide.Plugins
             }
 
             string[] args = MenuArgs(arg);
+            if (args.Length == 0)
+            {
+                arg.ReplyWith(JsonConvert.SerializeObject(HallOfFameJson(), Formatting.None));
+                return;
+            }
+
             bool force = args.Length == 2 && args[1].ToLowerInvariant() == "forzar";
             if (args.Length == 0 || args.Length > 2 || args[0].ToLowerInvariant() != "cerrar" || (args.Length == 2 && !force))
             {
@@ -2396,6 +2436,121 @@ namespace Oxide.Plugins
             arg.ReplyWith(JsonConvert.SerializeObject(players, Formatting.None));
         }
 
+        // JSON for the website (1.12.0): isla.salon, isla.calvodeldia, isla.cabezas and isla.evento. Server console and RCON
+        // only, like isla.ranking. No SteamIDs: the website shows all of it in public. Times in ISO 8601 UTC ("...Z").
+        private static string IsoUtc(DateTime time) =>
+            time == default(DateTime) ? null : time.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture);
+
+        private string StoredName(ulong id) => storedData.Players.TryGetValue(id, out PlayerData data) ? data.Name ?? string.Empty : string.Empty;
+
+        // Newest first. "wipe" is the server date the entry was saved; "manual" marks a "/calvoadmin salon guardar" snapshot.
+        private object HallOfFameJson() =>
+            storedData.HallOfFame.AsEnumerable().Reverse().Select(entry => new
+            {
+                wipe = entry.Date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                manual = entry.Manual,
+                top = entry.Podium.Where(p => p != null).Select(p => new
+                {
+                    name = p.Name ?? string.Empty,
+                    alopecia = p.Value,
+                    title = TitleName(GetTitleIndex(p.Value))
+                }).ToList(),
+                mostKills = entry.TopKiller == null ? null : new { name = entry.TopKiller.Name ?? string.Empty, kills = entry.TopKiller.Value },
+                mostDeaths = entry.TopDeaths == null ? null : new { name = entry.TopDeaths.Name ?? string.Empty, deaths = entry.TopDeaths.Value }
+            }).ToList();
+
+        [ConsoleCommand("isla.calvodeldia")]
+        private void CcmdIslaCalvoDelDia(ConsoleSystem.Arg arg)
+        {
+            if (arg.Connection != null)
+            {
+                return;
+            }
+
+            CalvoDelDiaData day = storedData.CalvoDelDia;
+            CalvoDelDiaRecord current = day.CurrentId == 0 ? null : day.History.LastOrDefault(r => r != null && r.Id == day.CurrentId);
+            var json = new
+            {
+                current = current == null ? null : new { name = current.Name ?? string.Empty, gained = current.Gained, since = IsoUtc(current.Date) },
+                nextPick = config.CalvoDelDia.Enabled ? IsoUtc(NextCalvoDelDiaPick()) : null,
+                history = day.History.Where(r => r != null).Reverse().Take(14)
+                    .Select(r => new { date = IsoUtc(r.Date), name = r.Name ?? string.Empty, gained = r.Gained }).ToList()
+            };
+
+            arg.ReplyWith(JsonConvert.SerializeObject(json, Formatting.None));
+        }
+
+        // Server time of the next scheduled pick: today at the pick time, or tomorrow if today's is done. If today's time has
+        // passed without a pick, it happens at the next minute check, so "now".
+        private DateTime NextCalvoDelDiaPick()
+        {
+            DateTime now = DateTime.Now;
+            DateTime pick = now.Date.AddMinutes(calvoDelDiaMinutes);
+            if (storedData.CalvoDelDia.LastPickDate == TodayKey())
+            {
+                return pick.AddDays(1);
+            }
+
+            return pick < now ? now : pick;
+        }
+
+        // Biggest bounty first. "placedBy" and "since" are only known for bounties placed from 1.12.0 on ([] and null before).
+        [ConsoleCommand("isla.cabezas")]
+        private void CcmdIslaCabezas(ConsoleSystem.Arg arg)
+        {
+            if (arg.Connection != null)
+            {
+                return;
+            }
+
+            var bounties = storedData.Bounties
+                .Where(b => b.Value > 0)
+                .OrderByDescending(b => b.Value)
+                .Select(b =>
+                {
+                    storedData.BountyInfo.TryGetValue(b.Key, out BountyRecord info);
+                    return new
+                    {
+                        target = StoredName(b.Key),
+                        amount = b.Value,
+                        placedBy = info == null ? new List<string>() : info.PlacedBy.Select(StoredName).ToList(),
+                        since = info == null ? null : IsoUtc(info.Since)
+                    };
+                })
+                .ToList();
+
+            arg.ReplyWith(JsonConvert.SerializeObject(bounties, Formatting.None));
+        }
+
+        // The running global event, or {"active": null} plus "nextAt" (the next random event try) when events are on.
+        [ConsoleCommand("isla.evento")]
+        private void CcmdIslaEvento(ConsoleSystem.Arg arg)
+        {
+            if (arg.Connection != null)
+            {
+                return;
+            }
+
+            var json = new Dictionary<string, object>();
+            if (activeEvent == GlobalEvent.None)
+            {
+                json["active"] = null;
+                if (config.GlobalEvents.Enabled && nextRandomEventUtc != default(DateTime))
+                {
+                    json["nextAt"] = IsoUtc(nextRandomEventUtc);
+                }
+            }
+            else
+            {
+                json["active"] = activeEvent.ToString();
+                json["name"] = EventName(activeEvent);
+                json["endsAt"] = IsoUtc(eventEndsUtc);
+                json["target"] = activeEvent == GlobalEvent.HairiestHunt && huntTargetId != 0 ? StoredName(huntTargetId) : null;
+            }
+
+            arg.ReplyWith(JsonConvert.SerializeObject(json, Formatting.None));
+        }
+
         #endregion
 
         #region Global Events
@@ -2413,6 +2568,10 @@ namespace Oxide.Plugins
         private GlobalEvent activeEvent = GlobalEvent.None;
         private Timer eventEndTimer;
         private ulong huntTargetId;
+
+        // For isla.evento only: when the running event ends and when the next random event is tried (UTC; default = unknown).
+        private DateTime eventEndsUtc;
+        private DateTime nextRandomEventUtc;
 
         private void OnPlayerDisconnected(BasePlayer player, string reason)
         {
@@ -2498,6 +2657,7 @@ namespace Oxide.Plugins
             }
 
             activeEvent = globalEvent;
+            eventEndsUtc = DateTime.UtcNow.AddMinutes(minutes);
             eventEndTimer = timer.Once(minutes * 60f, () => EndEvent(true));
             Puts($"Global event started: {globalEvent} ({minutes} min).");
             return true;
@@ -4405,6 +4565,7 @@ namespace Oxide.Plugins
             }
 
             storedData.Bounties.Remove(victimData.Id);
+            storedData.BountyInfo.Remove(victimData.Id);
             dataDirty = true;
             Broadcast("BountyClaimed", killerData.Name, victimData.Name, UnitText(true, total, null));
             Interface.CallHook("OnIslaBountyClaimed", killerData.Id, killerData.Name ?? string.Empty, victimData.Id, victimData.Name ?? string.Empty, total);
