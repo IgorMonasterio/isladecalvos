@@ -167,12 +167,16 @@ alcance cerrado:
 - **Plugin 1.10.0** — encargo de Igor (issue #38): **los valores por defecto de la
   config son los del servidor**. Una instalación limpia genera exactamente el
   `oxide/config/IslaDeCalvos.json` del server a 2026-10-01 (salvo el icono del
-  chat, que ya era el del código), versión de las 15:30. Cambia: kill PvP +10.000
+  chat, que ya era el del código y sin la opción que se elimina). Cambia: kill PvP +10.000
   (PR #37, incluida), `TierRewards` de NPC ×10 (de 10 a 10.000), premios por
   título con valores (pelones y Puntos de Chola ya ×10, y objetos; mensaje
   propio en Greñas Sucias), Calvo del Día a las 19:00, el `userid` del barbero
   (4211000001) y la tabla de Puntos de Chola por título vacía (la paga es la
-  lineal). Sin migración: los configs existentes no se tocan. Si cambia la config
+  lineal). Versión de las 17:20: **la alopecia comprada en el barbero cobra
+  premios de título siempre** (Igor: "la alopecia es alopecia"); fuera la opción
+  `Tier prizes also for bought baldness` y el parámetro `bought`. Sin migración:
+  los configs existentes no se tocan (la clave vieja se ignora y desaparece al
+  guardar). Si cambia la config
   del server y Igor quiere que el repo la siga, se repite esto.
 
 Decisiones de diseño de la v1.0 que no venían en la especificación inicial:
@@ -301,8 +305,9 @@ Lee `docs/ARCHITECTURE.md` antes de tocar código.
   (salen como `??`, comprobado en el servidor). Para resaltar, usar `<color>`.
 - **Ganancias de alopecia siempre por `GainBaldness`** (para que los eventos
   puedan multiplicarlas). `ChangeBaldness` directo solo para admin, muertes,
-  premios de eventos y alopecia comprada en el cambio (esta con `bought: true`,
-  para que no cobre premios de título).
+  premios de eventos y alopecia comprada en el cambio (esta cobra premios de
+  título como cualquier otra desde la 1.10.0; lo que no hace es multiplicarse ni
+  contar para el Calvo del Día).
 - **Mensajes al chat siempre por `Broadcast`/`SendChat`** del plugin (nunca
   `PrintToChat`/`SendReply` directos): así llevan como icono el avatar de la
   cuenta de Steam de la isla (`ChatIconSteamId`, 76561198635630459). Es el
