@@ -65,7 +65,7 @@ alcance cerrado:
   dependientes vanilla.)
 - **Plugin 1.6.0** — encargo de Igor: cartel grande al subir de título; premios
   por título (RP, monedas, objetos; una vez por jugador y título, todo a 0 por
-  defecto); RP lineal (`floor(alopecia/100)`); títulos ×10 por defecto; y
+  defecto hasta la 1.10.0); RP lineal (`floor(alopecia/100)`); títulos ×10 por defecto; y
   **cambio de alopecia** en el barbero, con tasas asimétricas y confirmación.
 - **Plugin 1.6.1–1.6.3** — la cifra pasa a llamarse alopecia en el juego: el
   contador pone `ALOPECIA` (1.6.1), el Brote de alopecia se renombra a
@@ -117,7 +117,7 @@ alcance cerrado:
     o desconectado). Nada se devuelve y el wipe no borra los botes. `/cabezas` y
     pestaña en `/calvos`; `/calvoadmin cabeza quitar <jugador>`. `/cabeza` y
     `/cabezas` son comandos de jugador nuevos, junto a `/calvos`.
-  - **Calvo del Día**: cada día a las 21:00 (hora del server) gana quien más
+  - **Calvo del Día**: cada día a las 21:00 (hora del server; 19:00 desde la 1.10.0) gana quien más
     alopecia ha ganado desde la elección anterior (foto de la alopecia de todos en
     cada elección), entre los que se han conectado en ese tiempo. Anuncio, cartel,
     grupo de Oxide `calvodeldia` (solo el vigente), premio opcional (a 0) e
@@ -164,6 +164,15 @@ alcance cerrado:
   los pelones cambian fuera del mod. Config `"Show wallet under the counter"`
   (true; migración 191). El `+X`/`-X` baja por debajo de la cartera. El NPC del
   Cambio de divisas se llama ahora **Traficante** (docs).
+- **Plugin 1.10.0** — encargo de Igor (issue #38): **los valores por defecto de la
+  config son los del servidor**. Una instalación limpia genera exactamente el
+  `oxide/config/IslaDeCalvos.json` del server a 2026-10-01 (salvo el icono del
+  chat, que ya era el del código). Cambia: kill PvP +10.000 (PR #37, incluida),
+  premios por título con valores (pelones, Puntos de Chola y objetos; mensaje
+  propio en Greñas Sucias), Calvo del Día a las 19:00, el `userid` del barbero
+  (4211000001) y la tabla de Puntos de Chola por título vacía (la paga es la
+  lineal). Sin migración: los configs existentes no se tocan. Si cambia la config
+  del server y Igor quiere que el repo la siga, se repite esto.
 
 Decisiones de diseño de la v1.0 que no venían en la especificación inicial:
 - Toda muerte resta alopecia (PvP, NPC, entorno, suicidio), también la de un
