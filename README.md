@@ -666,7 +666,62 @@ alopecia:
 
 `isla.salon cerrar [forzar]`: el cierre de mapa a mano (ver [Salón de la fama
 por wipe](#salón-de-la-fama-por-wipe)), solo desde la **consola del servidor o
-RCON**. Contesta en la consola qué ha hecho.
+RCON**. Contesta en la consola qué ha hecho. Sin nada detrás, desde la 1.12.0,
+devuelve el Salón de la fama en JSON (ver abajo).
+
+### Comandos de consola para la web (1.12.0)
+
+Para la web de la isla, que los lee por RCON como `isla.ranking`. Igual que él:
+solo desde la **consola del servidor o RCON** y una sola línea de JSON. **Ninguno
+lleva SteamIDs**, porque la web los enseña en público. Las horas van en ISO 8601
+UTC (`2026-10-01T17:00:00Z`); si no se sabe una, va `null`.
+
+**`isla.salon`**: el Salón de la fama entero, del más nuevo al más viejo.
+
+```json
+[{"wipe":"2026-10-01","manual":false,"top":[{"name":"…","alopecia":1500000,"title":"Caballero de la Tonsura"}],"mostKills":{"name":"…","kills":12},"mostDeaths":{"name":"…","deaths":9}}]
+```
+
+`wipe` es la fecha (del server) en que se guardó la entrada. `manual` es `true`
+en las fotos de `/calvoadmin salon guardar`, que no son un cierre de mapa. `top`
+es el podio (hasta 3); el `title` se calcula con los títulos de ahora.
+`mostKills`/`mostDeaths` son `null` si nadie mató o murió en ese mapa.
+
+**`isla.calvodeldia`**: el vigente, cuándo toca el siguiente y los últimos 14.
+
+```json
+{"current":{"name":"…","gained":50000,"since":"2026-10-01T17:00:00Z"},"nextPick":"2026-10-02T17:00:00Z","history":[{"date":"2026-10-01T17:00:00Z","name":"…","gained":50000}]}
+```
+
+`current` es `null` si no hay Calvo del Día. `since` y `date` son la hora de la
+elección. `nextPick` es la siguiente elección programada: si ya ha pasado la hora
+de hoy sin elegir, es "ahora", porque se elige en el siguiente minuto. Es `null`
+con el Calvo del Día desactivado. `history` va del más nuevo al más viejo.
+
+**`isla.cabezas`**: las cabezas con precio, de la más cara a la más barata.
+
+```json
+[{"target":"…","amount":500,"placedBy":["…","…"],"since":"2026-10-01T16:00:00Z"}]
+```
+
+`amount` es el total en Puntos de Chola. `placedBy` es quién ha puesto Puntos
+de Chola, cada uno una vez y en orden. `since` es cuándo se puso el primero.
+Las dos cosas se apuntan desde la 1.12.0: un bote de antes sale con
+`"placedBy": []` y `"since": null`. Si alguien sube un bote de antes, sale él
+solo en `placedBy`, y `since` sigue en `null`.
+
+**`isla.evento`**: el evento global en marcha.
+
+```json
+{"active":"HairiestHunt","name":"Cacería del peludo","endsAt":"2026-10-01T21:06:05Z","target":"…"}
+```
+
+`active` es `BaldHour`, `ShampooRain`, `HairiestHunt` o `BladeStorm`. `name` es
+el nombre del juego. `target` es el peludo en la cacería, y `null` en los demás
+eventos. Sin evento sale `{"active":null,"nextAt":"…Z"}`. `nextAt` es cuándo se
+intenta el siguiente evento al azar; no siempre sale uno, porque no los hay si
+no hay nadie conectado. Con los eventos apagados, o justo después de cargar el
+plugin, sale solo `{"active":null}`.
 
 ## Comandos
 
@@ -687,6 +742,10 @@ RCON**. Contesta en la consola qué ha hecho.
 | `/calvoadmin calvodeldia ahora` | Admin | Elige ya al Calvo del Día. Cuenta como la elección del día: a las 19:00 ya no hay otra. |
 | `isla.ranking` | Consola del servidor / RCON | Todos los jugadores en una línea de JSON (ver arriba). |
 | `isla.salon cerrar [forzar]` | Consola del servidor / RCON | Lo mismo que `/calvoadmin salon cerrar`. |
+| `isla.salon` | Consola del servidor / RCON | El Salón de la fama en JSON, para la web (1.12.0). |
+| `isla.calvodeldia` | Consola del servidor / RCON | El Calvo del Día vigente, la siguiente elección y los últimos 14, en JSON (1.12.0). |
+| `isla.cabezas` | Consola del servidor / RCON | Las cabezas con precio en JSON (1.12.0). |
+| `isla.evento` | Consola del servidor / RCON | El evento global en marcha (o cuándo toca el siguiente) en JSON (1.12.0). |
 
 `<jugador>` puede ser el SteamID o el nombre (o parte del nombre). Funciona
 también con jugadores desconectados que ya tengan datos. Los cambios de admin

@@ -500,6 +500,8 @@ Bases, `/info`, NPCs y el Gran Calvo Jano). En el repo cambiaron:
 - **1.11.0** (issue #40): El Calvario y el cambio de alopecia ×10 (claves nuevas y
   migración); el premio de Caballero de la Tonsura pasa del `minicopter`, que no existía,
   a un helicóptero de combate spawneado delante del jugador (`Spawn prefabs`).
+- **1.12.0** (issue #42): `isla.salon`, `isla.calvodeldia`, `isla.cabezas` e `isla.evento`
+  devuelven JSON sin SteamIDs para la web de la isla.
 
 ---
 
