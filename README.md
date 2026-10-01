@@ -134,7 +134,22 @@ del chat al bajar sigue saliendo como antes. Se desactiva con
 `"Show title drop banner"` y dura lo mismo que el de subida.
 
 **Premio por subir de título** (1.6.0): cada título puede dar Puntos de Chola, pelones y/o
-objetos. Por defecto todo está a 0. Se cobra **una sola vez por jugador y
+objetos. Los de por defecto (1.10.0, los mismos que tiene el servidor):
+
+| Título | Puntos de Chola | Pelones | Objetos |
+|---|---|---|---|
+| Greñas Sucias | — | 250 | 1 cuchillo de hueso (`knife.bone`) |
+| Pelambrera Lamentable | 10 | 1.000 | — |
+| Entradas Incipientes | 50 | 5.000 | — |
+| Coronilla a la Intemperie | 250 | — | 4 C4 (`explosive.timed`) |
+| Caballero de la Tonsura | 1.500 | — | 1 minicóptero (`minicopter`) |
+| Lord Bola de Billar | 5.000 | — | máscara y peto de metal (`metal.facemask`, `metal.plate.torso`) |
+| Su Calvísima Majestad | 25.000 | — | — |
+
+El de Greñas Sucias lleva además su mensaje propio: "Toma este trozo de hueso
+afilado. Empieza a raparte solito."
+
+Se cobra **una sola vez por jugador y
 título**: bajar y volver a subir no paga otra vez. A los jugadores que ya
 existían se les apunta como cobrado el título que tenían la primera vez que
 cambian de título. La alopecia **comprada** en el cambio no cobra premios,
@@ -205,8 +220,9 @@ vender alopecia por Puntos de Chola se rechaza si no cabe. Si Server Rewards est
 para trabajar en 64 bits (métodos `AddPointsLong`, `TakePointsLong` y
 `CheckPointsLong`), el plugin los usa solo y el límite desaparece.
 
-Con `"RP per X baldness (0 = use the table)": 0` se vuelve a la tabla de
-escalones por título de la 1.4.0.
+Con `"RP per X baldness (0 = use the table)": 0` se paga por la tabla de
+escalones por título de la 1.4.0 (`"RP per interval by title"`), que desde la
+1.10.0 viene vacía, como en el servidor: si se vuelve a ella, hay que rellenarla.
 
 - Solo cobra quien se haya **movido** durante esos 30 minutos (anti-AFK). Se
   mira cada minuto; basta con moverse 1 m entre dos comprobaciones.
@@ -410,7 +426,9 @@ versión es otra, los nombres pueden cambiar un poco.
      "Max distance to the Calvario NPC to use items (meters)": 5.0
    }
    ```
-   Después: `oxide.reload IslaDeCalvos`.
+   Después: `oxide.reload IslaDeCalvos`. Por defecto (1.10.0) viene el
+   `userid` del barbero del servidor, `4211000001`; en otro servidor hay que
+   cambiarlo por el suyo.
 3. **El Mercalvona (GUIShop).** En la tienda que quieras asignar, activa
    `EnableNPC` y pon el `userid` del tendero en `NpcIds`. Para que `/shop` no
    abra nada fuera de la casa, deja `"Set Default Global Shop to open": ""`
@@ -548,7 +566,7 @@ Si ya tenía precio, se suma al bote.
 
 ### Calvo del Día
 
-Cada día a las **21:00** (hora del server, configurable) se elige al **Calvo
+Cada día a las **19:00** (hora del server, configurable; hasta la 1.9.1, a las 21:00) se elige al **Calvo
 del Día**: el que más alopecia ha **ganado** desde la elección anterior (lo
 ganado, no el total; las muertes restan). En cada elección se guarda una foto
 de la alopecia de todos para comparar al día siguiente.
@@ -563,19 +581,19 @@ de la alopecia de todos para comparar al día siguiente.
   no existe, lo crea. Sirve para darle permisos, como un prefijo de Better
   Chat. No puede ser un grupo de título ni `default`, `admin` o `*`.
 - **Premio** opcional (Puntos de Chola, pelones y objetos, con `"Message"`
-  propio), igual que los premios por título y a 0 por defecto. Los objetos
+  propio), con la misma forma que los premios por título; a 0 por defecto. Los objetos
   solo se dan si está conectado en ese momento.
 - Se guarda el historial de los **últimos 30**.
-- Si el servidor está apagado a las 21:00, se elige en cuanto arranca (si no
+- Si el servidor está apagado a las 19:00, se elige en cuanto arranca (si no
   ha pasado la medianoche). La primera vez que carga la 1.8.0 se hace la
-  primera foto; si ya son más de las 21:00, la primera elección es al día
+  primera foto; si ya son más de las 19:00, la primera elección es al día
   siguiente.
 - **No se compra** (1.8.2): la alopecia comprada en el barbero y los cambios de
   admin (`/calvoadmin set` y `reset`) no cuentan, ni para sumar ni para restar
   (se mueve la foto de ese jugador en la misma cantidad). Vender alopecia sí
   resta, como morir.
 - `/calvoadmin calvodeldia ahora` fuerza una elección, y **cuenta como la del
-  día** (1.8.2): ese día ya no se elige otra vez a las 21:00 ni se paga dos veces.
+  día** (1.8.2): ese día ya no se elige otra vez a las 19:00 ni se paga dos veces.
 - Con `"Enabled": false`, el grupo se vacía al cargar el plugin (1.8.1): nadie
   se queda con sus ventajas.
 
@@ -641,7 +659,7 @@ RCON**. Contesta en la consola qué ha hecho.
 | `/calvoadmin salon cerrar [forzar]` | Admin | Cierre de mapa completo, como el wipe: entrada, anuncio, hook, kills y muertes del mapa a 0 y reset de alopecia si la config lo dice. Sin `forzar`, no hace nada si el último cierre fue hace menos de 12 horas. |
 | `/calvoadmin salon borrar <n>` | Admin | Quita la entrada `#n` del Salón de la fama. |
 | `/calvoadmin cabeza quitar <jugador>` | Admin | Anula el bote que haya por la cabeza de ese jugador (no se devuelve a nadie). |
-| `/calvoadmin calvodeldia ahora` | Admin | Elige ya al Calvo del Día. Cuenta como la elección del día: a las 21:00 ya no hay otra. |
+| `/calvoadmin calvodeldia ahora` | Admin | Elige ya al Calvo del Día. Cuenta como la elección del día: a las 19:00 ya no hay otra. |
 | `isla.ranking` | Consola del servidor / RCON | Todos los jugadores en una línea de JSON (ver arriba). |
 | `isla.salon cerrar [forzar]` | Consola del servidor / RCON | Lo mismo que `/calvoadmin salon cerrar`. |
 
@@ -747,12 +765,7 @@ que los títulos:
   "Minimum movement between checks to count as active (meters)": 1.0,
   "Tell the player in chat when RP is paid": true,
   "RP per X baldness (0 = use the table)": 100,
-  "RP per interval by title (minimum baldness -> RP)": {
-    "1000": 1,
-    "10000": 3,
-    "100000": 10,
-    "1000000": 30
-  }
+  "RP per interval by title (minimum baldness -> RP)": {}
 }
 ```
 
@@ -761,9 +774,10 @@ los premios son la alopecia mínima de cada título:
 
 ```json
 "Tier prizes (title minimum baldness -> prize)": {
-  "1000": { "RP (Server Rewards)": 0, "Coins (Economics)": 0,
-            "Items": [ { "Item shortname": "scrap", "Amount": 100 } ],
-            "Message": "" },
+  "1": { "RP (Server Rewards)": 0, "Coins (Economics)": 250,
+         "Items": [ { "Item shortname": "knife.bone", "Amount": 1 } ],
+         "Message": "Toma este trozo de hueso afilado. Empieza a raparte solito." },
+  "1000": { "RP (Server Rewards)": 10, "Coins (Economics)": 1000, "Items": [], "Message": "" },
   ...
 },
 "Tier prizes also for bought baldness": false,
@@ -783,8 +797,8 @@ los premios son la alopecia mínima de cada título:
 }
 ```
 
-(El `scrap` es solo un ejemplo: por defecto los premios vienen vacíos, con el
-mensaje en blanco.)
+(Los demás títulos, en la tabla de **Premio por subir de título**. Hasta la
+1.9.1 los premios venían vacíos por defecto.)
 
 En `"On-screen UI"` están
 `"Show a banner to everyone when a player rises to a higher title": true`,
@@ -829,15 +843,15 @@ Bloques de la 1.8.0 (valores por defecto):
 },
 "Calvo del Día (top alopecia gainer of the last 24 h)": {
   "Enabled": true,
-  "Pick time (server time, HH:mm)": "21:00",
+  "Pick time (server time, HH:mm)": "19:00",
   "Oxide group": "calvodeldia",
   "History entries kept": 30,
   "Prize": { "RP (Server Rewards)": 0, "Coins (Economics)": 0, "Items": [], "Message": "" }
 }
 ```
 
-`"Oxide group": ""` = sin grupo. Una hora mal escrita vuelve a `21:00` con un
-aviso en la consola.
+`"Oxide group": ""` = sin grupo. Una hora mal escrita vuelve a la de por defecto
+(`19:00`) con un aviso en la consola.
 
 Los textos de los mensajes se editan en `oxide/lang/es/IslaDeCalvos.json` y
 `oxide/lang/en/IslaDeCalvos.json`. Los dos están en español por defecto: la
@@ -855,7 +869,7 @@ servidor. Desde la 1.8.0 van en el mismo fichero el Salón de la fama
 1. Ten un servidor dedicado de Rust con **Oxide (uMod)** instalado.
 2. Copia `src/IslaDeCalvos.cs` en la carpeta `oxide/plugins/` del servidor.
 3. Oxide lo compila y carga solo. En la consola deberías ver algo como
-   `Loaded plugin Isla de Calvos v1.9.1 by Igor Monasterio`.
+   `Loaded plugin Isla de Calvos v1.10.0 by Igor Monasterio`.
 4. Para recargarlo tras cambiar el fichero (normalmente se recarga solo):
    `oxide.reload IslaDeCalvos`
 
