@@ -526,6 +526,31 @@ Encargo de Jano.
   como agua); y que 3 m de radio basten para el helicóptero de combate (las aspas son
   más anchas). La prueba real es en el server.
 
+## 4o. Comandos JSON para la web (plugin 1.12.0)
+
+- `isla.salon` (sin argumentos; con `cerrar` sigue siendo el cierre de mapa),
+  `isla.calvodeldia`, `isla.cabezas` e `isla.evento`: `[ConsoleCommand]` como
+  `isla.ranking`, rechazados con `arg.Connection != null` y contestados con
+  `arg.ReplyWith(JsonConvert.SerializeObject(..., Formatting.None))`. **Sin
+  SteamIDs**: los nombres salen de `PlayerData.Name` o de los guardados en el salón y
+  en el historial.
+- Horas con `IsoUtc`: `ToUniversalTime()` + `yyyy-MM-ddTHH:mm:ssZ`; un `DateTime` por
+  defecto ("nunca") da `null`. Las fechas guardadas son hora del server (`DateTime.Now`),
+  así que la conversión usa la zona del server.
+- Datos nuevos solo para estos comandos (el juego no cambia):
+  - `StoredData.BountyInfo` (`BountyRecord`: `Since` y `PlacedBy`), que se rellena en
+    `/cabeza` y se borra con el bote (al cobrarlo o con `cabeza quitar`). Un bote de
+    antes de la 1.12.0 no tiene registro; si alguien lo sube, se crea con `Since` por
+    defecto (no se inventa la fecha).
+  - `eventEndsUtc` (al empezar un evento) y `nextRandomEventUtc` (al cargar y en cada
+    vuelta del `timer.Every` de eventos), solo en memoria.
+- `NextCalvoDelDiaPick`: hoy a la hora de elección, mañana si `LastPickDate` es hoy, o
+  "ahora" si ya pasó la hora sin elegir (`CheckCalvoDelDia` elige en el siguiente minuto).
+- Probado en imitación (mono + Newtonsoft, con los datos y los cuatro métodos sacados
+  tal cual): formato, orden, `null` donde toca, y que con conexión de jugador no se
+  contesta. **No verificable**, igual que con `isla.ranking`: cómo devuelve el RCON de
+  Facepunch el texto de `ReplyWith`.
+
 ## 5. Localización (lang)
 
 - Todos los textos del plugin pasan por `lang`: se registran en
