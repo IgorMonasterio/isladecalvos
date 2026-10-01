@@ -24,7 +24,7 @@ Todos los valores se pueden cambiar en la config. Estos son los de por defecto:
 
 | Qué pasa | Alopecia |
 |---|---|
-| Matas a otro jugador (headshot o no) | **+1.000** |
+| Matas a otro jugador (headshot o no) | **+10.000** |
 | Matas a un NPC | según su tier, de **+1** (T1) a **+1.000** (T20) |
 | Cada 30 min vivo, conectado y moviéndote (no AFK) | **+100** |
 | Mueres, sea como sea (PvP, headshot, NPC, caída, suicidio…) | **−10 % de tu alopecia** (redondeado hacia arriba) |
@@ -666,8 +666,8 @@ plugin. Después de editarla: `oxide.reload IslaDeCalvos`.
 
 | Opción | Por defecto | Qué hace |
 |---|---|---|
-| `Baldness gained per player kill` | 1000 | Alopecia por kill. |
-| `Baldness gained per headshot kill (instead of the normal kill reward)` | 1000 | Alopecia por kill de headshot. |
+| `Baldness gained per player kill` | 10000 | Alopecia por kill. |
+| `Baldness gained per headshot kill (instead of the normal kill reward)` | 10000 | Alopecia por kill de headshot. |
 | `Baldness gained per survival interval` | 100 | Alopecia por sobrevivir. |
 | `Survival interval (minutes alive and connected)` | 30 | Cada cuántos minutos se gana. |
 | `Survival reward only if the player moved during the interval (not AFK)` | true | Si no te has movido en el intervalo, no cobras (misma comprobación que la paga de Puntos de Chola). |
