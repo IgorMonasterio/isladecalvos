@@ -122,6 +122,10 @@ Billar · Su Calvísima Majestad.
 Eventos: Hora de la calvicie · Lluvia de champú · Cacería del peludo · Brote de
 alopecia (es un nombre de evento: ahí "alopecia" no es la cifra y no choca con el contador).
 
+Desde la 1.13.0: **Venganza capilar** (matar a quien te mató), **Encargos del Barbero**
+(las misiones diarias), **seguro capilar** (la cinta americana que vende el Barbero) y
+**kit de consuelo**, que lo manda la **Seguridad Social Capilar**.
+
 ## Munición para los remates (expresiones de Igor, 2026-09-27)
 
 Vocabulario calvo **guardado para ir usándolo**: en textos nuevos y cuando se repase
@@ -148,6 +152,80 @@ antes si ya está cerca. "Pelón" es también la moneda: el doble sentido vale s
 - Comandos exactos, tal cual se escriben (`/peluqueria`, sin tilde).
 - Colores de la casa: dorado `#e0a526` para comandos y cifras buenas, óxido `#e0662f`
   para lo que duele (pérdidas, avisos) y gris `#9a9288` para notas al pie.
+
+## Otros idiomas
+
+Desde la 1.13.0 el mod habla **español, inglés y ruso**: cada jugador lo lee en el idioma
+de su cliente o en el que elija con las banderitas del menú `/info`. Lo de registrar el
+español también como `en` (más abajo, para los plugins de terceros) ya no vale para este mod.
+
+**Se traduce el chiste, no las palabras.** Lo vetado en español también está vetado en
+inglés y en ruso. Primero el dato y después el remate, como en español; si el chiste no
+sobrevive al idioma, se busca otro que diga lo mismo.
+
+### Glosario (fijado por Padre Jano el 2026-10-04)
+
+El menú `/info` y los demás plugins del server ya usan estos nombres. No se proponen otros.
+
+| Español | English | Русский |
+|---|---|---|
+| alopecia | alopecia | алопеция |
+| Puntos de Chola (PdC) | Noggin Points (NP) | Очки Черепушки (ОЧ) |
+| pelones | baldies | лысики |
+| Mercalvona® | Mercalvona® | Меркальвона® |
+| El Calvario | El Calvario | Эль Кальварио |
+| el Barbero / el Tendero / el Traficante | the Barber / the Shopkeeper / the Dealer | Барбер / Лавочник / Барыга |
+| la peluquería | the barbershop | парикмахерская |
+| Padre Jano / Gran Calvo Jano / Dios Calvo | Father Jano / Great Bald Jano / Bald God | Отец Яно / Великий Лысый Яно / Лысый Бог |
+| Casas de Padre Jano | Father Jano's Houses | Дома Отца Яно |
+| Calvo del Día | Baldy of the Day | Лысый Дня |
+| Carné de Calvo | Bald Card | Удостоверение Лысого |
+| Greñas Sucias · Pelambrera Lamentable · Entradas Incipientes · Coronilla a la Intemperie · Caballero de la Tonsura · Lord Bola de Billar · Su Calvísima Majestad | Greasy Mop · Pathetic Mane · Receding Hairline · Exposed Crown · Knight of the Tonsure · Lord Billiard Ball · His Baldest Majesty | Грязные Патлы · Жалкая Шевелюра · Наметившиеся Залысины · Макушка Нараспашку · Рыцарь Тонзуры · Лорд Бильярдный Шар · Его Лысейшее Величество |
+| Hora de la calvicie · Lluvia de champú · Cacería del peludo · Brote de alopecia | Bald Hour · Shampoo Rain · Hairy Hunt · Alopecia Outbreak | Час Лысины · Шампуневый дождь · Охота на волосатого · Вспышка алопеции |
+| lejía · cinta americana · maquinilla | bleach · duct tape · clipper | отбеливатель · армированный скотч · машинка |
+| calvo (apelativo) | baldy | лысый |
+
+Y estos, que el glosario no trae, los ha puesto la 1.13.0. **Son una propuesta**: Igor los
+revisa y, si cambia alguno, se cambia aquí y en el lang (con clave nueva).
+
+| Español | English | Русский |
+|---|---|---|
+| reliquias | relics | реликвии |
+| Salón de la fama | Hall of Fame | Зал славы |
+| cabezas (recompensas por cabeza) | bounties | головы (награды за головы) |
+| Ministerio de Alopecia | Ministry of Alopecia | Министерство Алопеции |
+| Venganza capilar | Follicle Revenge | Лысая месть |
+| Encargos del Barbero | the Barber's jobs | Поручения Барбера |
+| seguro capilar | scalp insurance | страховка лысины |
+| kit de consuelo · Seguridad Social Capilar | consolation kit · National Hair Service | утешительный набор · Лысый собес |
+
+### Formato en cada idioma
+
+- **Comandos** tal cual en todos los idiomas: `/peluqueria`, `/calvos`, `/cabeza`.
+- **Monumentos** con su nombre inglés del juego en los tres ("en el Train Yard").
+- **Inglés**: 1,000,000; cifras cortas 12.3M y 1.5B; fechas "4 Oct 2026". Ortografía
+  británica (colour, grey, catalogue), salvo los nombres del juego (sulfur ore).
+- **Ruso**: 1 000 000; cifras cortas 12,3 млн y 1,5 млрд; fechas 04.10.2026. Los recuentos
+  van como "Бочки: 20" o con abreviatura (ОЧ, мин), para que el sustantivo no tenga que
+  concordar con el número. Al jugador nunca se le habla en pasado (que en ruso lleva
+  género): "Находка: …", no "Ты нашёл …".
+- El español sigue con lo de arriba: 1.000.000, 12,3 M, 1,5 mil M y 04/10/2026.
+
+### Ejemplos (propuestos en la 1.13.0, pendientes de que Igor los apruebe)
+
+English:
+
+- "Bald Hour is over. Back to going bald at the usual rate."
+- "{0} survived the hunt with every hair intact and wins +{1}. Muppets." (el "Paquetes." de Igor)
+- "Scalp insurance: 3,750 Noggin Points and your next death won't cost you a single hair. Small print: none."
+- "The National Hair Service takes pity on you: there's a consolation kit in your inventory. Don't get used to it."
+
+Русский:
+
+- "{0} — ЛЫСЫЙ ДНЯ: +{1} алопеции с прошлых выборов. До завтра обращаться только на «вы»."
+- "ВСПЫШКА АЛОПЕЦИИ: 60 мин вертолёт, Брэдли и Чинук дают x3. Под ноль." (el "Al rape.")
+- "{0} выходит из охоты со всеми волосами и получает +{1}. Мазилы."
+- "Лысый собес над тобой сжалился: в инвентаре утешительный набор. Не привыкай."
 
 ## Repasar textos que ya existen
 
