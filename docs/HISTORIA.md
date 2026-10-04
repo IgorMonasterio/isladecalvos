@@ -502,6 +502,8 @@ Bases, `/info`, NPCs y el Gran Calvo Jano). En el repo cambiaron:
   a un helicóptero de combate spawneado delante del jugador (`Spawn prefabs`).
 - **1.12.0** (issue #42): `isla.salon`, `isla.calvodeldia`, `isla.cabezas` e `isla.evento`
   devuelven JSON sin SteamIDs para la web de la isla.
+- **1.13.0** (issue #44): venganza capilar, encargos del Barbero, seguro capilar, kit de
+  consuelo y el mod en español, inglés y ruso, cada jugador en el suyo.
 
 ---
 

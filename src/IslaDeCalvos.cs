@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Isla de Calvos", "Igor Monasterio", "1.12.0")]
+    [Info("Isla de Calvos", "Igor Monasterio", "1.13.0")]
     [Description("Baldness system for the Isla de Calvos Rust server: being bald is glory, hair is a curse.")]
     public class IslaDeCalvos : RustPlugin
     {
@@ -90,6 +90,31 @@ namespace Oxide.Plugins
         private int calvoDelDiaMinutes;
         private string calvoDelDiaGroup;
 
+        // Hair revenge: victim -> killer -> time of the last time that killer killed them. In memory only.
+        private readonly Dictionary<ulong, Dictionary<ulong, DateTime>> grudges = new Dictionary<ulong, Dictionary<ulong, DateTime>>();
+
+        // Consolation kit: recent deaths (UTC) per player and players who get the kit when they wake up. In memory only.
+        private readonly Dictionary<ulong, List<DateTime>> recentDeaths = new Dictionary<ulong, List<DateTime>>();
+        private readonly HashSet<ulong> pendingKits = new HashSet<ulong>();
+
+        // Barber's jobs: reset time in minutes after midnight (UTC), the valid catalog by Id and the animal prefabs. From the config.
+        private int jobResetMinutes;
+        private Dictionary<string, JobDefinition> jobsById = new Dictionary<string, JobDefinition>(StringComparer.OrdinalIgnoreCase);
+        private HashSet<string> animalPrefabs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        // Minutes in a row alive, connected and moving, for the Survive jobs. Death and disconnecting reset it. In memory only.
+        private readonly Dictionary<ulong, int> surviveStreaks = new Dictionary<ulong, int>();
+
+        // Monuments on this map by their English name (displayPhrase.english), for the KillScientists jobs. Built at startup.
+        private readonly Dictionary<string, List<MonumentInfo>> monumentsByName = new Dictionary<string, List<MonumentInfo>>(StringComparer.OrdinalIgnoreCase);
+
+        // Raidable Bases (Casas de Padre Jano): only its OnRaidableBaseCompleted hook is used; the reference just tells
+        // whether RaidBase jobs can be handed out.
+        [PluginReference] private Plugin RaidableBases = null;
+
+        // Hair insurance price shown to each player on the confirm page. In memory only.
+        private readonly Dictionary<ulong, long> insuranceQuotes = new Dictionary<ulong, long>();
+
         private class WoundRecord
         {
             public BasePlayer Attacker;
@@ -101,10 +126,19 @@ namespace Oxide.Plugins
         #region Configuration
 
         // Bump when a release must overwrite values already saved in existing config files.
-        private const int CurrentConfigVersion = 1110;
+        private const int CurrentConfigVersion = 1130;
 
         // The Caballero de la Tonsura prize since 1.11.0 (Rust has no "minicopter" item to hand out).
         private const string AttackHelicopterPrefab = "assets/content/vehicles/attackhelicopter/attackhelicopter.entity.prefab";
+
+        // The Greñas Sucias prize message. The 1.13.0 migration only adds its translations where the config still has it.
+        private const string GreasyMopPrizeMessage = "Toma este trozo de hueso afilado. Empieza a raparte solito.";
+
+        private static Dictionary<string, string> GreasyMopPrizeMessages() => new Dictionary<string, string>
+        {
+            ["en"] = "Have this sharpened bit of bone. Start shaving yourself like a big boy.",
+            ["ru"] = "Держи заточенную косточку. Начинай бриться сам, ты уже большой."
+        };
 
         private class Configuration
         {
@@ -172,7 +206,8 @@ namespace Oxide.Plugins
                 {
                     Coins = 2500,
                     Items = new List<PrizeItem> { new PrizeItem { Shortname = "knife.bone", Amount = 1 } },
-                    Message = "Toma este trozo de hueso afilado. Empieza a raparte solito."
+                    Message = GreasyMopPrizeMessage,
+                    Messages = GreasyMopPrizeMessages()
                 },
                 ["1000"] = new TierPrize { Rp = 100, Coins = 10000 },
                 ["10000"] = new TierPrize { Rp = 500, Coins = 50000 },
@@ -261,6 +296,160 @@ namespace Oxide.Plugins
 
             [JsonProperty("Calvo del Día (top alopecia gainer of the last 24 h)")]
             public CalvoDelDiaConfig CalvoDelDia = new CalvoDelDiaConfig();
+
+            [JsonProperty("Hair revenge (kill your killer back)")]
+            public RevengeConfig Revenge = new RevengeConfig();
+
+            [JsonProperty("Barber's jobs (daily quests)")]
+            public JobsConfig Jobs = new JobsConfig();
+
+            [JsonProperty("Hair insurance (duct tape for Puntos de Chola at the barber)")]
+            public InsuranceConfig Insurance = new InsuranceConfig();
+
+            [JsonProperty("Consolation kit (after dying several times in a row)")]
+            public ConsolationKitConfig ConsolationKit = new ConsolationKitConfig();
+        }
+
+        // If A kills B and B kills A back within the window, B's kill pays this many times the normal kill reward.
+        private class RevengeConfig
+        {
+            [JsonProperty("Enabled")] public bool Enabled = true;
+            [JsonProperty("Window (minutes)")] public int WindowMinutes = 30;
+            [JsonProperty("Alopecia multiplier")] public int Multiplier = 2;
+        }
+
+        // The duct tape relic sold by the barber: price = max(minimum, alopecia / 1000 x surcharge) Puntos de Chola, rounded
+        // up. At 1.5 it is 50 % more than what a death (-10 %) takes, counting 100 alopecia = 1 Punto de Chola.
+        private class InsuranceConfig
+        {
+            [JsonProperty("Enabled")] public bool Enabled = true;
+            [JsonProperty("Minimum price (Puntos de Chola)")] public long MinPrice = 100;
+            [JsonProperty("Surcharge (price = alopecia / 1000 x this)")] public double Surcharge = 1.5;
+        }
+
+        // Dying this many times within the window (suicides do not count) gives the items on the next respawn, silently.
+        private class ConsolationKitConfig
+        {
+            [JsonProperty("Enabled")] public bool Enabled = true;
+            [JsonProperty("Deaths")] public int Deaths = 3;
+            [JsonProperty("Within (minutes)")] public int WindowMinutes = 15;
+            [JsonProperty("At most one kit every (minutes)")] public int CooldownMinutes = 60;
+
+            [JsonProperty("Items", ObjectCreationHandling = ObjectCreationHandling.Replace)]
+            public List<PrizeItem> Items = new List<PrizeItem>
+            {
+                new PrizeItem { Shortname = "bandage", Amount = 5 },
+                new PrizeItem { Shortname = "pistol.revolver", Amount = 1 },
+                new PrizeItem { Shortname = "ammo.pistol", Amount = 24 }
+            };
+        }
+
+        // Daily quests: every player gets "Jobs per day" jobs picked at random from the catalog, renewed at the reset time
+        // (UTC). They are seen in /calvos and at the barber, and paid (Puntos de Chola) by the barber.
+        private class JobsConfig
+        {
+            [JsonProperty("Enabled")] public bool Enabled = true;
+            [JsonProperty("Jobs per day")] public int PerDay = 3;
+            [JsonProperty("New jobs every day at (UTC, HH:mm)")] public string ResetTimeUtc = "04:00";
+
+            // What counts for the KillAnimals jobs (ShortPrefabName, like NpcTiers).
+            [JsonProperty("Animal prefabs", ObjectCreationHandling = ObjectCreationHandling.Replace)]
+            public List<string> AnimalPrefabs = new List<string>
+            {
+                "chicken", "snake.entity", "boar", "stag", "wolf", "wolf2", "panther", "tiger", "bear", "polarbear", "crocodile", "simpleshark"
+            };
+
+            [JsonProperty("Catalog", ObjectCreationHandling = ObjectCreationHandling.Replace)]
+            public List<JobDefinition> Catalog = DefaultJobs();
+        }
+
+        // Type: KillScientists, BreakBarrels, KillAnimals, RaidBase, Gather or Survive. Amount is minutes for Survive and
+        // bases for RaidBase. The task itself ("Break 20 barrels") comes from the lang of each player; "Text" is the barber's
+        // remark after it, in Spanish, and "Text in other languages" has it per language code (en, ru...).
+        private class JobDefinition
+        {
+            [JsonProperty("Id")] public string Id = string.Empty;
+            [JsonProperty("Type")] public string Type = string.Empty;
+            [JsonProperty("Amount")] public long Amount = 1;
+            [JsonProperty("Reward (Puntos de Chola)")] public long Reward;
+
+            // KillScientists only: the monument's English name on the map (displayPhrase.english), e.g. "Train Yard".
+            [JsonProperty("Monument", NullValueHandling = NullValueHandling.Ignore)] public string Monument;
+
+            // Gather only: item shortname (wood, stones, metal.ore, sulfur.ore...).
+            [JsonProperty("Resource", NullValueHandling = NullValueHandling.Ignore)] public string Resource;
+
+            // RaidBase only: 0 easy, 1 medium, 2 hard, 3 expert, 4 nightmare. Raidable Bases 3.x has no difficulties.
+            [JsonProperty("Minimum difficulty", NullValueHandling = NullValueHandling.Ignore)] public int? MinDifficulty;
+
+            [JsonProperty("Text")] public string Text = string.Empty;
+
+            [JsonProperty("Text in other languages", ObjectCreationHandling = ObjectCreationHandling.Replace)]
+            public Dictionary<string, string> Texts = new Dictionary<string, string>();
+
+            [JsonIgnore] public JobType ParsedType;
+        }
+
+        private enum JobType
+        {
+            KillScientists,
+            BreakBarrels,
+            KillAnimals,
+            RaidBase,
+            Gather,
+            Survive
+        }
+
+        // About 15 jobs for an x5 server (gathering and loot x5): easy 250, medium 750, hard 2.000 Puntos de Chola.
+        private static List<JobDefinition> DefaultJobs()
+        {
+            JobDefinition Job(string id, JobType type, long amount, long reward, string es, string en, string ru) => new JobDefinition
+            {
+                Id = id, Type = type.ToString(), Amount = amount, Reward = reward, Text = es,
+                Texts = new Dictionary<string, string> { ["en"] = en, ["ru"] = ru }
+            };
+
+            JobDefinition AtMonument(JobDefinition job, string monument) { job.Monument = monument; return job; }
+            JobDefinition Of(JobDefinition job, string resource) { job.Resource = resource; return job; }
+            JobDefinition Level(JobDefinition job, int difficulty) { job.MinDifficulty = difficulty; return job; }
+
+            return new List<JobDefinition>
+            {
+                Job("barrels20", JobType.BreakBarrels, 20, 250,
+                    "No preguntes para qué los quiero.", "Don't ask what I want them for.", "Не спрашивай, зачем они мне."),
+                Job("barrels60", JobType.BreakBarrels, 60, 750,
+                    "Estoy montando una batería. De barriles.", "I'm starting a band. A barrel band.", "Собираю ударную установку. Из бочек."),
+                Job("animals5", JobType.KillAnimals, 5, 250,
+                    "Con su pelo me hago una peluca para el enemigo.", "Their fur makes a lovely wig for the enemy.", "Из их шерсти сошью парик врагу."),
+                Job("animals15", JobType.KillAnimals, 15, 750,
+                    "Si tiene pelo y se mueve, es competencia.", "If it's hairy and it moves, it's competition.", "Если оно волосатое и шевелится, это конкурент."),
+                Job("scientists5", JobType.KillScientists, 5, 250,
+                    "Llevan casco para que no se les vea la coronilla.", "They wear helmets so you can't see the bald spot.", "Каски носят, чтобы макушку не видели."),
+                Job("scientists15", JobType.KillScientists, 15, 750,
+                    "Bata blanca y flequillo: imperdonable.", "Lab coat and a fringe: unforgivable.", "Белый халат и чёлка. Непростительно."),
+                AtMonument(Job("trainyard5", JobType.KillScientists, 5, 750,
+                    "Allí hay uno con coleta. Tráeme la coleta.", "There's one with a ponytail. Bring me the ponytail.", "Там один с хвостиком. Принеси хвостик."), "Train Yard"),
+                AtMonument(Job("tunnel10", JobType.KillScientists, 10, 2000,
+                    "Ahí abajo no llega la luz, pero tu frente sí.", "No light gets down there. Your forehead will do.", "Там темно, но твой лоб посветит."), "Military Tunnel"),
+                AtMonument(Job("launch10", JobType.KillScientists, 10, 2000,
+                    "Que despeguen ellos, que tú ya brillas.", "Let them take off. You already shine.", "Пусть они взлетают, ты и так сияешь."), "Launch Site"),
+                Of(Job("wood10k", JobType.Gather, 10000, 250,
+                    "Leña para el horno de las pelucas.", "Firewood for the wig furnace.", "Дрова для печи, где жгут парики."), "wood"),
+                Of(Job("stones10k", JobType.Gather, 10000, 250,
+                    "Para pulir calvas. A mano.", "For polishing bald heads. By hand.", "Для полировки лысин. Вручную."), "stones"),
+                Of(Job("metal10k", JobType.Gather, 10000, 750,
+                    "Maquinillas nuevas, que las viejas ya no cortan.", "New clippers. The old ones have gone blunt.", "На новые машинки, старые уже не стригут."), "metal.ore"),
+                Of(Job("sulfur10k", JobType.Gather, 10000, 2000,
+                    "Para una permanente que no se te olvide.", "For a perm you'll never forget.", "Для химзавивки, которую ты не забудешь."), "sulfur.ore"),
+                Job("survive60", JobType.Survive, 60, 250,
+                    "Sin palmar. Ya sé que es pedirte mucho.", "Without dying. I know it's a big ask.", "Не помирая. Знаю, это непросто."),
+                Job("survive180", JobType.Survive, 180, 750,
+                    "Tres horas sin que te salga pelo. A ver.", "Three hours without growing any hair. Let's see.", "Три часа без новых волос. Посмотрим."),
+                Job("raid1", JobType.RaidBase, 1, 750,
+                    "Padre Jano no se va a enfadar. Mucho.", "Father Jano won't mind. Much.", "Отец Яно не обидится. Почти."),
+                Level(Job("raidhard1", JobType.RaidBase, 1, 2000,
+                    "De las gordas, que de las fáciles ya sé que eres capaz. Más o menos.", "A big one. I know you can do the easy ones. More or less.", "Из серьёзных. С лёгкими ты вроде справляешься. Вроде."), 2)
+            };
         }
 
         // Saved on every map wipe (OnNewSave), before anything is reset, even with "Reset baldness on map wipe" off.
@@ -314,8 +503,12 @@ namespace Oxide.Plugins
             [JsonProperty("Spawn prefabs", ObjectCreationHandling = ObjectCreationHandling.Replace)]
             public List<string> SpawnPrefabs = new List<string>();
 
-            // Said to the player along with the prize, as written (no lang key: each prize has its own).
+            // Said to the player along with the prize, as written (no lang key: each prize has its own). In Spanish; the
+            // other languages go in "Message in other languages" by language code (en, ru...), and without one, this.
             [JsonProperty("Message")] public string Message = string.Empty;
+
+            [JsonProperty("Message in other languages", ObjectCreationHandling = ObjectCreationHandling.Replace)]
+            public Dictionary<string, string> Messages = new Dictionary<string, string>();
 
             [JsonIgnore]
             public bool IsEmpty => Rp <= 0 && Coins <= 0 && (Items == null || Items.All(i => i == null || i.Amount <= 0))
@@ -663,6 +856,21 @@ namespace Oxide.Plugins
             }
         }
 
+        // 1.13.0 only adds things: the four new sections come with their defaults by themselves (missing keys keep the
+        // class defaults), and the Greñas Sucias prize message gets its English and Russian versions if it is still the
+        // default one and has none. Nothing already in the file changes.
+        private void MigrateTo1130()
+        {
+            TierPrize first;
+            if (config.TierPrizes != null && config.TierPrizes.TryGetValue("1", out first) && first != null
+                && first.Message == GreasyMopPrizeMessage && (first.Messages == null || first.Messages.Count == 0))
+            {
+                first.Messages = GreasyMopPrizeMessages();
+            }
+
+            PrintWarning("Config updated to 1.13.0: hair revenge, barber's jobs, hair insurance and consolation kit (new sections with their defaults).");
+        }
+
         private void ValidateConfig()
         {
             if (config.Titles == null)
@@ -727,6 +935,11 @@ namespace Oxide.Plugins
             config.Exchange.OldSellCoinsPer100 = null;
             config.Exchange.OldBuyRpPerBaldness = null;
             config.Exchange.OldBuyCoinsPerBaldness = null;
+
+            if (config.ConfigVersion < 1130)
+            {
+                MigrateTo1130();
+            }
 
             config.ConfigVersion = CurrentConfigVersion;
             if (config.CursedItems == null) config.CursedItems = new CursedItemsConfig();
@@ -905,6 +1118,65 @@ namespace Oxide.Plugins
                 PrintWarning($"Calvo del Día: '{calvoDelDiaGroup}' cannot be its group (protected or a title group); no group is used.");
                 calvoDelDiaGroup = null;
             }
+
+            if (config.Revenge == null) config.Revenge = new RevengeConfig();
+            config.Revenge.WindowMinutes = Math.Max(1, config.Revenge.WindowMinutes);
+            config.Revenge.Multiplier = Math.Max(1, config.Revenge.Multiplier);
+
+            if (config.Insurance == null) config.Insurance = new InsuranceConfig();
+            config.Insurance.MinPrice = Math.Max(1, config.Insurance.MinPrice);
+            if (double.IsNaN(config.Insurance.Surcharge) || config.Insurance.Surcharge < 0) config.Insurance.Surcharge = 0;
+
+            if (config.ConsolationKit == null) config.ConsolationKit = new ConsolationKitConfig();
+            ConsolationKitConfig kit = config.ConsolationKit;
+            kit.Deaths = Math.Max(1, kit.Deaths);
+            kit.WindowMinutes = Math.Max(1, kit.WindowMinutes);
+            kit.CooldownMinutes = Math.Max(0, kit.CooldownMinutes);
+            if (kit.Items == null) kit.Items = new List<PrizeItem>();
+            kit.Items.RemoveAll(i => i == null || string.IsNullOrEmpty(i.Shortname) || i.Amount <= 0);
+
+            ValidateJobs();
+        }
+
+        // Builds the job lookups and drops (with a warning) every catalog entry that cannot work.
+        private void ValidateJobs()
+        {
+            if (config.Jobs == null) config.Jobs = new JobsConfig();
+            JobsConfig jobs = config.Jobs;
+            jobs.PerDay = Math.Max(0, jobs.PerDay);
+            if (!TryParseClock(jobs.ResetTimeUtc, out jobResetMinutes))
+            {
+                string fallback = new JobsConfig().ResetTimeUtc;
+                PrintWarning($"Barber's jobs: '{jobs.ResetTimeUtc}' is not a time (HH:mm); using {fallback}.");
+                jobs.ResetTimeUtc = fallback;
+                TryParseClock(fallback, out jobResetMinutes);
+            }
+
+            if (jobs.AnimalPrefabs == null) jobs.AnimalPrefabs = new List<string>();
+            animalPrefabs = new HashSet<string>(jobs.AnimalPrefabs.Where(p => !string.IsNullOrEmpty(p)), StringComparer.OrdinalIgnoreCase);
+
+            if (jobs.Catalog == null) jobs.Catalog = new List<JobDefinition>();
+            jobsById = new Dictionary<string, JobDefinition>(StringComparer.OrdinalIgnoreCase);
+            foreach (JobDefinition job in jobs.Catalog)
+            {
+                if (job == null) continue;
+                if (job.Texts == null) job.Texts = new Dictionary<string, string>();
+                string problem = null;
+                if (string.IsNullOrEmpty(job.Id)) problem = "it has no Id";
+                else if (jobsById.ContainsKey(job.Id)) problem = "its Id is repeated";
+                else if (!Enum.TryParse(job.Type, true, out job.ParsedType) || !Enum.IsDefined(typeof(JobType), job.ParsedType)) problem = $"'{job.Type}' is not a job type";
+                else if (job.Amount <= 0) problem = "its amount is not above 0";
+                else if (job.ParsedType == JobType.Gather && string.IsNullOrEmpty(job.Resource)) problem = "a Gather job needs a Resource";
+
+                if (problem != null)
+                {
+                    PrintWarning($"Barber's jobs: job '{job.Id}' ignored ({problem}).");
+                    continue;
+                }
+
+                job.Reward = Math.Max(0, job.Reward);
+                jobsById[job.Id] = job;
+            }
         }
 
         // "21:00" -> 1260 minutes after midnight. Hours 0-23, minutes 0-59.
@@ -1022,6 +1294,23 @@ namespace Oxide.Plugins
             public List<CalvoDelDiaRecord> History = new List<CalvoDelDiaRecord>();
         }
 
+        private class JobsData
+        {
+            // UTC date (yyyy-MM-dd) of the job day these jobs belong to; a job day starts at the reset time.
+            public string Day = string.Empty;
+
+            [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
+            public List<JobProgress> List = new List<JobProgress>();
+        }
+
+        private class JobProgress
+        {
+            public string Id = string.Empty;
+            public long Progress;
+            public bool Done;
+            public bool Claimed;
+        }
+
         private class CalvoDelDiaRecord
         {
             public DateTime Date;
@@ -1058,6 +1347,12 @@ namespace Oxide.Plugins
             public float SurvivalSeconds;
             public bool SurvivalMoved;
 
+            // Barber's jobs of the current job day (1.13.0).
+            public JobsData Jobs = new JobsData();
+
+            // Last consolation kit (UTC), for "at most one kit every X minutes". Never = default.
+            public DateTime LastConsolationKit;
+
             // Server Rewards: seconds alive and connected since the last RP payout, and whether the player moved.
             public float RpSeconds;
             public bool RpMoved;
@@ -1091,6 +1386,10 @@ namespace Oxide.Plugins
             foreach (KeyValuePair<ulong, PlayerData> entry in storedData.Players)
             {
                 entry.Value.Id = entry.Key;
+                if (entry.Value.Jobs == null) entry.Value.Jobs = new JobsData();
+                if (entry.Value.Jobs.Day == null) entry.Value.Jobs.Day = string.Empty;
+                if (entry.Value.Jobs.List == null) entry.Value.Jobs.List = new List<JobProgress>();
+                entry.Value.Jobs.List.RemoveAll(j => j == null || string.IsNullOrEmpty(j.Id));
             }
 
             if (storedData.HallOfFame == null) storedData.HallOfFame = new List<HallEntry>();
@@ -1149,10 +1448,26 @@ namespace Oxide.Plugins
 
         #region Localization
 
+        // Spanish is the console's language (and the JSON's, and the hooks'): text with no player to read it comes out in it.
+        private const string ConsoleLanguage = "es";
+
+        // Each language its own texts (1.13.0; before, Spanish was registered as "en" too). Oxide gives every player the
+        // language of their game client and, when that file is missing, falls back to "en", not to "es": Spanish clients
+        // arrive as "es-ES", so Spanish goes in "es" and in "es-ES". English and Russian are real translations.
         protected override void LoadDefaultMessages()
         {
-            var messages = new Dictionary<string, string>
+            Dictionary<string, string> spanish = SpanishMessages();
+            lang.RegisterMessages(EnglishMessages(), this);
+            lang.RegisterMessages(spanish, this, "es");
+            lang.RegisterMessages(spanish, this, "es-ES");
+            lang.RegisterMessages(RussianMessages(), this, "ru");
+        }
+
+        private static Dictionary<string, string> SpanishMessages()
+        {
+            return new Dictionary<string, string>
             {
+                ["LanguageCode"] = "es",
                 ["CalvarioTitle"] = "EL CALVARIO",
                 ["BarberName"] = "EL BARBERO",
                 ["BarberOptExchangeV2"] = "Vengo a vender (o comprar) alopecia",
@@ -1391,26 +1706,746 @@ namespace Oxide.Plugins
                 ["AdminCalvoDelDiaOff"] = "El Calvo del Día está desactivado en la config.",
                 ["AdminCalvoDelDiaNone"] = "Nadie ha ganado alopecia desde la última elección: no hay Calvo del Día.",
                 ["HudWallet"] = "<color=#9a9288>PdC</color> <color=#e0a526>{0}</color>     <color=#9a9288>PELONES</color> <color=#e0a526>{1}</color>",
-                ["HudCounterV3"] = "<size=11><color=#9a9288>ALOPECIA</color></size>  <color=#e0a526>{0}</color>\n<size=10><color=#d8d8d8>{1}</color></size>"
+                ["HudCounterV3"] = "<size=11><color=#9a9288>ALOPECIA</color></size>  <color=#e0a526>{0}</color>\n<size=10><color=#d8d8d8>{1}</color></size>",
+                ["UnitRpFew"] = "{0} Puntos de Chola",
+                ["UnitCoinsFew"] = "{0} pelones",
+                ["Title_1"] = "Greñas Sucias",
+                ["Title_1000"] = "Pelambrera Lamentable",
+                ["Title_10000"] = "Entradas Incipientes",
+                ["Title_100000"] = "Coronilla a la Intemperie",
+                ["Title_1000000"] = "Caballero de la Tonsura",
+                ["Title_10000000"] = "Lord Bola de Billar",
+                ["Title_100000000"] = "Su Calvísima Majestad",
+                ["RevengeChat"] = "<color=#e0a526>VENGANZA CAPILAR</color>: {0} le ha devuelto la visita a {1}. Alopecia x{2}, y con intereses.",
+                ["RevengeTag"] = " [venganza x{0}]",
+                ["ConsolationKit"] = "<color=#e0a526>La Seguridad Social Capilar se apiada de ti:</color> tienes un kit de consuelo en el inventario. No te acostumbres.",
+                ["DebugConsolationKit"] = "[debug] {0}: kit de consuelo",
+                ["DurationHoursMinutes"] = "{0} h {1} min",
+                ["CalvarioTabJobs"] = "ENCARGOS",
+                ["BarberOptJobs"] = "¿Tienes algún encargo?",
+                ["BarberJobsIntro"] = "Los encargos de hoy. Se renuevan dentro de {0}: lo que no cobres antes, se pierde. Y propina, ni lo sueñes.",
+                ["BarberJobsNone"] = "Hoy no tengo nada para ti. Vuelve dentro de {0}, a ver si para entonces me acuerdo de tu cara.",
+                ["BarberJobClaim"] = "COBRAR: {0} (+{1})",
+                ["BarberJobClaimed"] = "{0}  [cobrado]",
+                ["BarberJobProgress"] = "{0}  ({1}/{2})  ·  {3}",
+                ["BarberJobPaid"] = "Toma, {0}. Y ni una palabra a nadie.",
+                ["JobDone"] = "<color=#e0a526>Encargo del Barbero cumplido:</color> {0}. Pásate por la peluquería (<color=#e0a526>/peluqueria</color>) a cobrar {1}.",
+                ["JobsMenuHint"] = "Se cobran hablando con el Barbero (<color=#e0a526>/peluqueria</color>). Encargos nuevos dentro de {0}; lo que no cobres antes, se pierde.",
+                ["JobsMenuEmpty"] = "Hoy el Barbero no tiene encargos. Disfruta del paro.",
+                ["JobsMenuReward"] = "+{0}",
+                ["JobsMenuProgress"] = "{0} / {1}",
+                ["JobsMenuReady"] = "HECHO: cóbralo en el Barbero",
+                ["JobsMenuClaimed"] = "COBRADO",
+                ["JobKillScientists"] = "Mata {0} científicos",
+                ["JobKillScientistsOne"] = "Mata a un científico",
+                ["JobKillScientistsAt"] = "Mata {0} científicos en el {1}",
+                ["JobKillScientistsAtOne"] = "Mata a un científico en el {1}",
+                ["JobBreakBarrels"] = "Rompe {0} barriles",
+                ["JobBreakBarrelsOne"] = "Rompe un barril",
+                ["JobKillAnimals"] = "Mata {0} animales",
+                ["JobKillAnimalsOne"] = "Mata un animal",
+                ["JobRaidBase"] = "Revienta {0} Casas de Padre Jano",
+                ["JobRaidBaseOne"] = "Revienta una Casa de Padre Jano",
+                ["JobRaidBaseLevel"] = "Revienta {0} Casas de Padre Jano de dificultad {1} o más",
+                ["JobRaidBaseLevelOne"] = "Revienta una Casa de Padre Jano de dificultad {1} o más",
+                ["RaidDifficulty1"] = "media",
+                ["RaidDifficulty2"] = "difícil",
+                ["RaidDifficulty3"] = "experta",
+                ["RaidDifficulty4"] = "pesadilla",
+                ["JobGather"] = "Recolecta {0} de {1}",
+                ["Resource_wood"] = "madera",
+                ["Resource_stones"] = "piedra",
+                ["Resource_metal.ore"] = "mineral de metal",
+                ["Resource_sulfur.ore"] = "mineral de azufre",
+                ["JobSurvive"] = "Sobrevive {0} minutos seguidos moviéndote",
+                ["JobSurviveOne"] = "Sobrevive un minuto moviéndote",
+                ["DebugJobDone"] = "[debug] {0}: encargo '{1}' cumplido",
+                ["DebugJobPaid"] = "[debug] {0}: encargo '{1}' cobrado ({2})",
+                ["BarberOptInsurance"] = "Quiero el seguro capilar ({0})",
+                ["BarberInsuranceOffer"] = "Seguro capilar: {0} y tu próxima muerte no te cuesta pelo. Letra pequeña: ninguna.",
+                ["BarberInsuranceBuy"] = "TRATO HECHO",
+                ["BarberInsuranceDone"] = "Pagado: {0}. Cinta americana puesta: tu próxima muerte no restará. Póliza a todo riesgo, menos el ridículo.",
+                ["BarberInsuranceRepriced"] = "Desde que te lo dije has ganado alopecia, así que el seguro ha subido. Mira el precio nuevo.",
+                ["DebugInsurance"] = "[debug] {0}: seguro capilar ({1})"
             };
-
-            // Spanish is registered as the default ("en") set too: Oxide assigns each player the language
-            // of their game client (usually "en") and falls back to "en", so this keeps Spanish as the default.
-            lang.RegisterMessages(messages, this);
-            lang.RegisterMessages(messages, this, "es");
         }
+
+        // English (1.13.0): the same jokes, told in English. Names from Padre Jano's glossary (docs/TONO.md, "Otros idiomas").
+        private static Dictionary<string, string> EnglishMessages()
+        {
+            return new Dictionary<string, string>
+            {
+                ["LanguageCode"] = "en",
+                ["CalvarioTitle"] = "EL CALVARIO",
+                ["BarberName"] = "THE BARBER",
+                ["BarberOptExchangeV2"] = "I'm here to sell (or buy) alopecia",
+                ["BarberExIntroV4"] = "Alopecia is bought and sold here. Selling is cheap and buying is dear: this is a business, not a charity.\nYou have {0} alopecia · {1} Noggin Points · {2} baldies.",
+                ["BarberExSellRpV4"] = "Sell alopecia for Noggin Points (1 Noggin Point per {0} alopecia)",
+                ["BarberExSellCoinsV5"] = "Sell alopecia for baldies ({0} baldies per 1,000 alopecia)",
+                ["BarberExBuyRpV6"] = "Buy alopecia with Noggin Points ({0} NP per 10 alopecia)",
+                ["BarberExBuyCoinsV5"] = "Buy alopecia with baldies ({0} baldies per 10 alopecia)",
+                ["BarberExClosedV3"] = "{0}  [closed: {1} is missing. Come back when the boss fixes it]",
+                ["BarberExPickAmount"] = "How much? Think it through, or you'll be crying about it later.",
+                ["BarberExSellLineV2"] = "Give {0} alopecia and take {1}",
+                ["BarberExBuyLineV2"] = "Pay {1} and take {0} alopecia",
+                ["BarberExTooMuchV3"] = "{0}  [can't afford it, skint]",
+                ["BarberExConfirmSellV2"] = "Sure you're swapping {0} alopecia for {1}? Your hair will grow back, and no money pays for that.",
+                ["BarberExConfirmBuyV2"] = "Sure you're paying {1} for {0} alopecia? No refunds, no complaints book.",
+                ["BarberExConfirm"] = "CONFIRM",
+                ["BarberExCancel"] = "LET ME THINK",
+                ["BarberExDoneSellV2"] = "Done: -{0} alopecia and +{1}. I can see fuzz sprouting already, traitor.",
+                ["BarberExDoneBuyV2"] = "Done: +{0} alopecia and -{1}. You're shining like a freshly waxed billiard ball.",
+                ["BarberExNotEnough"] = "Can't afford it. Not even a back-alley shave.",
+                ["BarberExFailed"] = "Something broke and nothing was touched. Try again, the clipper has its days.",
+                ["UnitRpV2"] = "{0} Noggin Points",
+                ["UnitRpOneV2"] = "{0} Noggin Point",
+                ["UnitCoinsV2"] = "{0} baldies",
+                ["UnitCoinsOneV2"] = "{0} baldy",
+                ["TitleUpBanner"] = "{0} is now {1}! Sunglasses on, it's blinding.",
+                ["TierPrizeV2"] = "<color=#e0a526>Prize for reaching {0}:</color> {1}. On the house, since you can't even afford a comb.",
+                ["TierPrizeItems"] = "<color=#e0a526>Prize for reaching {0}:</color> it's in your inventory already (or at your feet, if it didn't fit). On the house.",
+                ["PrizeSpawned"] = "<color=#e0a526>Your prize is parked right in front of you.</color> Eyes front, chrome dome.",
+                ["PrizeSpawnFailed"] = "<color=#e0662f>What should be parked in front of you doesn't fit here.</color> Ask an admin to hand it over.",
+                ["TitleDropBanner"] = "{0} drops to {1}. You can't see their scalp any more.",
+                ["DebugTierPrize"] = "[debug] {0}: {1} prize · {2}",
+                ["ReasonExchange"] = "exchange at El Calvario",
+                ["BarberGreetingV2_1"] = "Sit down, hairy. What am I taking off today, the hair or the dignity?",
+                ["BarberGreetingV2_2"] = "Come in, come in. That mane won't pull itself out, and I charge by the minute.",
+                ["BarberGreetingV2_3"] = "You again. More forehead and less shame every day. That's the spirit.",
+                ["BarberOptItemsV3"] = "I've brought a relic",
+                ["BarberOptCatalog"] = "Show me the catalogue",
+                ["BarberOptCarne"] = "I'm here to stamp my Bald Card",
+                ["BarberOptBye"] = "Nothing, just looking",
+                ["BarberOptBack"] = "Back",
+                ["BarberOptStamp"] = "Stamp what I've brought",
+                ["BarberItemsIntroV3"] = "Let's see what relics you've got in those pockets. A sandwich doesn't count.",
+                ["BarberItemsNoneV3"] = "You're not carrying a single relic. Come back when you've killed something; that's how you move up.",
+                ["BarberItemLine"] = "{0} (you have {1}): {2}",
+                ["BarberTrophyUsedV2"] = "{0}: +{1}. Up on the trophy wall, next to the last hero's toupee.",
+                ["BarberCarneIntroV2"] = "Show me the card. {0} of {1} colours stamped. Cards completed: {2}. The Ministry is in no hurry, but I am.",
+                ["BarberCarneStamped"] = "Stamped: {0}",
+                ["BarberCarneMissingV2"] = "Still missing: {0}. Get killing, they don't stamp themselves.",
+                ["TagColorBlue"] = "blue",
+                ["TagColorGray"] = "grey",
+                ["TagColorGreen"] = "green",
+                ["TagColorLavender"] = "lavender",
+                ["TagColorMint"] = "mint",
+                ["TagColorOrange"] = "orange",
+                ["TagColorPink"] = "pink",
+                ["TagColorPurple"] = "purple",
+                ["TagColorRed"] = "red",
+                ["TagColorWhite"] = "white",
+                ["TagColorYellow"] = "yellow",
+                ["CalvarioSubtitleV2"] = "Voluntary alopecia clinic  ·  Walk in with hair, walk out with dignity",
+                ["CalvarioYouV3"] = "Your alopecia: <color=#e0a526>{0}</color>  —  {1}",
+                ["CalvarioNextV3"] = "To <color=#e0a526>{0}</color>: {1} to go. Keep killing, it won't shave itself.",
+                ["CalvarioTop"] = "Peak baldness reached. Nothing left to pull out.",
+                ["CalvarioTabRankingV2"] = "RANKING",
+                ["CalvarioTabHall"] = "HALL OF FAME",
+                ["CalvarioTabBounties"] = "BOUNTIES",
+                ["CalvarioClose"] = "X",
+                ["CalvarioShieldOn"] = "Tape on. Your bald head survives the next death.",
+                ["CalvarioBatteryOn"] = "Clipper buzzing: {0} min left.",
+                ["CalvarioProverb1"] = "God made few perfect heads. The rest he covered with hair.",
+                ["CalvarioProverb2"] = "Hair is temporary. Bald is forever.",
+                ["CalvarioProverb3"] = "Better the baldy you know than the hairy you don't.",
+                ["CalvarioProverb4"] = "A head that shines is a head that rules.",
+                ["CalvarioProverb5"] = "It's not a bald spot. It's a solar panel.",
+                ["CalvarioProverb7"] = "Baldness isn't lost: it's conquered.",
+                ["CalvarioProverb8"] = "Anti-hair-loss shampoo is hairy propaganda.",
+                ["CalvarioCarneHintV2"] = "One tag of each colour: +{0} per stamp and +{1} for completing the card. Swap your doubles in the playground.",
+                ["CalvarioRankingEmptyV2"] = "Nobody in the ranking yet. The island is full of hair.",
+                ["CalvarioRankingLine"] = "{0}.  {1}",
+                ["CalvarioRankingYouV3"] = "Your place: <color=#e0a526>#{0}</color> of {1}. You need <color=#e0a526>{2}</color> to overtake {3}. Come on, that one even has eyebrows.",
+                ["CalvarioRankingFirstV2"] = "You're the shiniest head on the island. Everyone else uses you as a mirror to comb their hair.",
+                ["CalvarioPrev"] = "< PREVIOUS",
+                ["CalvarioNextPage"] = "NEXT >",
+                ["CalvarioPage"] = "Page {0}/{1}",
+                ["CalvarioItemBleach"] = "Bleach",
+                ["CalvarioItemDuctTape"] = "Duct tape",
+                ["CalvarioItemBattery"] = "Small battery",
+                ["CalvarioItemDogTag"] = "Dog tag",
+                ["CalvarioItemBlueDogTags"] = "Blue dog tags",
+                ["CalvarioItemRedDogTags"] = "Red dog tags",
+                ["CalvarioItemGems"] = "Gems",
+                ["CalvarioItemIdTag"] = "ID tag",
+                ["CalvarioDescBleachV2"] = "House shampoo and the only relic that can go wrong. {0}%: it scorches your scalp (+{1}). If not, a rebel lock of hair (-{2}).",
+                ["CalvarioDescDuctTape"] = "A patch for the bald spot: if you die, your hair won't even notice. Once.",
+                ["CalvarioDescBattery"] = "For the clipper: x{0} on everything you earn for {1} min. Bzzzz.",
+                ["CalvarioDescDogTag"] = "Souvenir from a scientist with a fringe. +{0}.",
+                ["CalvarioDescBlueDogTags"] = "Torn off a long-haired heavy. +{0}.",
+                ["CalvarioDescRedDogTags"] = "From the pilot who lost his quiff along with the helicopter. +{0}.",
+                ["CalvarioDescGems"] = "Crown jewels of His Baldest Majesty. Shiny as your head. +{0}.",
+                ["CatalogSection"] = "RELICS",
+                ["CatalogIntro"] = "Every relic in the house. What's greyed out you're not carrying: looking is free.",
+                ["CatalogBack"] = "BACK TO THE BARBER",
+                ["CatalogHave"] = "Carrying: {0}",
+                ["CatalogUse"] = "USE",
+                ["CatalogNone"] = "NOT CARRYING",
+                ["CatalogWisdom"] = "BALD WISDOM",
+                ["CatalogCarneTitle"] = "BALD CARD  ·  Island Ministry of Alopecia   ({0}/{1})   ·   Cards completed: {2}",
+                ["CatalogCarneStamped"] = "STAMPED",
+                ["CatalogCarneMissing"] = "MISSING",
+                ["CatalogCarneDeliver"] = "STAMP",
+                ["CatalogCarneNone"] = "NOTHING TO STAMP",
+                ["ItemFoundV4"] = "You found: <color=#e0a526>{0}</color>. Take it to El Calvario at the barbershop (<color=#e0a526>/peluqueria</color>); in your pocket it does nothing.",
+                ["CalvarioGoToBarberV3"] = "Relics are used at El Calvario, in the barbershop. Go with <color=#e0a526>/peluqueria</color> and talk to the Barber.",
+                ["ItemNoneV2"] = "You're not carrying {0}. Not even that.",
+                ["ItemShieldAlready"] = "Your bald head is already taped up. Die first.",
+                ["ItemBatteryAlreadyV4"] = "The clipper is already running ({0} min left). It won't go any faster: it's a clipper, not a Formula 1 car.",
+                ["ItemBleachWinV2"] = "The bleach scorched your scalp: +{0}. It stings, but it shines.",
+                ["ItemBleachFail"] = "The bleach left you a rebel lock of hair. Shame: -{0}.",
+                ["ItemShieldOnV2"] = "Bald head taped up with duct tape. Your next death won't cost you. Not elegant, but it works.",
+                ["ItemShieldUsed"] = "The duct tape protected your bald head: this death costs nothing.",
+                ["ItemBatteryOnV2"] = "Clipper running: x{0} for {1} min. Bzzzz.",
+                ["ItemBatteryOffV2"] = "The clipper's battery is dead. Back to shaving by hand, like peasants.",
+                ["CarneNothingV2"] = "You've no tag of a colour you're missing. Give the doubles to your cousin.",
+                ["CarneDeliveredV2"] = "You handed in {0} tag(s): +{1}. The clerk didn't even look up.",
+                ["CarneCompletedV3"] = "<color=#e0a526>{0}</color> has completed the BALD CARD and wins +{1}. The Ministry of Alopecia is proud. Their mum, not so much.",
+                ["ReasonItemUseV2"] = "relic: {0}",
+                ["ReasonCarne"] = "bald card",
+                ["SupremeBaldnessV6"] = "<color=#e0a526>{0} HAS REACHED SUPREME BALDNESS</color>. No more worrying about shampoo.",
+                ["TitleUpV3"] = "<color=#e0a526>{0}</color> rises to <color=#e0a526>{1}</color>. Their barber has already gone on the dole.",
+                ["TitleDropV2"] = "<color=#e0662f>{0} is growing hair</color> (now {1})",
+                ["NoPermissionV4"] = "You don't have permission to use this command. Nice try, champ.",
+                ["AdminUsageV5"] = "Usage: /calvoadmin set <player> <value> | /calvoadmin reset <player> | /calvoadmin debug on|off | /calvoadmin evento <hora|champu|peludo|alopecia|parar> | /calvoadmin salon guardar|cerrar [forzar]|borrar <n> | /calvoadmin cabeza quitar <player> | /calvoadmin calvodeldia ahora",
+                ["AdminInvalidValue"] = "The value must be a whole number, {0} or more.",
+                ["PlayerNotFound"] = "No player found matching '{0}'.",
+                ["PlayerAmbiguous"] = "{0} players match '{1}'. Be more specific or use the SteamID.",
+                ["AdminSetV2"] = "{0}'s alopecia set to {1}.",
+                ["AdminResetV2"] = "{0}'s alopecia reset to {1}.",
+                ["DebugOnV2"] = "Debug on: you'll see every alopecia change and its reason in chat.",
+                ["DebugOff"] = "Debug off.",
+                ["DebugChange"] = "[debug] {0}: {1} → {2} ({3}{4}) · {5}",
+                ["DebugNoRewardV2"] = "[debug] {0}: no alopecia · {1}",
+                ["DebugRpV2"] = "[debug] {0}: +{1} NP ({2})",
+                ["DebugNoRpV2"] = "[debug] {0}: no NP · {1}",
+                ["NoRpAfk"] = "hasn't moved (AFK)",
+                ["NoRpPlugin"] = "Server Rewards isn't loaded",
+                ["NoRpRefused"] = "Server Rewards refused the payment",
+                ["NoRpCapV2"] = "Noggin Points balance at Server Rewards' limit",
+                ["RpEarnedV5"] = "<color=#e0a526>+{0} Noggin Points</color> for wearing the scalp of a <color=#e0a526>{1}</color>. Pocket it and hush.",
+                ["ReasonPlayerKill"] = "kill on {0}",
+                ["ReasonPlayerHeadshotKillV2"] = "headshot buzzcut on {0}",
+                ["ReasonDeath"] = "death (-{0}%)",
+                ["ReasonHeadshotDeath"] = "headshot death (-{0}%)",
+                ["ReasonSurvival"] = "survival",
+                ["ReasonNpcKill"] = "NPC {0} (T{1})",
+                ["ReasonEventParticipant"] = "event {0} (T{1}), damaged it",
+                ["ReasonEventTeammate"] = "event {0} (T{1}), teammate nearby",
+                ["ReasonAdmin"] = "admin",
+                ["NoRewardSleeperV2"] = "victim asleep or offline ({0}). You were very brave. Congratulations.",
+                ["NoRewardCooldown"] = "cooldown on {0}",
+                ["NoRewardNpcDisabled"] = "NPC {0} disabled in the config",
+                ["NoRewardNpcUnlisted"] = "NPC {0} is not in NpcTiers",
+                ["NoRewardTierMissing"] = "NPC {0} (T{1}) has no value in TierRewards",
+                ["NoRewardNpcDeath"] = "death by NPC (disabled in the config)",
+                ["EventNameBaldHourV3"] = "Bald Hour",
+                ["EventNameShampooRainV3"] = "Shampoo Rain",
+                ["EventNameHairiestHuntV3"] = "Hairy Hunt",
+                ["EventNameBladeStormV3"] = "Alopecia Outbreak",
+                ["EventTag"] = " [{0} x{1}]",
+                ["EventBaldHourStartV4"] = "<color=#e0a526>BALD HOUR</color>: for {0} min everything gives x{1} alopecia. Get out there and kill; that forehead won't clear itself.",
+                ["EventBaldHourEndV2"] = "Bald Hour is over. Back to going bald at the usual rate.",
+                ["EventShampooRainStartV2"] = "<color=#e0662f>SHAMPOO RAIN</color>: for {0} min dying costs x{1}. In this weather hair grows like weeds.",
+                ["EventShampooRainEndV2"] = "It's stopped raining. You can go and die in peace now.",
+                ["EventHuntStartV4"] = "<color=#e0a526>HAIRY HUNT</color>: {0} is the hairiest on the island ({1}). Whoever kills them wins +{2}. If they last {3} min, they win +{4}. Go get them; that mane won't cut itself.",
+                ["EventHuntKilledV4"] = "{0} has hunted down the hairiest, {1}, and wins +{2}. Thank you for this great service to the community.",
+                ["EventHuntSurvivedV3"] = "{0} survived the hunt with every hair intact and wins +{1}. Muppets.",
+                ["EventHuntDiedV4"] = "{0}, the hairiest on the island, has snuffed it all by themselves, without anyone firing a shot. Died as they lived: hair in their face and nobody giving a damn. The hunt is over.",
+                ["EventHuntEscapedV4"] = "{0} has legged it off the island with their mane, like a rat with hair extensions. They'll be back when the conditioner runs out. The hunt is over.",
+                ["EventBladeStormStartV4"] = "<color=#e0a526>ALOPECIA OUTBREAK</color>: for {0} min the heli, the Bradley and the Chinook pay x{1}. Clippers out.",
+                ["EventBladeStormEndV2"] = "The alopecia outbreak is over. The heli pays the usual again, like a civil servant.",
+                ["EventStoppedByAdminV2"] = "An admin has cancelled the {0} event. Complaints to their barber.",
+                ["ReasonHuntKillV2"] = "hairy hunt ({0})",
+                ["ReasonHuntSurvived"] = "survived the hunt",
+                ["AdminEventUsageV3"] = "Usage: /calvoadmin evento <hora|champu|peludo|alopecia|parar>",
+                ["AdminEventBusy"] = "There's already an event running: {0}. Stop it first with /calvoadmin evento parar.",
+                ["AdminEventCannotStart"] = "{0} can't start now (too few players online, or disabled in the config?).",
+                ["AdminEventNone"] = "No event is running.",
+                ["BatteryTag"] = " [battery x{0}]",
+                ["HallEmpty"] = "No map has been closed yet. The first one goes in with the next wipe: start polishing that forehead.",
+                ["HallMapClosed"] = "Map closed on {0}",
+                ["HallNumber"] = "#{0}",
+                ["HallPodiumPlace"] = "{0}.  {1}",
+                ["HallTopKiller"] = "Most kills: <color=#e0a526>{0}</color> ({1})",
+                ["HallTopDeaths"] = "Most deaths: <color=#e0662f>{0}</color> ({1}). With all that dying, they could grow braids.",
+                ["HallTopDeathsPlain"] = "Most deaths: <color=#e0662f>{0}</color> ({1})",
+                ["HallSnapshot"] = "Map snapshot of {0}",
+                ["HallWipeWinner"] = "<color=#e0a526>{0}</color> takes the map with <color=#e0a526>{1}</color> alopecia (the podium is in the Hall of Fame of <color=#e0a526>/calvos</color>). All hail the forehead.",
+                ["AdminHallUsageV2"] = "Usage: /calvoadmin salon guardar | /calvoadmin salon cerrar [forzar] | /calvoadmin salon borrar <n>",
+                ["AdminHallCloseUsage"] = "Usage: isla.salon cerrar [forzar]",
+                ["AdminHallClosed"] = "Map closed: entry #{0} saved in the Hall of Fame. Map kills and deaths back to 0.",
+                ["AdminHallClosedEmpty"] = "Map closed with no Hall of Fame entry (nobody killed or died on this map, or the hall is disabled). Map kills and deaths back to 0.",
+                ["AdminHallClosedReset"] = "Everyone's alopecia back to 0 (the config has the wipe reset on).",
+                ["AdminHallCloseRecent"] = "Nothing closed: the map was already closed on {0} at {1}, less than {2} hours ago. To close it again, add 'forzar'.",
+                ["AdminHallSaved"] = "Entry #{0} saved in the Hall of Fame.",
+                ["AdminHallNothing"] = "Nothing saved: nobody has alopecia or kills on this map.",
+                ["AdminHallDeleted"] = "Entry #{0} ({1}) deleted from the Hall of Fame.",
+                ["AdminHallNotFound"] = "There's no entry #{0} in the Hall of Fame.",
+                ["BountyUsage"] = "Usage: <color=#e0a526>/cabeza <player> <amount></color> (minimum {0}). What you put up is not refunded.",
+                ["BountyTooLow"] = "The minimum is {0}. With less you won't even trim their sideburns.",
+                ["BountySelf"] = "You can't put a price on your own scalp, however much hair you've got to spare.",
+                ["BountyNoBalanceV2"] = "You can't afford it: you have {0}. A lot of grudge for so little balance.",
+                ["BountyNotFound"] = "Nobody on the island is called '{0}'. To hate someone, learn their name first.",
+                ["BountyAmbiguous"] = "{0} players have '{1}' in their name. Type more, this isn't a raffle.",
+                ["BountyClosed"] = "Bounties are closed.",
+                ["BountyFailed"] = "Something went wrong with the Noggin Points and nothing was put up. Try again.",
+                ["BountyPlaced"] = "<color=#e0a526>{0}</color> has put <color=#e0a526>{1}</color> on the scalp of <color=#e0662f>{2}</color>. Whoever kills them takes it. Wanted, dead or bald.",
+                ["BountyRaisedV2"] = "<color=#e0a526>{0}</color> adds <color=#e0a526>{1}</color> to the scalp of <color=#e0662f>{2}</color>: the pot is now <color=#e0a526>{3}</color>. Shares are up.",
+                ["BountyClaimed"] = "<color=#e0a526>{0}</color> claims the scalp of <color=#e0662f>{1}</color> and pockets <color=#e0a526>{2}</color>. Shaved and paid.",
+                ["BountyListEmpty"] = "No scalp has a price. Either there's peace on the island, or nobody has a single Noggin Point.",
+                ["BountyPriceShort"] = "{0} NP",
+                ["BountyMenuHint"] = "Put a price on someone with <color=#e0a526>/cabeza <player> <amount></color>: whoever kills them in PvP takes it. What you put up is not refunded.",
+                ["BountyMenuYou"] = "There's <color=#e0662f>{0}</color> on your scalp. With that bald head you can be seen from the other end of the island.",
+                ["DebugBountyNoClaim"] = "[debug] {0}: scalp of {1} not claimed · {2}",
+                ["NoBountyTeam"] = "same team",
+                ["NoBountySleeper"] = "victim asleep or offline",
+                ["AdminBountyUsage"] = "Usage: /calvoadmin cabeza quitar <player>",
+                ["AdminBountyRemoved"] = "Bounty on {0}'s scalp cancelled ({1}).",
+                ["AdminBountyNone"] = "Nobody has put a price on {0}'s scalp.",
+                ["CalvoDelDiaName"] = "Baldy of the Day",
+                ["CalvoDelDiaChatV3"] = "<color=#e0a526>{0}</color> is the <color=#e0a526>BALDY OF THE DAY</color>: +{1} alopecia since the last pick. Until tomorrow, it's 'Your Baldness' to you.",
+                ["CalvoDelDiaBannerV2"] = "{0} is the BALDY OF THE DAY! Autographs signed on the scalp.",
+                ["CalvoDelDiaMenu"] = "Baldy of the Day: <color=#e0a526>{0}</color> (+{1})",
+                ["CalvoDelDiaPrize"] = "<color=#e0a526>Baldy of the Day prize:</color> {0}. Don't let it go to your head; there's nothing left up there.",
+                ["CalvoDelDiaPrizeItems"] = "<color=#e0a526>Baldy of the Day prize:</color> it's in your inventory already (or at your feet, if it didn't fit).",
+                ["AdminCalvoDelDiaUsage"] = "Usage: /calvoadmin calvodeldia ahora",
+                ["AdminCalvoDelDiaOff"] = "Baldy of the Day is disabled in the config.",
+                ["AdminCalvoDelDiaNone"] = "Nobody has gained alopecia since the last pick: no Baldy of the Day.",
+                ["HudWallet"] = "<color=#9a9288>NP</color> <color=#e0a526>{0}</color>     <color=#9a9288>BALDIES</color> <color=#e0a526>{1}</color>",
+                ["HudCounterV3"] = "<size=11><color=#9a9288>ALOPECIA</color></size>  <color=#e0a526>{0}</color>\n<size=10><color=#d8d8d8>{1}</color></size>",
+                ["UnitRpFew"] = "{0} Noggin Points",
+                ["UnitCoinsFew"] = "{0} baldies",
+                ["Title_1"] = "Greasy Mop",
+                ["Title_1000"] = "Pathetic Mane",
+                ["Title_10000"] = "Receding Hairline",
+                ["Title_100000"] = "Exposed Crown",
+                ["Title_1000000"] = "Knight of the Tonsure",
+                ["Title_10000000"] = "Lord Billiard Ball",
+                ["Title_100000000"] = "His Baldest Majesty",
+                ["RevengeChat"] = "<color=#e0a526>FOLLICLE REVENGE</color>: {0} has paid {1} a return visit. Alopecia x{2}, with interest.",
+                ["RevengeTag"] = " [revenge x{0}]",
+                ["ConsolationKit"] = "<color=#e0a526>The National Hair Service takes pity on you:</color> there's a consolation kit in your inventory. Don't get used to it.",
+                ["DebugConsolationKit"] = "[debug] {0}: consolation kit",
+                ["DurationHoursMinutes"] = "{0}h {1}m",
+                ["CalvarioTabJobs"] = "JOBS",
+                ["BarberOptJobs"] = "Got any jobs for me?",
+                ["BarberJobsIntro"] = "Today's jobs. New ones in {0}: whatever you haven't collected by then is gone. And forget about a tip.",
+                ["BarberJobsNone"] = "Nothing for you today. Come back in {0}; maybe I'll remember your face by then.",
+                ["BarberJobClaim"] = "COLLECT: {0} (+{1})",
+                ["BarberJobClaimed"] = "{0}  [collected]",
+                ["BarberJobProgress"] = "{0}  ({1}/{2})  ·  {3}",
+                ["BarberJobPaid"] = "Here, {0}. And not a word to anyone.",
+                ["JobDone"] = "<color=#e0a526>Barber's job done:</color> {0}. Drop by the barbershop (<color=#e0a526>/peluqueria</color>) to collect {1}.",
+                ["JobsMenuHint"] = "Collected by talking to the Barber (<color=#e0a526>/peluqueria</color>). New jobs in {0}; whatever you haven't collected by then is gone.",
+                ["JobsMenuEmpty"] = "The Barber has no jobs today. Enjoy the dole.",
+                ["JobsMenuReward"] = "+{0}",
+                ["JobsMenuProgress"] = "{0} / {1}",
+                ["JobsMenuReady"] = "DONE: collect it from the Barber",
+                ["JobsMenuClaimed"] = "COLLECTED",
+                ["JobKillScientists"] = "Kill {0} scientists",
+                ["JobKillScientistsOne"] = "Kill a scientist",
+                ["JobKillScientistsAt"] = "Kill {0} scientists at {1}",
+                ["JobKillScientistsAtOne"] = "Kill a scientist at {1}",
+                ["JobBreakBarrels"] = "Break {0} barrels",
+                ["JobBreakBarrelsOne"] = "Break a barrel",
+                ["JobKillAnimals"] = "Kill {0} animals",
+                ["JobKillAnimalsOne"] = "Kill an animal",
+                ["JobRaidBase"] = "Raid {0} of Father Jano's Houses",
+                ["JobRaidBaseOne"] = "Raid one of Father Jano's Houses",
+                ["JobRaidBaseLevel"] = "Raid {0} of Father Jano's Houses (difficulty {1} or above)",
+                ["JobRaidBaseLevelOne"] = "Raid one of Father Jano's Houses (difficulty {1} or above)",
+                ["RaidDifficulty1"] = "medium",
+                ["RaidDifficulty2"] = "hard",
+                ["RaidDifficulty3"] = "expert",
+                ["RaidDifficulty4"] = "nightmare",
+                ["JobGather"] = "Gather {0} {1}",
+                ["Resource_wood"] = "wood",
+                ["Resource_stones"] = "stone",
+                ["Resource_metal.ore"] = "metal ore",
+                ["Resource_sulfur.ore"] = "sulfur ore",
+                ["JobSurvive"] = "Survive {0} minutes in a row on the move",
+                ["JobSurviveOne"] = "Survive one minute on the move",
+                ["DebugJobDone"] = "[debug] {0}: job '{1}' done",
+                ["DebugJobPaid"] = "[debug] {0}: job '{1}' collected ({2})",
+                ["BarberOptInsurance"] = "I want scalp insurance ({0})",
+                ["BarberInsuranceOffer"] = "Scalp insurance: {0} and your next death won't cost you a single hair. Small print: none.",
+                ["BarberInsuranceBuy"] = "DEAL",
+                ["BarberInsuranceDone"] = "Paid: {0}. Duct tape on: your next death won't cost you. Fully comprehensive, except for embarrassment.",
+                ["BarberInsuranceRepriced"] = "You've gained alopecia since I quoted you, so the insurance has gone up. Here's the new price.",
+                ["DebugInsurance"] = "[debug] {0}: scalp insurance ({1})"
+            };
+        }
+
+        // Russian (1.13.0): the same jokes, told in Russian. Names from Padre Jano's glossary (docs/TONO.md, "Otros idiomas").
+        // Counts go as "Бочки: 20" or with abbreviations (ОЧ, мин), so the noun never has to agree with the number, and the
+        // player is never told something in a gendered past tense.
+        private static Dictionary<string, string> RussianMessages()
+        {
+            return new Dictionary<string, string>
+            {
+                ["LanguageCode"] = "ru",
+                ["CalvarioTitle"] = "ЭЛЬ КАЛЬВАРИО",
+                ["BarberName"] = "БАРБЕР",
+                ["BarberOptExchangeV2"] = "Хочу продать (или купить) алопецию",
+                ["BarberExIntroV4"] = "Здесь алопецию покупают и продают. Продать дёшево, купить дорого: это бизнес, а не благотворительность.\nАлопеция: {0} · Очки Черепушки: {1} · Лысики: {2}.",
+                ["BarberExSellRpV4"] = "Продать алопецию за Очки Черепушки (1 ОЧ за каждые {0} алопеции)",
+                ["BarberExSellCoinsV5"] = "Продать алопецию за лысики (за каждые 1 000 алопеции лысиков: {0})",
+                ["BarberExBuyRpV6"] = "Купить алопецию за Очки Черепушки ({0} ОЧ за каждые 10 алопеции)",
+                ["BarberExBuyCoinsV5"] = "Купить алопецию за лысики (за каждые 10 алопеции лысиков: {0})",
+                ["BarberExClosedV3"] = "{0}  [закрыто: нет {1}. Приходи, когда шеф починит]",
+                ["BarberExPickAmount"] = "Сколько? Подумай хорошенько, а то потом будешь плакать.",
+                ["BarberExSellLineV2"] = "Отдать {0} алопеции и получить {1}",
+                ["BarberExBuyLineV2"] = "Заплатить {1} и получить {0} алопеции",
+                ["BarberExTooMuchV3"] = "{0}  [не по карману, бедолага]",
+                ["BarberExConfirmSellV2"] = "Точно меняешь {0} алопеции на {1}? Волосы же снова полезут, а это никакими деньгами не окупить.",
+                ["BarberExConfirmBuyV2"] = "Точно платишь {1} за {0} алопеции? Возврата нет, жалобной книги тоже.",
+                ["BarberExConfirm"] = "ПОДТВЕРДИТЬ",
+                ["BarberExCancel"] = "ПОДУМАЮ",
+                ["BarberExDoneSellV2"] = "Готово: -{0} алопеции и +{1}. Уже пушок пробивается, предатель.",
+                ["BarberExDoneBuyV2"] = "Готово: +{0} алопеции и -{1}. Сияешь, как свеженатёртый бильярдный шар.",
+                ["BarberExNotEnough"] = "Не хватает. Даже на бритьё в подворотне.",
+                ["BarberExFailed"] = "Что-то сломалось, ничего не тронуто. Попробуй ещё раз, у машинки бывают плохие дни.",
+                ["UnitRpV2"] = "{0} Очков Черепушки",
+                ["UnitRpOneV2"] = "{0} Очко Черепушки",
+                ["UnitCoinsV2"] = "{0} лысиков",
+                ["UnitCoinsOneV2"] = "{0} лысик",
+                ["TitleUpBanner"] = "{0} теперь {1}! Надевайте тёмные очки, слепит.",
+                ["TierPrizeV2"] = "<color=#e0a526>Награда за звание «{0}»:</color> {1}. За счёт заведения, у тебя ж даже на расчёску нет.",
+                ["TierPrizeItems"] = "<color=#e0a526>Награда за звание «{0}»:</color> уже в инвентаре (или под ногами, если не влезло). За счёт заведения.",
+                ["PrizeSpawned"] = "<color=#e0a526>Твоя награда припаркована прямо перед тобой.</color> Смотри вперёд, лобастый.",
+                ["PrizeSpawnFailed"] = "<color=#e0662f>То, что должно стоять перед тобой, здесь не помещается.</color> Попроси админа выдать вручную.",
+                ["TitleDropBanner"] = "{0} опускается до звания «{1}». Лысину уже не видно.",
+                ["DebugTierPrize"] = "[debug] {0}: награда за «{1}» · {2}",
+                ["ReasonExchange"] = "обмен в Эль Кальварио",
+                ["BarberGreetingV2_1"] = "Садись, волосатый. Что сегодня снимаем: волосы или достоинство?",
+                ["BarberGreetingV2_2"] = "Заходи, заходи. Эта грива сама себя не выдернет, а у меня поминутная оплата.",
+                ["BarberGreetingV2_3"] = "Опять ты. С каждым днём лба всё больше, а стыда всё меньше. Так держать.",
+                ["BarberOptItemsV3"] = "Принёс реликвию",
+                ["BarberOptCatalog"] = "Покажи каталог",
+                ["BarberOptCarne"] = "Хочу проштамповать Удостоверение Лысого",
+                ["BarberOptBye"] = "Ничего, просто смотрю",
+                ["BarberOptBack"] = "Назад",
+                ["BarberOptStamp"] = "Проштампуй, что есть",
+                ["BarberItemsIntroV3"] = "Ну-ка, что за реликвии у тебя в карманах. Бутерброд не считается.",
+                ["BarberItemsNoneV3"] = "У тебя ни одной реликвии. Возвращайся, когда кого-нибудь убьёшь, по-другому тут не растут.",
+                ["BarberItemLine"] = "{0} (у тебя {1}): {2}",
+                ["BarberTrophyUsedV2"] = "{0}: +{1}. На стену трофеев, рядом с паричком последнего смельчака.",
+                ["BarberCarneIntroV2"] = "Показывай удостоверение. Цветов со штампом: {0} из {1}. Заполненных удостоверений: {2}. Министерство не спешит, а я спешу.",
+                ["BarberCarneStamped"] = "Со штампом: {0}",
+                ["BarberCarneMissingV2"] = "Не хватает: {0}. Иди убивай, сами они не проштампуются.",
+                ["TagColorBlue"] = "синий",
+                ["TagColorGray"] = "серый",
+                ["TagColorGreen"] = "зелёный",
+                ["TagColorLavender"] = "лавандовый",
+                ["TagColorMint"] = "мятный",
+                ["TagColorOrange"] = "оранжевый",
+                ["TagColorPink"] = "розовый",
+                ["TagColorPurple"] = "фиолетовый",
+                ["TagColorRed"] = "красный",
+                ["TagColorWhite"] = "белый",
+                ["TagColorYellow"] = "жёлтый",
+                ["CalvarioSubtitleV2"] = "Клиника добровольной алопеции  ·  Входишь с волосами, выходишь с достоинством",
+                ["CalvarioYouV3"] = "Твоя алопеция: <color=#e0a526>{0}</color>  —  {1}",
+                ["CalvarioNextV3"] = "До звания «<color=#e0a526>{0}</color>» осталось {1}. Убивай дальше, само не облысеет.",
+                ["CalvarioTop"] = "Капиллярная вершина покорена. Выдёргивать больше нечего.",
+                ["CalvarioTabRankingV2"] = "РЕЙТИНГ",
+                ["CalvarioTabHall"] = "ЗАЛ СЛАВЫ",
+                ["CalvarioTabBounties"] = "ГОЛОВЫ",
+                ["CalvarioClose"] = "X",
+                ["CalvarioShieldOn"] = "Скотч наклеен. Твоя лысина переживёт следующую смерть.",
+                ["CalvarioBatteryOn"] = "Машинка жужжит: осталось {0} мин.",
+                ["CalvarioProverb1"] = "Бог создал мало идеальных голов. Остальные он прикрыл волосами.",
+                ["CalvarioProverb2"] = "Волосы временны. Лысина вечна.",
+                ["CalvarioProverb3"] = "Лучше знакомый лысый, чем незнакомый волосатый.",
+                ["CalvarioProverb4"] = "Голова блестит, голова рулит.",
+                ["CalvarioProverb5"] = "Это не лысина. Это солнечная батарея.",
+                ["CalvarioProverb7"] = "Лысину не теряют, её завоёвывают.",
+                ["CalvarioProverb8"] = "Шампунь от выпадения волос — волосатая пропаганда.",
+                ["CalvarioCarneHintV2"] = "По одной карточке каждого цвета: +{0} за штамп и +{1} за полное удостоверение. Дубли меняй во дворе.",
+                ["CalvarioRankingEmptyV2"] = "В рейтинге пока никого. Остров зарос волосами.",
+                ["CalvarioRankingLine"] = "{0}.  {1}",
+                ["CalvarioRankingYouV3"] = "Твоё место: <color=#e0a526>{0}</color> из {1}. Чтобы обогнать {3}, не хватает <color=#e0a526>{2}</color>. Давай, у него даже брови есть.",
+                ["CalvarioRankingFirstV2"] = "Ты самая блестящая голова острова. Остальные причёсываются, глядя в тебя, как в зеркало.",
+                ["CalvarioPrev"] = "< НАЗАД",
+                ["CalvarioNextPage"] = "ДАЛЬШЕ >",
+                ["CalvarioPage"] = "Страница {0}/{1}",
+                ["CalvarioItemBleach"] = "Отбеливатель",
+                ["CalvarioItemDuctTape"] = "Армированный скотч",
+                ["CalvarioItemBattery"] = "Маленькая батарейка",
+                ["CalvarioItemDogTag"] = "Жетон",
+                ["CalvarioItemBlueDogTags"] = "Синие жетоны",
+                ["CalvarioItemRedDogTags"] = "Красные жетоны",
+                ["CalvarioItemGems"] = "Самоцветы",
+                ["CalvarioItemIdTag"] = "ID-карточка",
+                ["CalvarioDescBleachV2"] = "Фирменный шампунь и единственная реликвия, которая может подвести. {0} %: обжигает кожу головы (+{1}). Иначе непокорная прядь (-{2}).",
+                ["CalvarioDescDuctTape"] = "Заплатка на лысину: если умрёшь, волосы даже не заметят. Один раз.",
+                ["CalvarioDescBattery"] = "Для машинки: x{0} ко всему, что заработаешь, на {1} мин. Ззззз.",
+                ["CalvarioDescDogTag"] = "Сувенир от учёного с чёлкой. +{0}.",
+                ["CalvarioDescBlueDogTags"] = "Сорваны с хеви с патлами до плеч. +{0}.",
+                ["CalvarioDescRedDogTags"] = "От пилота, который вместе с вертолётом лишился и чуба. +{0}.",
+                ["CalvarioDescGems"] = "Драгоценности короны Его Лысейшего Величества. Блестят, как твоя голова. +{0}.",
+                ["CatalogSection"] = "РЕЛИКВИИ",
+                ["CatalogIntro"] = "Все реликвии заведения. Серое у тебя с собой нет: смотреть бесплатно.",
+                ["CatalogBack"] = "НАЗАД К БАРБЕРУ",
+                ["CatalogHave"] = "С собой: {0}",
+                ["CatalogUse"] = "ИСПОЛЬЗОВАТЬ",
+                ["CatalogNone"] = "НЕТ С СОБОЙ",
+                ["CatalogWisdom"] = "ЛЫСАЯ МУДРОСТЬ",
+                ["CatalogCarneTitle"] = "УДОСТОВЕРЕНИЕ ЛЫСОГО  ·  Министерство Алопеции Острова   ({0}/{1})   ·   Заполнено: {2}",
+                ["CatalogCarneStamped"] = "ЕСТЬ",
+                ["CatalogCarneMissing"] = "НЕТ",
+                ["CatalogCarneDeliver"] = "ШТАМП",
+                ["CatalogCarneNone"] = "НЕЧЕГО ШТАМПОВАТЬ",
+                ["ItemFoundV4"] = "Находка: <color=#e0a526>{0}</color>. Отнеси в Эль Кальварио в парикмахерской (<color=#e0a526>/peluqueria</color>), в кармане от неё толку нет.",
+                ["CalvarioGoToBarberV3"] = "Реликвии используют в Эль Кальварио, в парикмахерской. Иди через <color=#e0a526>/peluqueria</color> и поговори с Барбером.",
+                ["ItemNoneV2"] = "С собой нет: {0}. Даже этого.",
+                ["ItemShieldAlready"] = "Твоя лысина уже заклеена скотчем. Сначала умри.",
+                ["ItemBatteryAlreadyV4"] = "Машинка уже работает (осталось {0} мин). Быстрее не поедет: это машинка, а не болид Формулы-1.",
+                ["ItemBleachWinV2"] = "Отбеливатель обжёг тебе кожу головы: +{0}. Щиплет, зато блестит.",
+                ["ItemBleachFail"] = "Отбеливатель оставил тебе непокорную прядь. Позор: -{0}.",
+                ["ItemShieldOnV2"] = "Лысина заклеена армированным скотчем. Следующая смерть ничего не отнимет. Не элегантно, зато работает.",
+                ["ItemShieldUsed"] = "Армированный скотч защитил твою лысину: эта смерть ничего не отнимает.",
+                ["ItemBatteryOnV2"] = "Машинка включена: x{0} на {1} мин. Ззззз.",
+                ["ItemBatteryOffV2"] = "У машинки села батарейка. Снова бреешься вручную, как беднота.",
+                ["CarneNothingV2"] = "У тебя нет карточек тех цветов, которых не хватает. Дубли отдай двоюродному брату.",
+                ["CarneDeliveredV2"] = "Сдано карточек: {0}, +{1}. Чиновник даже глаз не поднял.",
+                ["CarneCompletedV3"] = "<color=#e0a526>{0}</color> получает +{1} за полностью заполненное УДОСТОВЕРЕНИЕ ЛЫСОГО. Министерство Алопеции гордится. Мама не очень.",
+                ["ReasonItemUseV2"] = "реликвия: {0}",
+                ["ReasonCarne"] = "удостоверение лысого",
+                ["SupremeBaldnessV6"] = "<color=#e0a526>{0}: ВЫСШАЯ ЛЫСИНА ДОСТИГНУТА</color>. Про шампунь можно забыть.",
+                ["TitleUpV3"] = "<color=#e0a526>{0}</color> теперь <color=#e0a526>{1}</color>. Личный парикмахер уже ушёл на пособие.",
+                ["TitleDropV2"] = "<color=#e0662f>У {0} растут волосы</color> (теперь {1})",
+                ["NoPermissionV4"] = "У тебя нет прав на эту команду. Хорошая попытка, умник.",
+                ["AdminUsageV5"] = "Использование: /calvoadmin set <игрок> <значение> | /calvoadmin reset <игрок> | /calvoadmin debug on|off | /calvoadmin evento <hora|champu|peludo|alopecia|parar> | /calvoadmin salon guardar|cerrar [forzar]|borrar <n> | /calvoadmin cabeza quitar <игрок> | /calvoadmin calvodeldia ahora",
+                ["AdminInvalidValue"] = "Значение должно быть целым числом не меньше {0}.",
+                ["PlayerNotFound"] = "Игрок «{0}» не найден.",
+                ["PlayerAmbiguous"] = "Под «{1}» подходят несколько игроков ({0}). Уточни или используй SteamID.",
+                ["AdminSetV2"] = "Алопеция игрока {0}: {1}.",
+                ["AdminResetV2"] = "Алопеция игрока {0} сброшена до {1}.",
+                ["DebugOnV2"] = "Отладка включена: в чате будет каждое изменение алопеции и его причина.",
+                ["DebugOff"] = "Отладка выключена.",
+                ["DebugChange"] = "[debug] {0}: {1} → {2} ({3}{4}) · {5}",
+                ["DebugNoRewardV2"] = "[debug] {0}: без алопеции · {1}",
+                ["DebugRpV2"] = "[debug] {0}: +{1} ОЧ ({2})",
+                ["DebugNoRpV2"] = "[debug] {0}: без ОЧ · {1}",
+                ["NoRpAfk"] = "без движения (AFK)",
+                ["NoRpPlugin"] = "Server Rewards не загружен",
+                ["NoRpRefused"] = "Server Rewards отклонил выплату",
+                ["NoRpCapV2"] = "баланс Очков Черепушки упёрся в предел Server Rewards",
+                ["RpEarnedV5"] = "<color=#e0a526>Очки Черепушки: +{0}</color> за лысину уровня «<color=#e0a526>{1}</color>». Бери и молчи.",
+                ["ReasonPlayerKill"] = "убийство: {0}",
+                ["ReasonPlayerHeadshotKillV2"] = "под ноль хедшотом: {0}",
+                ["ReasonDeath"] = "смерть (-{0} %)",
+                ["ReasonHeadshotDeath"] = "смерть от хедшота (-{0} %)",
+                ["ReasonSurvival"] = "выживание",
+                ["ReasonNpcKill"] = "NPC {0} (T{1})",
+                ["ReasonEventParticipant"] = "событие {0} (T{1}), урон нанесён",
+                ["ReasonEventTeammate"] = "событие {0} (T{1}), союзник рядом",
+                ["ReasonAdmin"] = "админ",
+                ["NoRewardSleeperV2"] = "жертва спала или была офлайн ({0}). Очень смело, поздравляем.",
+                ["NoRewardCooldown"] = "кулдаун на {0}",
+                ["NoRewardNpcDisabled"] = "NPC {0} отключён в конфиге",
+                ["NoRewardNpcUnlisted"] = "NPC {0} нет в NpcTiers",
+                ["NoRewardTierMissing"] = "у NPC {0} (T{1}) нет значения в TierRewards",
+                ["NoRewardNpcDeath"] = "смерть от NPC (отключено в конфиге)",
+                ["EventNameBaldHourV3"] = "Час Лысины",
+                ["EventNameShampooRainV3"] = "Шампуневый дождь",
+                ["EventNameHairiestHuntV3"] = "Охота на волосатого",
+                ["EventNameBladeStormV3"] = "Вспышка алопеции",
+                ["EventTag"] = " [{0} x{1}]",
+                ["EventBaldHourStartV4"] = "<color=#e0a526>ЧАС ЛЫСИНЫ</color>: {0} мин всё даёт x{1} алопеции. Идите убивать, лоб сам себя не расчистит.",
+                ["EventBaldHourEndV2"] = "Час Лысины закончился. Лысеем снова по обычному тарифу.",
+                ["EventShampooRainStartV2"] = "<color=#e0662f>ШАМПУНЕВЫЙ ДОЖДЬ</color>: {0} мин смерть стоит x{1}. В такую погоду волосы прут как на дрожжах.",
+                ["EventShampooRainEndV2"] = "Дождь кончился. Можно спокойно помирать.",
+                ["EventHuntStartV4"] = "<color=#e0a526>ОХОТА НА ВОЛОСАТОГО</color>: {0} — самый волосатый на острове ({1}). Кто его убьёт, получит +{2}. Если продержится {3} мин, +{4} получит он сам. Вперёд, эта грива сама себя не подстрижёт.",
+                ["EventHuntKilledV4"] = "{0} снимает скальп с самого волосатого, {1}, и получает +{2}. Спасибо за неоценимую услугу обществу.",
+                ["EventHuntSurvivedV3"] = "{0} выходит из охоты со всеми волосами и получает +{1}. Мазилы.",
+                ["EventHuntDiedV4"] = "{0}, самый волосатый на острове, откинулся сам, без единого выстрела. Умер, как и жил: с волосами на лице и никому на фиг не нужный. Охота окончена.",
+                ["EventHuntEscapedV4"] = "{0} смылся с острова вместе со своей гривой, как крыса с нарощенными волосами. Вернётся, когда кончится бальзам. Охота окончена.",
+                ["EventBladeStormStartV4"] = "<color=#e0a526>ВСПЫШКА АЛОПЕЦИИ</color>: {0} мин вертолёт, Брэдли и Чинук дают x{1}. Под ноль.",
+                ["EventBladeStormEndV2"] = "Вспышка алопеции закончилась. Вертолёт снова платит как обычно, как бюджетник.",
+                ["EventStoppedByAdminV2"] = "Админ отменил событие «{0}». Жалобы — к его парикмахеру.",
+                ["ReasonHuntKillV2"] = "охота на волосатого ({0})",
+                ["ReasonHuntSurvived"] = "пережить охоту",
+                ["AdminEventUsageV3"] = "Использование: /calvoadmin evento <hora|champu|peludo|alopecia|parar>",
+                ["AdminEventBusy"] = "Уже идёт событие: {0}. Сначала останови его: /calvoadmin evento parar.",
+                ["AdminEventCannotStart"] = "Сейчас нельзя запустить «{0}» (мало игроков онлайн или отключено в конфиге?).",
+                ["AdminEventNone"] = "Сейчас никакого события нет.",
+                ["BatteryTag"] = " [батарейка x{0}]",
+                ["HallEmpty"] = "Ни одна карта ещё не закрыта. Первая попадёт сюда со следующим вайпом: полируй лоб.",
+                ["HallMapClosed"] = "Карта закрыта {0}",
+                ["HallNumber"] = "#{0}",
+                ["HallPodiumPlace"] = "{0}.  {1}",
+                ["HallTopKiller"] = "Больше всех убийств: <color=#e0a526>{0}</color> ({1})",
+                ["HallTopDeaths"] = "Больше всех смертей: <color=#e0662f>{0}</color> ({1}). С такой смертностью можно и косички отрастить.",
+                ["HallTopDeathsPlain"] = "Больше всех смертей: <color=#e0662f>{0}</color> ({1})",
+                ["HallSnapshot"] = "Снимок карты от {0}",
+                ["HallWipeWinner"] = "<color=#e0a526>{0}</color> забирает карту с алопецией <color=#e0a526>{1}</color> (пьедестал в Зале славы, <color=#e0a526>/calvos</color>). Державный лоб.",
+                ["AdminHallUsageV2"] = "Использование: /calvoadmin salon guardar | /calvoadmin salon cerrar [forzar] | /calvoadmin salon borrar <n>",
+                ["AdminHallCloseUsage"] = "Использование: isla.salon cerrar [forzar]",
+                ["AdminHallClosed"] = "Карта закрыта: запись #{0} сохранена в Зале славы. Убийства и смерти карты обнулены.",
+                ["AdminHallClosedEmpty"] = "Карта закрыта без записи в Зале славы (на этой карте никто не убивал и не умирал, или зал отключён). Убийства и смерти карты обнулены.",
+                ["AdminHallClosedReset"] = "Алопеция всех игроков обнулена (в конфиге включён сброс при вайпе).",
+                ["AdminHallCloseRecent"] = "Ничего не закрыто: карта уже закрыта {0} в {1}, меньше {2} ч назад. Чтобы закрыть снова, добавь 'forzar'.",
+                ["AdminHallSaved"] = "Запись #{0} сохранена в Зале славы.",
+                ["AdminHallNothing"] = "Ничего не сохранено: на этой карте ни у кого нет ни алопеции, ни убийств.",
+                ["AdminHallDeleted"] = "Запись #{0} ({1}) удалена из Зала славы.",
+                ["AdminHallNotFound"] = "В Зале славы нет записи #{0}.",
+                ["BountyUsage"] = "Использование: <color=#e0a526>/cabeza <игрок> <сумма></color> (минимум {0}). Поставленное не возвращается.",
+                ["BountyTooLow"] = "Минимум: {0}. За меньшее ему даже бакенбарды не подровняют.",
+                ["BountySelf"] = "Нельзя назначить цену за собственный скальп, сколько бы у тебя ни было лишних волос.",
+                ["BountyNoBalanceV2"] = "Не хватает: у тебя {0}. Столько злобы при таком балансе.",
+                ["BountyNotFound"] = "На острове никого не зовут «{0}». Чтобы ненавидеть, сначала выучи имя.",
+                ["BountyAmbiguous"] = "Игроков с «{1}» в имени: {0}. Пиши подробнее, это не лотерея.",
+                ["BountyClosed"] = "Награды за головы закрыты.",
+                ["BountyFailed"] = "Что-то пошло не так с Очками Черепушки, ничего не поставлено. Попробуй ещё раз.",
+                ["BountyPlaced"] = "<color=#e0a526>{0}</color> назначает <color=#e0a526>{1}</color> за скальп <color=#e0662f>{2}</color>. Кто убьёт, тот и заберёт. Разыскивается живым или лысым.",
+                ["BountyRaisedV2"] = "<color=#e0a526>{0}</color> добавляет <color=#e0a526>{1}</color> за скальп <color=#e0662f>{2}</color>: в банке уже <color=#e0a526>{3}</color>. Котировки растут.",
+                ["BountyClaimed"] = "<color=#e0a526>{0}</color> снимает скальп <color=#e0662f>{1}</color> и забирает <color=#e0a526>{2}</color>. Побрит и оплачен.",
+                ["BountyListEmpty"] = "Ни за один скальп ничего не назначено. Либо на острове мир, либо ни у кого нет ни одного Очка Черепушки.",
+                ["BountyPriceShort"] = "{0} ОЧ",
+                ["BountyMenuHint"] = "Назначай цену: <color=#e0a526>/cabeza <игрок> <сумма></color>. Заберёт тот, кто убьёт его в PvP. Поставленное не возвращается.",
+                ["BountyMenuYou"] = "За твой скальп дают <color=#e0662f>{0}</color>. С такой лысиной тебя видно с другого конца острова.",
+                ["DebugBountyNoClaim"] = "[debug] {0}: скальп {1} не забран · {2}",
+                ["NoBountyTeam"] = "из одной команды",
+                ["NoBountySleeper"] = "жертва спала или была офлайн",
+                ["AdminBountyUsage"] = "Использование: /calvoadmin cabeza quitar <игрок>",
+                ["AdminBountyRemoved"] = "Награда за скальп {0} отменена ({1}).",
+                ["AdminBountyNone"] = "За скальп {0} никто ничего не назначал.",
+                ["CalvoDelDiaName"] = "Лысый Дня",
+                ["CalvoDelDiaChatV3"] = "<color=#e0a526>{0}</color> — <color=#e0a526>ЛЫСЫЙ ДНЯ</color>: +{1} алопеции с прошлых выборов. До завтра обращаться только на «вы».",
+                ["CalvoDelDiaBannerV2"] = "{0} — ЛЫСЫЙ ДНЯ! Автографы раздаются на лысине.",
+                ["CalvoDelDiaMenu"] = "Лысый Дня: <color=#e0a526>{0}</color> (+{1})",
+                ["CalvoDelDiaPrize"] = "<color=#e0a526>Приз Лысому Дня:</color> {0}. Только не зазнавайся, наверху и так ничего не осталось.",
+                ["CalvoDelDiaPrizeItems"] = "<color=#e0a526>Приз Лысому Дня:</color> уже в инвентаре (или под ногами, если не влезло).",
+                ["AdminCalvoDelDiaUsage"] = "Использование: /calvoadmin calvodeldia ahora",
+                ["AdminCalvoDelDiaOff"] = "Лысый Дня отключён в конфиге.",
+                ["AdminCalvoDelDiaNone"] = "С прошлых выборов никто не набрал алопеции: Лысого Дня нет.",
+                ["HudWallet"] = "<color=#9a9288>ОЧ</color> <color=#e0a526>{0}</color>     <color=#9a9288>ЛЫСИКИ</color> <color=#e0a526>{1}</color>",
+                ["HudCounterV3"] = "<size=11><color=#9a9288>АЛОПЕЦИЯ</color></size>  <color=#e0a526>{0}</color>\n<size=10><color=#d8d8d8>{1}</color></size>",
+                ["UnitRpFew"] = "{0} Очка Черепушки",
+                ["UnitCoinsFew"] = "{0} лысика",
+                ["Title_1"] = "Грязные Патлы",
+                ["Title_1000"] = "Жалкая Шевелюра",
+                ["Title_10000"] = "Наметившиеся Залысины",
+                ["Title_100000"] = "Макушка Нараспашку",
+                ["Title_1000000"] = "Рыцарь Тонзуры",
+                ["Title_10000000"] = "Лорд Бильярдный Шар",
+                ["Title_100000000"] = "Его Лысейшее Величество",
+                ["RevengeChat"] = "<color=#e0a526>ЛЫСАЯ МЕСТЬ</color>: {0} наносит {1} ответный визит. Алопеция x{2}, с процентами.",
+                ["RevengeTag"] = " [месть x{0}]",
+                ["ConsolationKit"] = "<color=#e0a526>Лысый собес над тобой сжалился:</color> в инвентаре утешительный набор. Не привыкай.",
+                ["DebugConsolationKit"] = "[debug] {0}: утешительный набор",
+                ["DurationHoursMinutes"] = "{0} ч {1} мин",
+                ["CalvarioTabJobs"] = "ПОРУЧЕНИЯ",
+                ["BarberOptJobs"] = "Есть для меня поручения?",
+                ["BarberJobsIntro"] = "Поручения на сегодня. Новые через {0}: что не заберёшь до этого, сгорит. И на чаевые не рассчитывай.",
+                ["BarberJobsNone"] = "Сегодня для тебя ничего нет. Заходи через {0}, может, к тому времени вспомню, как ты выглядишь.",
+                ["BarberJobClaim"] = "ЗАБРАТЬ: {0} (+{1})",
+                ["BarberJobClaimed"] = "{0}  [получено]",
+                ["BarberJobProgress"] = "{0}  ({1}/{2})  ·  {3}",
+                ["BarberJobPaid"] = "Держи, {0}. И никому ни слова.",
+                ["JobDone"] = "<color=#e0a526>Поручение Барбера выполнено:</color> {0}. Загляни в парикмахерскую (<color=#e0a526>/peluqueria</color>) за наградой: {1}.",
+                ["JobsMenuHint"] = "Награду выдаёт Барбер (<color=#e0a526>/peluqueria</color>). Новые поручения через {0}; что не заберёшь до этого, сгорит.",
+                ["JobsMenuEmpty"] = "Сегодня у Барбера нет поручений. Наслаждайся безработицей.",
+                ["JobsMenuReward"] = "+{0}",
+                ["JobsMenuProgress"] = "{0} / {1}",
+                ["JobsMenuReady"] = "ГОТОВО: забери у Барбера",
+                ["JobsMenuClaimed"] = "ПОЛУЧЕНО",
+                ["JobKillScientists"] = "Убей учёных: {0}",
+                ["JobKillScientistsOne"] = "Убей учёного",
+                ["JobKillScientistsAt"] = "Убей учёных в локации {1}: {0}",
+                ["JobKillScientistsAtOne"] = "Убей учёного в локации {1}",
+                ["JobBreakBarrels"] = "Разбей бочки: {0}",
+                ["JobBreakBarrelsOne"] = "Разбей бочку",
+                ["JobKillAnimals"] = "Убей животных: {0}",
+                ["JobKillAnimalsOne"] = "Убей животное",
+                ["JobRaidBase"] = "Зачисти Дома Отца Яно: {0}",
+                ["JobRaidBaseOne"] = "Зачисти Дом Отца Яно",
+                ["JobRaidBaseLevel"] = "Зачисти Дома Отца Яно (сложность «{1}» или выше): {0}",
+                ["JobRaidBaseLevelOne"] = "Зачисти Дом Отца Яно (сложность «{1}» или выше)",
+                ["RaidDifficulty1"] = "средняя",
+                ["RaidDifficulty2"] = "сложная",
+                ["RaidDifficulty3"] = "эксперт",
+                ["RaidDifficulty4"] = "кошмар",
+                ["JobGather"] = "Добудь ресурс «{1}»: {0}",
+                ["Resource_wood"] = "дерево",
+                ["Resource_stones"] = "камень",
+                ["Resource_metal.ore"] = "металлическая руда",
+                ["Resource_sulfur.ore"] = "серная руда",
+                ["JobSurvive"] = "Продержись в движении и без смертей: {0} мин",
+                ["JobSurviveOne"] = "Продержись в движении и без смертей: 1 мин",
+                ["DebugJobDone"] = "[debug] {0}: поручение '{1}' выполнено",
+                ["DebugJobPaid"] = "[debug] {0}: поручение '{1}' оплачено ({2})",
+                ["BarberOptInsurance"] = "Хочу страховку лысины ({0})",
+                ["BarberInsuranceOffer"] = "Страховка лысины: {0}, и следующая смерть не будет стоить тебе ни волоска. Мелкий шрифт: отсутствует.",
+                ["BarberInsuranceBuy"] = "ПО РУКАМ",
+                ["BarberInsuranceDone"] = "Оплачено: {0}. Армированный скотч наклеен: следующая смерть ничего не отнимет. Полное каско, кроме позора.",
+                ["BarberInsuranceRepriced"] = "С тех пор как я назвал цену, у тебя прибавилось алопеции, и страховка подорожала. Вот новая цена.",
+                ["DebugInsurance"] = "[debug] {0}: страховка лысины ({1})"
+            };
+        }
+
+        // Text resolved in the language of whoever reads it (1.13.0). A broadcast, a banner or a debug line is built once
+        // and Lang resolves each Txt argument with the reader's id, so every player gets it in their own language.
+        private sealed class Txt
+        {
+            private readonly Func<string, string> resolve;
+
+            public Txt(Func<string, string> resolve)
+            {
+                this.resolve = resolve;
+            }
+
+            public string For(string userId) => resolve(userId);
+
+            // No reader (console, logs, JSON): Spanish.
+            public override string ToString() => resolve(null);
+
+            public static Txt operator +(Txt a, Txt b) => new Txt(id => a.For(id) + b.For(id));
+        }
+
+        private Txt T(string key, params object[] args) => new Txt(id => Lang(key, id, args));
+
+        private static Txt Plain(string text) => new Txt(id => text);
+
+        private Txt Num(long value) => new Txt(id => FormatBaldness(value, id));
+
+        private Txt Compact(long value) => new Txt(id => FormatCompact(value, id));
+
+        private Txt DateTxt(DateTime date) => new Txt(id => FormatDate(date, id));
+
+        private Txt UnitTxt(bool rp, long amount) => new Txt(id => UnitText(rp, amount, id));
+
+        private static Txt JoinTxt(string separator, IEnumerable<Txt> parts)
+        {
+            List<Txt> list = parts.ToList();
+            return new Txt(id => string.Join(separator, list.Select(p => p.For(id)).ToArray()));
+        }
+
+        // userId null = nobody reads it in game (console, RCON, JSON, logs): Spanish.
+        private string Message(string key, string userId) =>
+            userId == null ? lang.GetMessageByLanguage(key, this, ConsoleLanguage) : lang.GetMessage(key, this, userId);
 
         private string Lang(string key, string userId = null, params object[] args)
         {
-            string message = lang.GetMessage(key, this, userId);
+            string message = Message(key, userId);
             if (args.Length == 0)
             {
                 return message;
             }
 
+            var resolved = new object[args.Length];
+            for (int i = 0; i < args.Length; i++)
+            {
+                resolved[i] = args[i] is Txt txt ? txt.For(userId) : args[i];
+            }
+
             try
             {
-                return string.Format(message, args);
+                return string.Format(message, resolved);
             }
             catch (FormatException)
             {
@@ -1423,52 +2458,155 @@ namespace Oxide.Plugins
         private void Reply(BasePlayer player, string key, params object[] args) =>
             SendChat(player, Lang(key, player.UserIDString, args));
 
-        // Oxide.Rust's chat helpers pass this SteamID to "chat.add", and the client draws that account's avatar.
-        private void Broadcast(string key, params object[] args) => Server.Broadcast(Lang(key, null, args), config.ChatIconSteamId);
+        // Messages for everyone go player by player, each in their own language (since 1.13.0).
+        private void Broadcast(string key, params object[] args)
+        {
+            foreach (BasePlayer player in BasePlayer.activePlayerList)
+            {
+                if (IsRealPlayer(player) && player.IsConnected)
+                {
+                    Reply(player, key, args);
+                }
+            }
+        }
 
+        // Oxide.Rust's chat helpers pass this SteamID to "chat.add", and the client draws that account's avatar.
         private void SendChat(BasePlayer player, string message) => Player.Message(player, message, config.ChatIconSteamId);
 
-        // Spanish-style thousands separator (1.000.000), built by hand so it does not depend on the server's cultures.
-        private static readonly NumberFormatInfo BaldnessFormat = new NumberFormatInfo { NumberGroupSeparator = ".", NumberGroupSizes = new[] { 3 } };
+        // The "LanguageCode" text of the lang file the player actually reads: "es", "en" or "ru". Numbers, dates, plurals and
+        // the per-language texts of the config follow it, so they always match the language of the text around them.
+        private string TextLanguage(string userId)
+        {
+            string code = Message("LanguageCode", userId);
+            return code == "en" || code == "ru" ? code : "es";
+        }
 
-        private static string FormatBaldness(long value) => value.ToString("#,0", BaldnessFormat);
+        // Thousands separators built by hand, so they do not depend on the server's cultures: 1.000.000 (Spanish),
+        // 1,000,000 (English) and 1 000 000 (Russian).
+        private static readonly NumberFormatInfo SpanishNumbers = new NumberFormatInfo { NumberGroupSeparator = ".", NumberGroupSizes = new[] { 3 } };
+        private static readonly NumberFormatInfo EnglishNumbers = new NumberFormatInfo { NumberGroupSeparator = ",", NumberGroupSizes = new[] { 3 } };
+        private static readonly NumberFormatInfo RussianNumbers = new NumberFormatInfo { NumberGroupSeparator = " ", NumberGroupSizes = new[] { 3 } };
 
-        // Short form for narrow spots (counter, +X/-X popup, ranking): full number below a thousand million,
-        // then M (10^6), B (10^12) or T (10^18) with one decimal, truncated so it never shows more than there is.
-        private static string FormatCompact(long value)
+        private static NumberFormatInfo NumbersOf(string language) => language == "en" ? EnglishNumbers : language == "ru" ? RussianNumbers : SpanishNumbers;
+
+        private string FormatBaldness(long value, string userId) => value.ToString("#,0", NumbersOf(TextLanguage(userId)));
+
+        // Units of the short forms, biggest first: unit and what goes after the number.
+        private static readonly KeyValuePair<ulong, string>[] SpanishCompactUnits =
+        {
+            new KeyValuePair<ulong, string>(1000000000000000000UL, " T"), new KeyValuePair<ulong, string>(1000000000000UL, " B"),
+            new KeyValuePair<ulong, string>(1000000UL, " M")
+        };
+
+        private static readonly KeyValuePair<ulong, string>[] EnglishCompactUnits =
+        {
+            new KeyValuePair<ulong, string>(1000000000000000000UL, "Qi"), new KeyValuePair<ulong, string>(1000000000000000UL, "Qa"),
+            new KeyValuePair<ulong, string>(1000000000000UL, "T"), new KeyValuePair<ulong, string>(1000000000UL, "B")
+        };
+
+        private static readonly KeyValuePair<ulong, string>[] RussianCompactUnits =
+        {
+            new KeyValuePair<ulong, string>(1000000000000000000UL, " квинтлн"), new KeyValuePair<ulong, string>(1000000000000000UL, " квадрлн"),
+            new KeyValuePair<ulong, string>(1000000000000UL, " трлн"), new KeyValuePair<ulong, string>(1000000000UL, " млрд")
+        };
+
+        private static readonly KeyValuePair<ulong, string>[] SpanishWalletUnits =
+        {
+            new KeyValuePair<ulong, string>(1000000000UL, " mil M"), new KeyValuePair<ulong, string>(1000000UL, " M")
+        };
+
+        private static readonly KeyValuePair<ulong, string>[] EnglishWalletUnits =
+        {
+            new KeyValuePair<ulong, string>(1000000000UL, "B"), new KeyValuePair<ulong, string>(1000000UL, "M")
+        };
+
+        private static readonly KeyValuePair<ulong, string>[] RussianWalletUnits =
+        {
+            new KeyValuePair<ulong, string>(1000000000UL, " млрд"), new KeyValuePair<ulong, string>(1000000UL, " млн")
+        };
+
+        // Short form for narrow spots (counter, +X/-X popup, ranking): the full number below a thousand million, then one
+        // decimal, truncated so it never shows more than there is. Spanish: M (10^6), B (10^12, billón) and T (10^18);
+        // English: B, T, Qa and Qi (short scale); Russian: млрд, трлн, квадрлн and квинтлн.
+        private string FormatCompact(long value, string userId)
         {
             if (value > -1000000000L && value < 1000000000L)
             {
-                return FormatBaldness(value);
+                return FormatBaldness(value, userId);
             }
 
-            string sign = value < 0 ? "-" : string.Empty;
-            ulong magnitude = value < 0 ? (ulong)(-(value + 1)) + 1UL : (ulong)value;
-            ulong unit = magnitude >= 1000000000000000000UL ? 1000000000000000000UL : magnitude >= 1000000000000UL ? 1000000000000UL : 1000000UL;
-            string suffix = unit == 1000000000000000000UL ? "T" : unit == 1000000000000UL ? "B" : "M";
-            ulong whole = magnitude / unit;
-            ulong tenth = magnitude % unit / (unit / 10);
-            string number = whole.ToString("#,0", BaldnessFormat) + (tenth > 0 ? "," + tenth.ToString(CultureInfo.InvariantCulture) : string.Empty);
-            return sign + number + " " + suffix;
+            string language = TextLanguage(userId);
+            return Shorten(value, language, language == "en" ? EnglishCompactUnits : language == "ru" ? RussianCompactUnits : SpanishCompactUnits);
         }
 
-        // Wallet figures: full number below a million, then "12,3 M" and, from a thousand million, "1,5 mil M"
-        // (one decimal, truncated like FormatCompact).
-        private static string FormatWallet(long value)
+        // Wallet figures: the full number below a million, then "12,3 M" / "12.3M" / "12,3 млн" and, from a thousand million,
+        // "1,5 mil M" / "1.5B" / "1,5 млрд" (one decimal, truncated like FormatCompact).
+        private string FormatWallet(long value, string userId)
         {
             if (value > -1000000L && value < 1000000L)
             {
-                return FormatBaldness(value);
+                return FormatBaldness(value, userId);
             }
 
+            string language = TextLanguage(userId);
+            return Shorten(value, language, language == "en" ? EnglishWalletUnits : language == "ru" ? RussianWalletUnits : SpanishWalletUnits);
+        }
+
+        private static string Shorten(long value, string language, KeyValuePair<ulong, string>[] units)
+        {
             string sign = value < 0 ? "-" : string.Empty;
             ulong magnitude = value < 0 ? (ulong)(-(value + 1)) + 1UL : (ulong)value;
-            bool thousandMillions = magnitude >= 1000000000UL;
-            ulong unit = thousandMillions ? 1000000000UL : 1000000UL;
-            ulong whole = magnitude / unit;
-            ulong tenth = magnitude % unit / (unit / 10);
-            string number = whole.ToString("#,0", BaldnessFormat) + (tenth > 0 ? "," + tenth.ToString(CultureInfo.InvariantCulture) : string.Empty);
-            return sign + number + (thousandMillions ? " mil M" : " M");
+            KeyValuePair<ulong, string> unit = units.FirstOrDefault(u => magnitude >= u.Key);
+            if (unit.Key == 0)
+            {
+                unit = units[units.Length - 1];
+            }
+
+            ulong whole = magnitude / unit.Key;
+            ulong tenth = magnitude % unit.Key / (unit.Key / 10);
+            string decimalSeparator = language == "en" ? "." : ",";
+            string number = whole.ToString("#,0", NumbersOf(language)) + (tenth > 0 ? decimalSeparator + tenth.ToString(CultureInfo.InvariantCulture) : string.Empty);
+            return sign + number + unit.Value;
+        }
+
+        // 04/10/2026 (Spanish), 4 Oct 2026 (English) and 04.10.2026 (Russian).
+        private string FormatDate(DateTime date, string userId)
+        {
+            string language = TextLanguage(userId);
+            string format = language == "en" ? "d MMM yyyy" : language == "ru" ? "dd.MM.yyyy" : "dd/MM/yyyy";
+            return date.ToString(format, CultureInfo.InvariantCulture);
+        }
+
+        // "1 Punto de Chola" / "2 Puntos de Chola"; Russian has three forms (1 очко, 2 очка, 5 очков), hence the "Few" keys.
+        private string UnitText(bool rp, long amount, string userId)
+        {
+            string form = PluralForm(amount, TextLanguage(userId));
+            string key = rp
+                ? (form == "One" ? "UnitRpOneV2" : form == "Few" ? "UnitRpFew" : "UnitRpV2")
+                : (form == "One" ? "UnitCoinsOneV2" : form == "Few" ? "UnitCoinsFew" : "UnitCoinsV2");
+            return Lang(key, userId, Num(amount));
+        }
+
+        // Russian: 1, 21, 31... "One"; 2-4, 22-24... "Few" (but 12-14 are "Other"); the rest "Other". Elsewhere only 1 is "One".
+        private static string PluralForm(long amount, string language)
+        {
+            if (language != "ru")
+            {
+                return amount == 1 ? "One" : "Other";
+            }
+
+            long lastTwo = Math.Abs(amount % 100);
+            long last = lastTwo % 10;
+            if (last == 1 && lastTwo != 11) return "One";
+            if (last >= 2 && last <= 4 && (lastTwo < 12 || lastTwo > 14)) return "Few";
+            return "Other";
+        }
+
+        // The config text in the reader's language: the "other languages" entry for their language code, or the Spanish one.
+        private string ConfigText(string spanish, Dictionary<string, string> others, string userId)
+        {
+            string language = TextLanguage(userId);
+            return language != "es" && others != null && others.TryGetValue(language, out string text) && !string.IsNullOrEmpty(text) ? text : spanish ?? string.Empty;
         }
 
         // Baldness is a long; these keep huge values at long.MaxValue instead of wrapping to negative.
@@ -1538,6 +2676,7 @@ namespace Oxide.Plugins
 
             ValidateCursedItemNames();
             CheckServerRewardsPatch(ServerRewards);
+            LoadMonuments();
 
             if (config.SyncTitleGroups)
             {
@@ -1695,22 +2834,29 @@ namespace Oxide.Plugins
             victimData.WipeDeaths++;
             victimData.SurvivalSeconds = 0f;
             victimData.SurvivalMoved = false;
+            surviveStreaks.Remove(victimId);
             dataDirty = true;
+
+            // Suicide (the player is their own killer) does not count for the consolation kit.
+            if (killer != victim)
+            {
+                CountDeathForKit(victimData);
+            }
 
             if (victimData.HasDeathShield)
             {
                 victimData.HasDeathShield = false;
                 Reply(victim, "ItemShieldUsed");
-                DebugNoReward(victimData, Lang("ItemShieldUsed"));
+                DebugNoReward(victimData, T("ItemShieldUsed"));
             }
             else if (!config.NpcDeathsLowerBaldness && IsKilledByNpc(info, killer))
             {
-                DebugNoReward(victimData, Lang("NoRewardNpcDeath"));
+                DebugNoReward(victimData, T("NoRewardNpcDeath"));
             }
             else
             {
                 int percent = config.DeathPenaltyPercent;
-                string eventTag = string.Empty;
+                Txt eventTag = Plain(string.Empty);
                 if (activeEvent == GlobalEvent.ShampooRain)
                 {
                     percent *= config.GlobalEvents.ShampooRain.Multiplier;
@@ -1718,10 +2864,10 @@ namespace Oxide.Plugins
                 }
 
                 percent = Math.Min(100, percent);
-                string reason = Lang(headshot ? "ReasonHeadshotDeath" : "ReasonDeath", null, percent) + eventTag;
+                Txt deathReason = T(headshot ? "ReasonHeadshotDeath" : "ReasonDeath", percent) + eventTag;
                 long penalty = (long)Math.Ceiling(victimData.Baldness * percent / 100.0);
 
-                ChangeBaldness(victimData, -penalty, true, reason);
+                ChangeBaldness(victimData, -penalty, true, deathReason);
             }
 
             if (activeEvent == GlobalEvent.HairiestHunt && victimId == huntTargetId)
@@ -1748,13 +2894,108 @@ namespace Oxide.Plugins
             // Independent of the kill cooldown: a bounty is paid once and then it is gone.
             TryClaimBounty(killer, killerData, victim, victimData);
 
-            if (!IsKillRewardable(killerData, (ulong)killer.userID, victim, victimData.Name))
+            // Did the victim kill this killer in the last minutes? Checked before the new grudge: the victim now owes one too.
+            ulong killerId = (ulong)killer.userID;
+            bool revenge = HasGrudge(killerId, victimId);
+            RecordGrudge(victimId, killerId);
+
+            if (!IsKillRewardable(killerData, killerId, victim, victimData.Name))
             {
                 return;
             }
 
-            GainBaldness(killerData, headshot ? config.HeadshotKillReward : config.KillReward,
-                Lang(headshot ? "ReasonPlayerHeadshotKillV2" : "ReasonPlayerKill", null, victimData.Name));
+            long reward = headshot ? config.HeadshotKillReward : config.KillReward;
+            Txt reason = T(headshot ? "ReasonPlayerHeadshotKillV2" : "ReasonPlayerKill", victimData.Name);
+            if (revenge && reward > 0)
+            {
+                // One revenge per grudge: it is spent here.
+                grudges[killerId].Remove(victimId);
+                int multiplier = config.Revenge.Multiplier;
+                reward = SaturatingMultiply(reward, multiplier);
+                reason += T("RevengeTag", multiplier);
+                Broadcast("RevengeChat", killerData.Name, victimData.Name, multiplier);
+            }
+
+            GainBaldness(killerData, reward, reason);
+        }
+
+        // Hair revenge: true if victimOf was killed by killerOf within the window and has not taken revenge yet.
+        private bool HasGrudge(ulong victimOf, ulong killerOf)
+        {
+            return config.Revenge.Enabled && grudges.TryGetValue(victimOf, out Dictionary<ulong, DateTime> killers)
+                && killers.TryGetValue(killerOf, out DateTime when) && (DateTime.UtcNow - when).TotalMinutes <= config.Revenge.WindowMinutes;
+        }
+
+        // Only the last kill of each pair counts. Old grudges of that victim are dropped on the way.
+        private void RecordGrudge(ulong victimId, ulong killerId)
+        {
+            if (!config.Revenge.Enabled)
+            {
+                return;
+            }
+
+            if (!grudges.TryGetValue(victimId, out Dictionary<ulong, DateTime> killers))
+            {
+                killers = new Dictionary<ulong, DateTime>();
+                grudges[victimId] = killers;
+            }
+
+            DateTime now = DateTime.UtcNow;
+            foreach (ulong old in killers.Where(k => (now - k.Value).TotalMinutes > config.Revenge.WindowMinutes).Select(k => k.Key).ToList())
+            {
+                killers.Remove(old);
+            }
+
+            killers[killerId] = now;
+        }
+
+        // Consolation kit: the death that makes "Deaths" within the window earns a kit for the next respawn, at most one every
+        // "At most one kit every" minutes. The deaths that earned it start over.
+        private void CountDeathForKit(PlayerData data)
+        {
+            ConsolationKitConfig kit = config.ConsolationKit;
+            if (!kit.Enabled || kit.Items.Count == 0 || pendingKits.Contains(data.Id))
+            {
+                return;
+            }
+
+            DateTime now = DateTime.UtcNow;
+            if (!recentDeaths.TryGetValue(data.Id, out List<DateTime> deaths))
+            {
+                deaths = new List<DateTime>();
+                recentDeaths[data.Id] = deaths;
+            }
+
+            deaths.Add(now);
+            deaths.RemoveAll(d => (now - d).TotalMinutes > kit.WindowMinutes);
+            if (deaths.Count < kit.Deaths || (data.LastConsolationKit != default(DateTime) && (now - data.LastConsolationKit).TotalMinutes < kit.CooldownMinutes))
+            {
+                return;
+            }
+
+            recentDeaths.Remove(data.Id);
+            pendingKits.Add(data.Id);
+        }
+
+        // On respawn (waking up alive): the items straight to the inventory, with no "SERVER gave you" notice, and our message.
+        private void GiveConsolationKit(BasePlayer player)
+        {
+            ulong id = (ulong)player.userID;
+            if (player.IsDead() || !pendingKits.Remove(id))
+            {
+                return;
+            }
+
+            PlayerData data = GetOrCreateData(player);
+            data.LastConsolationKit = DateTime.UtcNow;
+            dataDirty = true;
+            foreach (PrizeItem item in config.ConsolationKit.Items)
+            {
+                GiveItem(player, item.Shortname, item.Amount, false);
+            }
+
+            Reply(player, "ConsolationKit");
+            SendDebug("DebugConsolationKit", data.Name);
         }
 
         #endregion
@@ -1792,7 +3033,20 @@ namespace Oxide.Plugins
             if (asBaseEntity is LootContainer && prefab.IndexOf("barrel", StringComparison.OrdinalIgnoreCase) >= 0)
             {
                 RollBarrelDrops(killer);
+                AddJobProgress(killer, JobType.BreakBarrels, 1);
                 return;
+            }
+
+            // Barber's jobs count every scientist and animal, whether or not it gives alopecia. Scientists are NPC players
+            // ("scientist" in the prefab: scientistnpc_*, scientist2*); the turrets (sentry.scientist.*) are not players.
+            if (entityPlayer != null && prefab.IndexOf("scientist", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                Vector3 where = entity.transform.position;
+                AddJobProgress(killer, JobType.KillScientists, 1, job => string.IsNullOrEmpty(job.Monument) || IsInMonument(where, job.Monument));
+            }
+            else if (animalPrefabs.Contains(prefab))
+            {
+                AddJobProgress(killer, JobType.KillAnimals, 1);
             }
 
             if (!npcTiers.ContainsKey(prefab) && !IsPossibleNpc(entity))
@@ -1801,13 +3055,13 @@ namespace Oxide.Plugins
             }
 
             PlayerData killerData = GetOrCreateData(killer);
-            if (!TryGetNpcReward(prefab, out int tier, out long reward, out string whyNot))
+            if (!TryGetNpcReward(prefab, out int tier, out long reward, out Txt whyNot))
             {
                 DebugNoReward(killerData, whyNot);
                 return;
             }
 
-            GainBaldness(killerData, reward, Lang("ReasonNpcKill", null, prefab, tier));
+            GainBaldness(killerData, reward, T("ReasonNpcKill", prefab, tier));
             RollNpcDrops(killer, tier);
         }
 
@@ -1830,7 +3084,7 @@ namespace Oxide.Plugins
 
         private class RewardEvent
         {
-            public string Label;
+            public Txt Label;
             public int Tier;
             public long Amount;
             public Vector3 Position;
@@ -1914,7 +3168,7 @@ namespace Oxide.Plugins
 
             activeEvents.Remove(target);
             string prefab = target.ShortPrefabName;
-            if (!TryGetNpcReward(prefab, out int tier, out long reward, out string whyNot))
+            if (!TryGetNpcReward(prefab, out int tier, out long reward, out Txt whyNot))
             {
                 foreach (ulong id in state.Participants)
                 {
@@ -1927,15 +3181,16 @@ namespace Oxide.Plugins
                 return;
             }
 
+            Txt label = Plain(prefab);
             if (activeEvent == GlobalEvent.BladeStorm)
             {
                 reward = SaturatingMultiply(reward, config.GlobalEvents.BladeStorm.Multiplier);
-                prefab += EventTag(GlobalEvent.BladeStorm, config.GlobalEvents.BladeStorm.Multiplier);
+                label += EventTag(GlobalEvent.BladeStorm, config.GlobalEvents.BladeStorm.Multiplier);
             }
 
             PayEventReward(new RewardEvent
             {
-                Label = prefab,
+                Label = label,
                 Tier = tier,
                 Amount = reward,
                 Position = target.transform.position,
@@ -1967,7 +3222,7 @@ namespace Oxide.Plugins
                 if (paid.Add(id) && storedData.Players.TryGetValue(id, out PlayerData data))
                 {
                     GainBaldness(data, rewardEvent.Amount,
-                        Lang("ReasonEventParticipant", null, rewardEvent.Label, rewardEvent.Tier));
+                        T("ReasonEventParticipant", rewardEvent.Label, rewardEvent.Tier));
                 }
             }
 
@@ -1976,7 +3231,7 @@ namespace Oxide.Plugins
                 if (paid.Add((ulong)mate.userID))
                 {
                     GainBaldness(GetOrCreateData(mate), rewardEvent.Amount,
-                        Lang("ReasonEventTeammate", null, rewardEvent.Label, rewardEvent.Tier));
+                        T("ReasonEventTeammate", rewardEvent.Label, rewardEvent.Tier));
                 }
             }
         }
@@ -2105,11 +3360,11 @@ namespace Oxide.Plugins
 
             if (total > amount)
             {
-                Broadcast("BountyRaisedV2", placer.Name, UnitText(true, amount, null), target.Name, UnitText(true, total, null));
+                Broadcast("BountyRaisedV2", placer.Name, UnitTxt(true, amount), target.Name, UnitTxt(true, total));
             }
             else
             {
-                Broadcast("BountyPlaced", placer.Name, UnitText(true, amount, null), target.Name);
+                Broadcast("BountyPlaced", placer.Name, UnitTxt(true, amount), target.Name);
             }
 
             Interface.CallHook("OnIslaBountyPlaced", placer.Id, placer.Name ?? string.Empty, target.Id, target.Name ?? string.Empty, amount, total);
@@ -2184,7 +3439,7 @@ namespace Oxide.Plugins
             {
                 if (args.Length < 3 || !long.TryParse(args[2].Replace(".", string.Empty), NumberStyles.Integer, CultureInfo.InvariantCulture, out value) || value < MinBaldness)
                 {
-                    Reply(player, "AdminInvalidValue", FormatBaldness(MinBaldness));
+                    Reply(player, "AdminInvalidValue", Num(MinBaldness));
                     return;
                 }
             }
@@ -2215,9 +3470,9 @@ namespace Oxide.Plugins
 
             // Admin changes are silent: no global announcements. Nor do they count for the Calvo del Día.
             long before = target.Baldness;
-            ChangeBaldness(target, value - target.Baldness, false, Lang("ReasonAdmin"));
+            ChangeBaldness(target, value - target.Baldness, false, T("ReasonAdmin"));
             ExcludeFromCalvoDelDia(target, before);
-            Reply(player, action == "set" ? "AdminSetV2" : "AdminResetV2", target.Name, FormatBaldness(target.Baldness));
+            Reply(player, action == "set" ? "AdminSetV2" : "AdminResetV2", target.Name, Num(target.Baldness));
             Puts($"{player.displayName} ({player.UserIDString}) {action} baldness of {target.Name} ({matches[0].Key}) to {target.Baldness}.");
         }
 
@@ -2305,7 +3560,7 @@ namespace Oxide.Plugins
                     }
 
                     dataDirty = true;
-                    Reply(player, "AdminHallDeleted", number, FormatDate(entry.Date));
+                    Reply(player, "AdminHallDeleted", number, DateTxt(entry.Date));
                     Puts($"{player.displayName} ({player.UserIDString}) deleted hall of fame entry #{number}.");
                     return;
                 default:
@@ -2397,7 +3652,7 @@ namespace Oxide.Plugins
             bool force = args.Length == 2 && args[1].ToLowerInvariant() == "forzar";
             if (args.Length == 0 || args.Length > 2 || args[0].ToLowerInvariant() != "cerrar" || (args.Length == 2 && !force))
             {
-                arg.ReplyWith(Lang("AdminHallCloseUsage"));
+                arg.ReplyWith(Lang("AdminHallCloseUsage", null));
                 return;
             }
 
@@ -2543,7 +3798,7 @@ namespace Oxide.Plugins
             else
             {
                 json["active"] = activeEvent.ToString();
-                json["name"] = EventName(activeEvent);
+                json["name"] = EventName(activeEvent).ToString();
                 json["endsAt"] = IsoUtc(eventEndsUtc);
                 json["target"] = activeEvent == GlobalEvent.HairiestHunt && huntTargetId != 0 ? StoredName(huntTargetId) : null;
             }
@@ -2581,6 +3836,8 @@ namespace Oxide.Plugins
                 calvarioNpcInUse.Remove((ulong)player.userID);
                 pendingExchanges.Remove((ulong)player.userID);
                 walletTexts.Remove((ulong)player.userID);
+                insuranceQuotes.Remove((ulong)player.userID);
+                surviveStreaks.Remove((ulong)player.userID);
             }
 
             if (activeEvent == GlobalEvent.HairiestHunt && player != null && (ulong)player.userID == huntTargetId)
@@ -2645,7 +3902,7 @@ namespace Oxide.Plugins
                     BasePlayer target = hairiest[random.Next(hairiest.Count)];
                     huntTargetId = (ulong)target.userID;
                     minutes = hunt.DurationMinutes;
-                    BroadcastEvent("EventHuntStartV4", target.displayName, FormatBaldness(lowest), FormatBaldness(hunt.KillerBonus), minutes, FormatBaldness(hunt.SurvivorBonus));
+                    BroadcastEvent("EventHuntStartV4", target.displayName, Num(lowest), Num(hunt.KillerBonus), minutes, Num(hunt.SurvivorBonus));
                     break;
                 case GlobalEvent.BladeStorm:
                     if (!events.BladeStorm.Enabled) return false;
@@ -2690,8 +3947,8 @@ namespace Oxide.Plugins
                         if (storedData.Players.TryGetValue(huntTargetId, out PlayerData target))
                         {
                             long bonus = config.GlobalEvents.HairiestHunt.SurvivorBonus;
-                            BroadcastEvent("EventHuntSurvivedV3", target.Name, FormatBaldness(bonus));
-                            ChangeBaldness(target, bonus, true, Lang("ReasonHuntSurvived"));
+                            BroadcastEvent("EventHuntSurvivedV3", target.Name, Num(bonus));
+                            ChangeBaldness(target, bonus, true, T("ReasonHuntSurvived"));
                             CallHuntEnded(huntTargetId, target.Name, "survived", null);
                         }
 
@@ -2717,8 +3974,8 @@ namespace Oxide.Plugins
             {
                 long bonus = config.GlobalEvents.HairiestHunt.KillerBonus;
                 PlayerData killerData = GetOrCreateData(killer);
-                BroadcastEvent("EventHuntKilledV4", killerData.Name, targetData.Name, FormatBaldness(bonus));
-                ChangeBaldness(killerData, bonus, true, Lang("ReasonHuntKillV2", null, targetData.Name));
+                BroadcastEvent("EventHuntKilledV4", killerData.Name, targetData.Name, Num(bonus));
+                ChangeBaldness(killerData, bonus, true, T("ReasonHuntKillV2", targetData.Name));
                 CallHuntEnded(targetData.Id, targetData.Name, "killed", killerData.Name);
             }
 
@@ -2775,16 +4032,16 @@ namespace Oxide.Plugins
             }
         }
 
-        private string EventName(GlobalEvent globalEvent) => Lang("EventName" + globalEvent + "V3");
+        private Txt EventName(GlobalEvent globalEvent) => T("EventName" + globalEvent + "V3");
 
-        private string EventTag(GlobalEvent globalEvent, int multiplier) => Lang("EventTag", null, EventName(globalEvent), multiplier);
+        private Txt EventTag(GlobalEvent globalEvent, int multiplier) => T("EventTag", EventName(globalEvent), multiplier);
 
         // Real players who are connected, alive and awake.
         private static List<BasePlayer> GetActivePlayers() =>
             BasePlayer.activePlayerList.Where(p => IsRealPlayer(p) && p.IsConnected && !p.IsDead() && !p.IsSleeping()).ToList();
 
         // Every baldness gain from gameplay goes through here so the Bald hour can multiply it.
-        private void GainBaldness(PlayerData data, long amount, string reason)
+        private void GainBaldness(PlayerData data, long amount, Txt reason)
         {
             if (activeEvent == GlobalEvent.BaldHour)
             {
@@ -2795,7 +4052,7 @@ namespace Oxide.Plugins
             if (IsBatteryActive(data.Id))
             {
                 amount = SaturatingMultiply(amount, config.CursedItems.Battery.Multiplier);
-                reason += Lang("BatteryTag", null, config.CursedItems.Battery.Multiplier);
+                reason += T("BatteryTag", config.CursedItems.Battery.Multiplier);
             }
 
             ChangeBaldness(data, amount, true, reason);
@@ -2824,6 +4081,7 @@ namespace Oxide.Plugins
             {
                 DrawCounter(player);
                 AnnounceWipeWinner(player);
+                GiveConsolationKit(player);
             }
         }
 
@@ -2846,7 +4104,7 @@ namespace Oxide.Plugins
             {
                 Text =
                 {
-                    Text = Lang("HudCounterV3", player.UserIDString, FormatCompact(data.Baldness), GetTitle(data.Baldness)),
+                    Text = Lang("HudCounterV3", player.UserIDString, FormatCompact(data.Baldness, player.UserIDString), GetTitle(data.Baldness, player.UserIDString)),
                     FontSize = 14,
                     Align = TextAnchor.MiddleCenter,
                     Color = "1 1 1 1"
@@ -2885,7 +4143,7 @@ namespace Oxide.Plugins
             }
 
             string text = Lang("HudWallet", player.UserIDString,
-                RpAvailable ? FormatWallet(CheckRp(userId)) : "-", CoinsAvailable ? FormatWallet(CoinBalance(userId)) : "-");
+                RpAvailable ? FormatWallet(CheckRp(userId), player.UserIDString) : "-", CoinsAvailable ? FormatWallet(CoinBalance(userId), player.UserIDString) : "-");
             if (!force && walletTexts.TryGetValue(userId, out string previous) && previous == text)
             {
                 return;
@@ -2942,7 +4200,7 @@ namespace Oxide.Plugins
             {
                 Text =
                 {
-                    Text = (delta > 0 ? "+" : string.Empty) + FormatCompact(delta),
+                    Text = (delta > 0 ? "+" : string.Empty) + FormatCompact(delta, player.UserIDString),
                     FontSize = 18,
                     Align = TextAnchor.MiddleCenter,
                     Color = delta > 0 ? ColorGold : ColorRust,
@@ -2977,11 +4235,11 @@ namespace Oxide.Plugins
                 return;
             }
 
-            ShowBanner(Lang(key, null, args), config.Ui.BannerSeconds);
+            ShowBanner(T(key, args), config.Ui.BannerSeconds);
         }
 
-        // Big text in the middle of the screen for everyone connected.
-        private void ShowBanner(string message, float seconds)
+        // Big text in the middle of the screen for everyone connected, each in their own language.
+        private void ShowBanner(Txt message, float seconds)
         {
             foreach (BasePlayer player in BasePlayer.activePlayerList)
             {
@@ -2999,7 +4257,7 @@ namespace Oxide.Plugins
                 }, "Hud", UiBanner, UiBanner);
                 container.Add(new CuiLabel
                 {
-                    Text = { Text = message, FontSize = 22, Align = TextAnchor.MiddleCenter, Color = "1 1 1 1", FadeIn = 0.3f },
+                    Text = { Text = message.For(player.UserIDString), FontSize = 22, Align = TextAnchor.MiddleCenter, Color = "1 1 1 1", FadeIn = 0.3f },
                     RectTransform = { AnchorMin = "0.02 0", AnchorMax = "0.98 1" },
                     FadeOut = 0.8f
                 }, UiBanner);
@@ -3065,7 +4323,9 @@ namespace Oxide.Plugins
             Carne,
             Exchange,
             ExchangeAmount,
-            ExchangeConfirm
+            ExchangeConfirm,
+            Jobs,
+            Insurance
         }
 
         private enum ExchangeMode
@@ -3104,34 +4364,34 @@ namespace Oxide.Plugins
             }
         }
 
-        private string CursedItemName(string key)
+        private Txt CursedItemName(string key)
         {
             switch (key)
             {
-                case "bleach": return Lang("CalvarioItemBleach");
-                case "ducttape": return Lang("CalvarioItemDuctTape");
-                case "battery": return Lang("CalvarioItemBattery");
-                case "dogtag": return Lang("CalvarioItemDogTag");
-                case "bluedogtags": return Lang("CalvarioItemBlueDogTags");
-                case "reddogtags": return Lang("CalvarioItemRedDogTags");
-                case "gems": return Lang("CalvarioItemGems");
-                default: return key;
+                case "bleach": return T("CalvarioItemBleach");
+                case "ducttape": return T("CalvarioItemDuctTape");
+                case "battery": return T("CalvarioItemBattery");
+                case "dogtag": return T("CalvarioItemDogTag");
+                case "bluedogtags": return T("CalvarioItemBlueDogTags");
+                case "reddogtags": return T("CalvarioItemRedDogTags");
+                case "gems": return T("CalvarioItemGems");
+                default: return Plain(key);
             }
         }
 
-        private string CursedItemDescription(string key)
+        private Txt CursedItemDescription(string key)
         {
             CursedItemsConfig c = config.CursedItems;
             switch (key)
             {
-                case "bleach": return Lang("CalvarioDescBleachV2", null, Mathf.RoundToInt(c.Bleach.WinChance * 100f), FormatBaldness(c.Bleach.WinAmount), FormatBaldness(c.Bleach.LoseAmount));
-                case "ducttape": return Lang("CalvarioDescDuctTape");
-                case "battery": return Lang("CalvarioDescBattery", null, c.Battery.Multiplier, c.Battery.Minutes);
-                case "dogtag": return Lang("CalvarioDescDogTag", null, FormatBaldness(c.DogTag.Reward));
-                case "bluedogtags": return Lang("CalvarioDescBlueDogTags", null, FormatBaldness(c.BlueDogTags.Reward));
-                case "reddogtags": return Lang("CalvarioDescRedDogTags", null, FormatBaldness(c.RedDogTags.Reward));
-                case "gems": return Lang("CalvarioDescGems", null, FormatBaldness(c.Gems.Reward));
-                default: return string.Empty;
+                case "bleach": return T("CalvarioDescBleachV2", Mathf.RoundToInt(c.Bleach.WinChance * 100f), Num(c.Bleach.WinAmount), Num(c.Bleach.LoseAmount));
+                case "ducttape": return T("CalvarioDescDuctTape");
+                case "battery": return T("CalvarioDescBattery", c.Battery.Multiplier, c.Battery.Minutes);
+                case "dogtag": return T("CalvarioDescDogTag", Num(c.DogTag.Reward));
+                case "bluedogtags": return T("CalvarioDescBlueDogTags", Num(c.BlueDogTags.Reward));
+                case "reddogtags": return T("CalvarioDescRedDogTags", Num(c.RedDogTags.Reward));
+                case "gems": return T("CalvarioDescGems", Num(c.Gems.Reward));
+                default: return Plain(string.Empty);
             }
         }
 
@@ -3161,6 +4421,16 @@ namespace Oxide.Plugins
             foreach (string shortname in config.CursedItems.IdTags.Shortnames)
             {
                 FindItemDefinition(shortname);
+            }
+
+            foreach (PrizeItem item in config.ConsolationKit.Items)
+            {
+                FindItemDefinition(item.Shortname);
+            }
+
+            foreach (JobDefinition job in jobsById.Values.Where(j => j.ParsedType == JobType.Gather))
+            {
+                FindItemDefinition(job.Resource);
             }
         }
 
@@ -3233,7 +4503,7 @@ namespace Oxide.Plugins
             return true;
         }
 
-        private void TryDrop(BasePlayer player, ItemDropConfig item, string displayName = null)
+        private void TryDrop(BasePlayer player, ItemDropConfig item, Txt displayName = null)
         {
             if (!config.CursedItems.Enabled || item == null || item.DropChance <= 0f || random.NextDouble() >= item.DropChance)
             {
@@ -3271,7 +4541,7 @@ namespace Oxide.Plugins
             if (tags.Shortnames.Count > 0 && tier >= tags.MinTier && tier <= tags.MaxTier)
             {
                 string color = tags.Shortnames[random.Next(tags.Shortnames.Count)];
-                TryDrop(player, new ItemDropConfig { Shortname = color, DropChance = tags.DropChance }, Lang("CalvarioItemIdTag"));
+                TryDrop(player, new ItemDropConfig { Shortname = color, DropChance = tags.DropChance }, T("CalvarioItemIdTag"));
             }
         }
 
@@ -3291,7 +4561,7 @@ namespace Oxide.Plugins
             }
 
             PlayerData data = GetOrCreateData(player);
-            string name = CursedItemName(key);
+            Txt name = CursedItemName(key);
             if (CountItem(player, item.Shortname) < 1)
             {
                 return Lang("ItemNoneV2", player.UserIDString, name);
@@ -3313,7 +4583,7 @@ namespace Oxide.Plugins
                 return null;
             }
 
-            string reason = Lang("ReasonItemUseV2", null, name);
+            Txt reason = T("ReasonItemUseV2", name);
             switch (key)
             {
                 case "bleach":
@@ -3321,11 +4591,11 @@ namespace Oxide.Plugins
                     if (random.NextDouble() < bleach.WinChance)
                     {
                         GainBaldness(data, bleach.WinAmount, reason);
-                        return Lang("ItemBleachWinV2", player.UserIDString, FormatBaldness(bleach.WinAmount));
+                        return Lang("ItemBleachWinV2", player.UserIDString, Num(bleach.WinAmount));
                     }
 
                     ChangeBaldness(data, -bleach.LoseAmount, true, reason);
-                    return Lang("ItemBleachFail", player.UserIDString, FormatBaldness(bleach.LoseAmount));
+                    return Lang("ItemBleachFail", player.UserIDString, Num(bleach.LoseAmount));
                 case "ducttape":
                     data.HasDeathShield = true;
                     dataDirty = true;
@@ -3350,7 +4620,7 @@ namespace Oxide.Plugins
                 default:
                     long reward = ((TrophyConfig)item).Reward;
                     GainBaldness(data, reward, reason);
-                    return Lang("BarberTrophyUsedV2", player.UserIDString, name, FormatBaldness(reward));
+                    return Lang("BarberTrophyUsedV2", player.UserIDString, name, Num(reward));
             }
         }
 
@@ -3375,15 +4645,15 @@ namespace Oxide.Plugins
             }
 
             dataDirty = true;
-            string line = Lang("CarneDeliveredV2", player.UserIDString, delivered, FormatBaldness(delivered * tags.Reward));
-            GainBaldness(data, delivered * tags.Reward, Lang("ReasonCarne"));
+            string line = Lang("CarneDeliveredV2", player.UserIDString, delivered, Num(delivered * tags.Reward));
+            GainBaldness(data, delivered * tags.Reward, T("ReasonCarne"));
 
             if (tags.Shortnames.All(c => data.CarneColors.Contains(c)))
             {
                 data.CarneColors.Clear();
                 data.CarnesCompleted++;
-                BroadcastEvent("CarneCompletedV3", data.Name, FormatBaldness(tags.CollectionBonus));
-                ChangeBaldness(data, tags.CollectionBonus, true, Lang("ReasonCarne"));
+                BroadcastEvent("CarneCompletedV3", data.Name, Num(tags.CollectionBonus));
+                ChangeBaldness(data, tags.CollectionBonus, true, T("ReasonCarne"));
             }
 
             return line;
@@ -3500,21 +4770,24 @@ namespace Oxide.Plugins
         {
             Ranking,
             Hall,
-            Bounties
+            Bounties,
+            Jobs
         }
 
         // Gold, silver and bronze bars of the ranking and the hall of fame podium.
         private static readonly string[] PodiumColors = { "0.96 0.8 0.3 1", "0.82 0.82 0.86 1", "0.8 0.55 0.35 1" };
 
         // Word of each tab in "calvos.tab <tab> <page>".
-        private static string TabCommand(MenuTab tab) => tab == MenuTab.Hall ? "salon" : tab == MenuTab.Bounties ? "cabezas" : "ranking";
+        private static string TabCommand(MenuTab tab) =>
+            tab == MenuTab.Hall ? "salon" : tab == MenuTab.Bounties ? "cabezas" : tab == MenuTab.Jobs ? "encargos" : "ranking";
 
-        private static MenuTab ParseTab(string word) => word == "salon" ? MenuTab.Hall : word == "cabezas" ? MenuTab.Bounties : MenuTab.Ranking;
+        private static MenuTab ParseTab(string word) =>
+            word == "salon" ? MenuTab.Hall : word == "cabezas" ? MenuTab.Bounties : word == "encargos" ? MenuTab.Jobs : MenuTab.Ranking;
 
         // /calvos: ranking, hall of fame and bounties. The cursed items live with the barber (OpenBarber).
         private void OpenCalvos(BasePlayer player, MenuTab tab, int page)
         {
-            if (tab == MenuTab.Bounties && !config.Bounties.Enabled)
+            if ((tab == MenuTab.Bounties && !config.Bounties.Enabled) || (tab == MenuTab.Jobs && !JobsActive))
             {
                 tab = MenuTab.Ranking;
             }
@@ -3524,10 +4797,13 @@ namespace Oxide.Plugins
             var ui = new CuiElementContainer();
             string window = DrawCalvarioWindow(ui, data, userId);
 
-            DrawTabs(ui, window, tab, userId);
-            DrawCalvoDelDia(ui, window, userId);
+            float tabsEnd = DrawTabs(ui, window, tab, userId);
+            DrawCalvoDelDia(ui, window, userId, tabsEnd);
             switch (tab)
             {
+                case MenuTab.Jobs:
+                    DrawJobsTab(ui, window, data, userId);
+                    break;
                 case MenuTab.Hall:
                     DrawHallTab(ui, window, page, userId);
                     break;
@@ -3569,14 +4845,14 @@ namespace Oxide.Plugins
 
             AddText(ui, window, Lang("CalvarioTitle", userId), 26, TextAnchor.MiddleLeft, "0.03 0.915", "0.45 0.975", ColorScalp);
             AddText(ui, window, Lang("CalvarioSubtitleV2", userId), 11, TextAnchor.MiddleLeft, "0.03 0.88", "0.6 0.915", ColorMuted);
-            AddText(ui, window, Lang("CalvarioYouV3", userId, FormatCompact(data.Baldness), GetTitle(data.Baldness)), 15, TextAnchor.MiddleRight, "0.45 0.93", "0.935 0.975");
+            AddText(ui, window, Lang("CalvarioYouV3", userId, FormatCompact(data.Baldness, userId), GetTitle(data.Baldness, userId)), 15, TextAnchor.MiddleRight, "0.45 0.93", "0.935 0.975");
             DrawTitleProgress(ui, window, data.Baldness, userId);
             AddButton(ui, window, Lang("CalvarioClose", userId), "0.956 0.935", "0.99 0.985", ColorPoleRed, null, UiMenu, 18);
             return window;
         }
 
-        // The active tab looks like the old single section label; the others are buttons.
-        private void DrawTabs(CuiElementContainer ui, string window, MenuTab active, string userId)
+        // The active tab looks like the old single section label; the others are buttons. Returns where the last tab ends.
+        private float DrawTabs(CuiElementContainer ui, string window, MenuTab active, string userId)
         {
             var tabs = new List<KeyValuePair<MenuTab, string>>
             {
@@ -3589,7 +4865,13 @@ namespace Oxide.Plugins
                 tabs.Add(new KeyValuePair<MenuTab, string>(MenuTab.Bounties, "CalvarioTabBounties"));
             }
 
-            const float width = 0.18f, gap = 0.01f;
+            if (JobsActive)
+            {
+                tabs.Add(new KeyValuePair<MenuTab, string>(MenuTab.Jobs, "CalvarioTabJobs"));
+            }
+
+            // Narrower with four tabs, so the Calvo del Día still fits on their right.
+            float width = tabs.Count > 3 ? 0.15f : 0.18f, gap = tabs.Count > 3 ? 0.008f : 0.01f;
             for (int i = 0; i < tabs.Count; i++)
             {
                 float x0 = 0.03f + i * (width + gap);
@@ -3597,15 +4879,59 @@ namespace Oxide.Plugins
                 AddButton(ui, window, Lang(tabs[i].Value, userId), Anchor(x0, 0.81f), Anchor(x0 + width, 0.86f), isActive ? ColorScalp : ColorCardDark,
                     isActive ? null : "calvos.tab " + TabCommand(tabs[i].Key) + " 0", null, 13, isActive ? ColorOnScalp : ColorText);
             }
+
+            return 0.03f + tabs.Count * (width + gap) - gap;
         }
 
         // Right of the tabs, on every tab: the current Calvo del Día, if there is one.
-        private void DrawCalvoDelDia(CuiElementContainer ui, string window, string userId)
+        private void DrawCalvoDelDia(CuiElementContainer ui, string window, string userId, float tabsEnd)
         {
             CalvoDelDiaRecord current = CurrentCalvoDelDia();
             if (current != null)
             {
-                AddText(ui, window, Lang("CalvoDelDiaMenu", userId, current.Name, FormatCompact(current.Gained)), 12, TextAnchor.MiddleRight, "0.61 0.81", "0.97 0.86", ColorText);
+                AddText(ui, window, Lang("CalvoDelDiaMenu", userId, current.Name, Compact(current.Gained)), 12, TextAnchor.MiddleRight, Anchor(Math.Max(0.61f, tabsEnd + 0.01f), 0.81f), "0.97 0.86", ColorText);
+            }
+        }
+
+        // Today's barber's jobs: what each one asks for, the barber's remark, how far you are and what it pays. Paid at the barber.
+        private void DrawJobsTab(CuiElementContainer ui, string window, PlayerData data, string userId)
+        {
+            EnsureJobs(data);
+            AddText(ui, window, Lang("JobsMenuHint", userId, DurationTxt(TimeToJobReset())), 12, TextAnchor.MiddleLeft, "0.03 0.1", "0.97 0.17", ColorText);
+            List<KeyValuePair<JobProgress, JobDefinition>> jobs = data.Jobs.List
+                .Where(p => jobsById.ContainsKey(p.Id))
+                .Select(p => new KeyValuePair<JobProgress, JobDefinition>(p, jobsById[p.Id]))
+                .ToList();
+            if (jobs.Count == 0)
+            {
+                AddText(ui, window, Lang("JobsMenuEmpty", userId), 16, TextAnchor.MiddleCenter, "0.03 0.4", "0.97 0.6", ColorText);
+                return;
+            }
+
+            const float top = 0.79f, bottom = 0.19f, gap = 0.012f;
+            float height = Math.Min(0.18f, (top - bottom - gap * (jobs.Count - 1)) / jobs.Count);
+            for (int i = 0; i < jobs.Count; i++)
+            {
+                JobProgress progress = jobs[i].Key;
+                JobDefinition job = jobs[i].Value;
+                float y1 = top - i * (height + gap), y0 = y1 - height;
+                string block = AddPanel(ui, window, ColorCard, Anchor(0.03f, y0), Anchor(0.97f, y1));
+                AddPanel(ui, block, progress.Claimed ? ColorMuted : progress.Done ? ColorGold : ColorPoleRed, "0 0", "0.006 1");
+                AddText(ui, block, JobTaskTxt(job).For(userId), 14, TextAnchor.MiddleLeft, "0.02 0.58", "0.74 0.95", progress.Claimed ? ColorMuted : ColorScalp);
+                AddText(ui, block, Lang("JobsMenuReward", userId, UnitTxt(true, job.Reward)), 13, TextAnchor.MiddleRight, "0.74 0.58", "0.985 0.95", progress.Claimed ? ColorMuted : ColorGold);
+                AddText(ui, block, JobNoteTxt(job).For(userId), 11, TextAnchor.MiddleLeft, "0.02 0.32", "0.985 0.58", ColorMuted);
+
+                float fill = job.Amount > 0 ? Math.Max(0f, Math.Min(1f, progress.Progress / (float)job.Amount)) : 1f;
+                AddPanel(ui, block, ColorCardDark, "0.02 0.1", "0.62 0.24");
+                if (fill > 0f)
+                {
+                    AddPanel(ui, block, progress.Done ? ColorGood : ColorScalp, "0.02 0.1", Anchor(0.02f + 0.6f * fill, 0.24f));
+                }
+
+                string status = progress.Claimed ? Lang("JobsMenuClaimed", userId)
+                    : progress.Done ? Lang("JobsMenuReady", userId)
+                    : Lang("JobsMenuProgress", userId, Num(progress.Progress), Num(job.Amount));
+                AddText(ui, block, status, 12, TextAnchor.MiddleRight, "0.63 0.04", "0.985 0.3", progress.Done && !progress.Claimed ? ColorGold : ColorText);
             }
         }
 
@@ -3634,7 +4960,7 @@ namespace Oxide.Plugins
                 HallEntry entry = entries[index];
                 float y1 = 0.79f - i * (blockHeight + blockGap), y0 = y1 - blockHeight;
                 string block = AddPanel(ui, window, ColorCard, Anchor(0.03f, y0), Anchor(0.97f, y1));
-                AddText(ui, block, Lang(entry.Manual ? "HallSnapshot" : "HallMapClosed", userId, FormatDate(entry.Date)), 13, TextAnchor.MiddleLeft, "0.015 0.8", "0.8 0.98", ColorScalp);
+                AddText(ui, block, Lang(entry.Manual ? "HallSnapshot" : "HallMapClosed", userId, DateTxt(entry.Date)), 13, TextAnchor.MiddleLeft, "0.015 0.8", "0.8 0.98", ColorScalp);
                 AddText(ui, block, Lang("HallNumber", userId, entry.Number), 11, TextAnchor.MiddleRight, "0.8 0.8", "0.985 0.98", ColorMuted);
 
                 for (int place = 0; place < entry.Podium.Count && place < PodiumColors.Length; place++)
@@ -3644,18 +4970,18 @@ namespace Oxide.Plugins
                     string card = AddPanel(ui, block, ColorCardDark, Anchor(x0, 0.4f), Anchor(x0 + 0.315f, 0.78f));
                     AddPanel(ui, card, PodiumColors[place], "0 0", "0.02 1");
                     AddText(ui, card, Lang("HallPodiumPlace", userId, place + 1, podium.Name), 13, TextAnchor.MiddleLeft, "0.05 0.5", "0.98 1", PodiumColors[place]);
-                    AddText(ui, card, FormatCompact(podium.Value), 12, TextAnchor.MiddleLeft, "0.05 0", "0.98 0.5", ColorGold);
+                    AddText(ui, card, FormatCompact(podium.Value, userId), 12, TextAnchor.MiddleLeft, "0.05 0", "0.98 0.5", ColorGold);
                 }
 
                 if (entry.TopKiller != null)
                 {
-                    AddText(ui, block, Lang("HallTopKiller", userId, entry.TopKiller.Name, FormatBaldness(entry.TopKiller.Value)), 12, TextAnchor.MiddleLeft, "0.015 0.2", "0.985 0.38", ColorText);
+                    AddText(ui, block, Lang("HallTopKiller", userId, entry.TopKiller.Name, Num(entry.TopKiller.Value)), 12, TextAnchor.MiddleLeft, "0.015 0.2", "0.985 0.38", ColorText);
                 }
 
                 if (entry.TopDeaths != null)
                 {
                     // The joke only on the newest entry, so it is not repeated in every block.
-                    AddText(ui, block, Lang(index == 0 ? "HallTopDeaths" : "HallTopDeathsPlain", userId, entry.TopDeaths.Name, FormatBaldness(entry.TopDeaths.Value)), 12, TextAnchor.MiddleLeft, "0.015 0.02", "0.985 0.2", ColorText);
+                    AddText(ui, block, Lang(index == 0 ? "HallTopDeaths" : "HallTopDeathsPlain", userId, entry.TopDeaths.Name, Num(entry.TopDeaths.Value)), 12, TextAnchor.MiddleLeft, "0.015 0.02", "0.985 0.2", ColorText);
                 }
             }
 
@@ -3697,7 +5023,7 @@ namespace Oxide.Plugins
                 float y1 = 0.79f - i * 0.06f, y0 = y1 - 0.055f;
                 string row = AddPanel(ui, window, i % 2 == 0 ? ColorCard : ColorCardDark, Anchor(0.03f, y0), Anchor(0.97f, y1));
                 AddText(ui, row, Lang("CalvarioRankingLine", userId, index + 1, bounties[index].Key), 14, TextAnchor.MiddleLeft, "0.02 0", "0.6 1", ColorText);
-                AddText(ui, row, Lang("BountyPriceShort", userId, FormatCompact(bounties[index].Value)), 14, TextAnchor.MiddleRight, "0.6 0", "0.98 1", ColorGold);
+                AddText(ui, row, Lang("BountyPriceShort", userId, Compact(bounties[index].Value)), 14, TextAnchor.MiddleRight, "0.6 0", "0.98 1", ColorGold);
             }
 
             DrawPager(ui, window, page, pages, MenuTab.Bounties, userId);
@@ -3726,7 +5052,7 @@ namespace Oxide.Plugins
             long from = baldness < current.MinBaldness ? 0 : current.MinBaldness;
             float progress = next.MinBaldness > from ? Math.Max(0f, Math.Min(1f, (baldness - from) / (float)(next.MinBaldness - from))) : 1f;
 
-            AddText(ui, window, Lang("CalvarioNextV3", userId, next.Name, FormatBaldness(next.MinBaldness - baldness)), 11, TextAnchor.MiddleRight, "0.45 0.898", "0.935 0.925", ColorMuted);
+            AddText(ui, window, Lang("CalvarioNextV3", userId, TitleText(config.Titles.IndexOf(next), userId), Num(next.MinBaldness - baldness)), 11, TextAnchor.MiddleRight, "0.45 0.898", "0.935 0.925", ColorMuted);
             AddPanel(ui, window, ColorCardDark, "0.62 0.884", "0.935 0.896");
             if (progress > 0f)
             {
@@ -3792,6 +5118,12 @@ namespace Oxide.Plugins
                 case "exchange":
                     pendingExchanges.Remove((ulong)player.userID);
                     OpenBarber(player, BarberPage.Exchange, null);
+                    break;
+                case "jobs":
+                    OpenBarber(player, JobsActive ? BarberPage.Jobs : BarberPage.Main, null);
+                    break;
+                case "insurance":
+                    OpenBarber(player, config.Insurance.Enabled && RpAvailable ? BarberPage.Insurance : BarberPage.Main, null);
                     break;
                 case "bye":
                     CuiHelper.DestroyUi(player, UiMenu);
@@ -3880,10 +5212,6 @@ namespace Oxide.Plugins
         private string ExchangePriceText(ExchangeMode mode, long price, string userId) =>
             UnitText(mode == ExchangeMode.SellForRp || mode == ExchangeMode.BuyWithRp, price, userId);
 
-        // "1 Punto de Chola" / "2 Puntos de Chola", "1 pelón" / "2 pelones".
-        private string UnitText(bool rp, long amount, string userId) =>
-            Lang(rp ? (amount == 1 ? "UnitRpOneV2" : "UnitRpV2") : (amount == 1 ? "UnitCoinsOneV2" : "UnitCoinsV2"), userId, FormatBaldness(amount));
-
         private bool CanAffordExchange(PlayerData data, ExchangeMode mode, long baldness)
         {
             long price = ExchangePrice(mode, baldness);
@@ -3932,16 +5260,16 @@ namespace Oxide.Plugins
             string priceText = ExchangePriceText(mode, price, userId);
             if (IsSell(mode))
             {
-                ChangeBaldness(data, -baldness, true, Lang("ReasonExchange"));
-                return Lang("BarberExDoneSellV2", userId, FormatBaldness(baldness), priceText);
+                ChangeBaldness(data, -baldness, true, T("ReasonExchange"));
+                return Lang("BarberExDoneSellV2", userId, Num(baldness), priceText);
             }
 
             // Bought baldness is not multiplied by events or the battery and does not count for the Calvo del Día. It does
             // pay tier prizes, like any other baldness (1.10.0).
             long before = data.Baldness;
-            ChangeBaldness(data, baldness, true, Lang("ReasonExchange"));
+            ChangeBaldness(data, baldness, true, T("ReasonExchange"));
             ExcludeFromCalvoDelDia(data, before);
-            return Lang("BarberExDoneBuyV2", userId, FormatBaldness(baldness), priceText);
+            return Lang("BarberExDoneBuyV2", userId, Num(baldness), priceText);
         }
 
         // Conversation box in the style of the vanilla vendors: the barber's line on top, the player's answers below.
@@ -3983,7 +5311,7 @@ namespace Oxide.Plugins
                     carne.Add(Lang("BarberCarneIntroV2", userId, stamped.Length, tags.Shortnames.Count, data.CarnesCompleted));
                     if (stamped.Length > 0) carne.Add(Lang("BarberCarneStamped", userId, string.Join(", ", stamped)));
                     if (missing.Length > 0) carne.Add(Lang("BarberCarneMissingV2", userId, string.Join(", ", missing)));
-                    carne.Add(Lang("CalvarioCarneHintV2", userId, FormatBaldness(tags.Reward), FormatBaldness(tags.CollectionBonus)));
+                    carne.Add(Lang("CalvarioCarneHintV2", userId, Num(tags.Reward), Num(tags.CollectionBonus)));
                     line = string.Join("\n", carne.ToArray());
 
                     options.Add(new KeyValuePair<string, string>(Lang("BarberOptStamp", userId), "calvos.carne"));
@@ -3996,12 +5324,12 @@ namespace Oxide.Plugins
                         line += "\n";
                     }
 
-                    line += Lang("BarberExIntroV4", userId, FormatBaldness(data.Baldness),
-                        RpAvailable ? FormatBaldness(CheckRp(data.Id)) : "-", CoinsAvailable ? FormatBaldness(CoinBalance(data.Id)) : "-");
-                    AddExchangeOption(options, ExchangeMode.SellForRp, Lang("BarberExSellRpV4", userId, FormatBaldness(ex.SellBaldnessPerRp)), userId);
-                    AddExchangeOption(options, ExchangeMode.SellForCoins, Lang("BarberExSellCoinsV5", userId, FormatBaldness(ex.SellCoinsPer1000)), userId);
-                    AddExchangeOption(options, ExchangeMode.BuyWithRp, Lang("BarberExBuyRpV6", userId, FormatBaldness(ex.BuyRpPer10)), userId);
-                    AddExchangeOption(options, ExchangeMode.BuyWithCoins, Lang("BarberExBuyCoinsV5", userId, FormatBaldness(ex.BuyCoinsPer10)), userId);
+                    line += Lang("BarberExIntroV4", userId, Num(data.Baldness),
+                        RpAvailable ? Num(CheckRp(data.Id)) : "-", CoinsAvailable ? Num(CoinBalance(data.Id)) : "-");
+                    AddExchangeOption(options, ExchangeMode.SellForRp, Lang("BarberExSellRpV4", userId, Num(ex.SellBaldnessPerRp)), userId);
+                    AddExchangeOption(options, ExchangeMode.SellForCoins, Lang("BarberExSellCoinsV5", userId, Num(ex.SellCoinsPer1000)), userId);
+                    AddExchangeOption(options, ExchangeMode.BuyWithRp, Lang("BarberExBuyRpV6", userId, Num(ex.BuyRpPer10)), userId);
+                    AddExchangeOption(options, ExchangeMode.BuyWithCoins, Lang("BarberExBuyCoinsV5", userId, Num(ex.BuyCoinsPer10)), userId);
                     options.Add(new KeyValuePair<string, string>(Lang("BarberOptBack", userId), "calvos.barber main"));
                     break;
                 case BarberPage.ExchangeAmount:
@@ -4019,7 +5347,7 @@ namespace Oxide.Plugins
                         }
 
                         string text = Lang(IsSell(amountFor.Mode) ? "BarberExSellLineV2" : "BarberExBuyLineV2", userId,
-                            FormatBaldness(amount), ExchangePriceText(amountFor.Mode, ExchangePrice(amountFor.Mode, amount), userId));
+                            Num(amount), ExchangePriceText(amountFor.Mode, ExchangePrice(amountFor.Mode, amount), userId));
                         bool affordable = CanAffordExchange(data, amountFor.Mode, amount);
                         options.Add(new KeyValuePair<string, string>(affordable ? text : Lang("BarberExTooMuchV3", userId, text),
                             affordable ? "calvos.exchange amount " + amount.ToString(CultureInfo.InvariantCulture) : null));
@@ -4033,18 +5361,83 @@ namespace Oxide.Plugins
                         goto case BarberPage.Exchange;
                     }
 
-                    line = Lang(IsSell(toConfirm.Mode) ? "BarberExConfirmSellV2" : "BarberExConfirmBuyV2", userId, FormatBaldness(toConfirm.Baldness),
+                    line = Lang(IsSell(toConfirm.Mode) ? "BarberExConfirmSellV2" : "BarberExConfirmBuyV2", userId, Num(toConfirm.Baldness),
                         ExchangePriceText(toConfirm.Mode, ExchangePrice(toConfirm.Mode, toConfirm.Baldness), userId));
                     options.Add(new KeyValuePair<string, string>(Lang("BarberExConfirm", userId), "calvos.exchange confirm"));
                     options.Add(new KeyValuePair<string, string>(Lang("BarberExCancel", userId), "calvos.barber exchange"));
+                    break;
+                case BarberPage.Jobs:
+                    EnsureJobs(data);
+                    var jobsLine = new List<string>();
+                    if (line != null) jobsLine.Add(line);
+                    jobsLine.Add(Lang(data.Jobs.List.Count > 0 ? "BarberJobsIntro" : "BarberJobsNone", userId, DurationTxt(TimeToJobReset())));
+                    line = string.Join("\n", jobsLine.ToArray());
+
+                    foreach (JobProgress progress in data.Jobs.List)
+                    {
+                        if (!jobsById.TryGetValue(progress.Id, out JobDefinition job))
+                        {
+                            continue;
+                        }
+
+                        string task = JobTaskTxt(job).For(userId);
+                        if (progress.Claimed)
+                        {
+                            options.Add(new KeyValuePair<string, string>(Lang("BarberJobClaimed", userId, task), null));
+                        }
+                        else if (progress.Done)
+                        {
+                            string claim = Lang("BarberJobClaim", userId, task, UnitTxt(true, job.Reward));
+                            options.Add(job.Reward <= 0 || RpAvailable
+                                ? new KeyValuePair<string, string>(claim, "calvos.jobs claim " + job.Id)
+                                : new KeyValuePair<string, string>(Lang("BarberExClosedV3", userId, claim, "Server Rewards"), null));
+                        }
+                        else
+                        {
+                            options.Add(new KeyValuePair<string, string>(Lang("BarberJobProgress", userId, task, Num(progress.Progress), Num(job.Amount), UnitTxt(true, job.Reward)), null));
+                        }
+                    }
+
+                    options.Add(new KeyValuePair<string, string>(Lang("BarberOptBack", userId), "calvos.barber main"));
+                    break;
+                case BarberPage.Insurance:
+                    if (data.HasDeathShield)
+                    {
+                        line = line ?? Lang("ItemShieldAlready", userId);
+                    }
+                    else
+                    {
+                        long price = InsurancePrice(data);
+                        insuranceQuotes[data.Id] = price;
+                        string offer = Lang("BarberInsuranceOffer", userId, UnitTxt(true, price));
+                        line = line == null ? offer : line + "\n" + offer;
+                        bool affordable = RpAvailable && CheckRp(data.Id) >= price;
+                        string buy = Lang("BarberInsuranceBuy", userId);
+                        options.Add(new KeyValuePair<string, string>(affordable ? buy : Lang("BarberExTooMuchV3", userId, buy), affordable ? "calvos.insurance buy" : null));
+                    }
+
+                    options.Add(new KeyValuePair<string, string>(Lang("BarberOptBack", userId), "calvos.barber main"));
                     break;
                 default:
                     options.Add(new KeyValuePair<string, string>(Lang("BarberOptItemsV3", userId), "calvos.barber items"));
                     options.Add(new KeyValuePair<string, string>(Lang("BarberOptCatalog", userId), "calvos.barber catalog"));
                     options.Add(new KeyValuePair<string, string>(Lang("BarberOptCarne", userId), "calvos.barber carne"));
+                    if (JobsActive)
+                    {
+                        options.Add(new KeyValuePair<string, string>(Lang("BarberOptJobs", userId), "calvos.barber jobs"));
+                    }
+
                     if (config.Exchange.Enabled)
                     {
                         options.Add(new KeyValuePair<string, string>(Lang("BarberOptExchangeV2", userId), "calvos.barber exchange"));
+                    }
+
+                    if (config.Insurance.Enabled)
+                    {
+                        string insurance = Lang("BarberOptInsurance", userId, UnitTxt(true, InsurancePrice(data)));
+                        options.Add(RpAvailable
+                            ? new KeyValuePair<string, string>(insurance, "calvos.barber insurance")
+                            : new KeyValuePair<string, string>(Lang("BarberExClosedV3", userId, insurance, "Server Rewards"), null));
                     }
 
                     options.Add(new KeyValuePair<string, string>(Lang("BarberOptBye", userId), "calvos.barber bye"));
@@ -4066,7 +5459,7 @@ namespace Oxide.Plugins
             }, UiMenu);
 
             AddText(ui, box, Lang("BarberName", userId), 18, TextAnchor.MiddleLeft, "0.03 0.88", "0.5 0.98", ColorScalp);
-            AddText(ui, box, Lang("CalvarioYouV3", userId, FormatCompact(data.Baldness), GetTitle(data.Baldness)), 12, TextAnchor.MiddleRight, "0.5 0.88", "0.93 0.98", ColorMuted);
+            AddText(ui, box, Lang("CalvarioYouV3", userId, FormatCompact(data.Baldness, userId), GetTitle(data.Baldness, userId)), 12, TextAnchor.MiddleRight, "0.5 0.88", "0.93 0.98", ColorMuted);
             AddButton(ui, box, Lang("CalvarioClose", userId), "0.945 0.9", "0.99 0.98", ColorPoleRed, null, UiMenu, 14);
             AddPanel(ui, box, ColorScalp, "0.03 0.872", "0.97 0.876");
             AddText(ui, box, line ?? string.Empty, 14, TextAnchor.UpperLeft, "0.03 0.5", "0.97 0.855", ColorText);
@@ -4120,13 +5513,13 @@ namespace Oxide.Plugins
                 int count = CountItem(player, item.Shortname);
                 AddPanel(ui, card, ColorCardDark, "0.04 0.52", "0.3 0.95");
                 AddIcon(ui, card, item.Shortname, "0.06 0.55", "0.28 0.92", count > 0 ? "1 1 1 1" : "1 1 1 0.35");
-                AddText(ui, card, CursedItemName(key), 14, TextAnchor.UpperLeft, "0.34 0.74", "0.98 0.95", count > 0 ? ColorScalp : ColorMuted);
+                AddText(ui, card, CursedItemName(key).For(userId), 14, TextAnchor.UpperLeft, "0.34 0.74", "0.98 0.95", count > 0 ? ColorScalp : ColorMuted);
                 AddText(ui, card, Lang("CatalogHave", userId, count), 12, TextAnchor.UpperLeft, "0.34 0.54", "0.98 0.74", count > 0 ? ColorText : ColorMuted);
 
                 string status = null;
                 if (key == "ducttape" && data.HasDeathShield) status = Lang("CalvarioShieldOn", userId);
                 if (key == "battery" && IsBatteryActive(data.Id)) status = Lang("CalvarioBatteryOn", userId, BatteryMinutesLeft(data.Id));
-                AddText(ui, card, status ?? CursedItemDescription(key), 11, TextAnchor.UpperLeft, "0.05 0.22", "0.97 0.5", status != null ? ColorGold : count > 0 ? ColorText : ColorMuted);
+                AddText(ui, card, status ?? CursedItemDescription(key).For(userId), 11, TextAnchor.UpperLeft, "0.05 0.22", "0.97 0.5", status != null ? ColorGold : count > 0 ? ColorText : ColorMuted);
 
                 AddButton(ui, card, Lang(count > 0 ? "CatalogUse" : "CatalogNone", userId), "0.05 0.05", "0.95 0.2",
                     count > 0 ? ColorPoleRed : ColorDisabled, count > 0 ? "calvos.use " + key + " catalog" : null, null, 13, count > 0 ? "1 1 1 1" : ColorMuted);
@@ -4138,7 +5531,7 @@ namespace Oxide.Plugins
 
             int done = tags.Shortnames.Count(c => data.CarneColors.Contains(c));
             AddText(ui, carne, Lang("CatalogCarneTitle", userId, done, tags.Shortnames.Count, data.CarnesCompleted), 14, TextAnchor.MiddleLeft, "0.02 0.78", "0.98 0.97", ColorScalp);
-            AddText(ui, carne, Lang("CalvarioCarneHintV2", userId, FormatBaldness(tags.Reward), FormatBaldness(tags.CollectionBonus)), 11, TextAnchor.MiddleLeft, "0.02 0.62", "0.98 0.78", ColorText);
+            AddText(ui, carne, Lang("CalvarioCarneHintV2", userId, Num(tags.Reward), Num(tags.CollectionBonus)), 11, TextAnchor.MiddleLeft, "0.02 0.62", "0.98 0.78", ColorText);
 
             bool canDeliver = false;
             int slots = Math.Max(1, tags.Shortnames.Count);
@@ -4209,14 +5602,14 @@ namespace Oxide.Plugins
 
                 string nameColor = index < medals.Length ? medals[index] : "1 1 1 1";
                 AddText(ui, row, Lang("CalvarioRankingLine", userId, index + 1, entry.Name), 14, TextAnchor.MiddleLeft, "0.02 0", "0.5 1", nameColor);
-                AddText(ui, row, FormatCompact(entry.Baldness), 14, TextAnchor.MiddleRight, "0.5 0", "0.68 1", ColorGold);
-                AddText(ui, row, GetTitle(entry.Baldness), 13, TextAnchor.MiddleRight, "0.68 0", "0.98 1", ColorText);
+                AddText(ui, row, FormatCompact(entry.Baldness, userId), 14, TextAnchor.MiddleRight, "0.5 0", "0.68 1", ColorGold);
+                AddText(ui, row, GetTitle(entry.Baldness, userId), 13, TextAnchor.MiddleRight, "0.68 0", "0.98 1", ColorText);
             }
 
             int myIndex = ranking.IndexOf(me);
             string footer = myIndex <= 0
                 ? Lang("CalvarioRankingFirstV2", userId)
-                : Lang("CalvarioRankingYouV3", userId, myIndex + 1, ranking.Count, FormatBaldness(ranking[myIndex - 1].Baldness - me.Baldness + 1), ranking[myIndex - 1].Name);
+                : Lang("CalvarioRankingYouV3", userId, myIndex + 1, ranking.Count, Num(ranking[myIndex - 1].Baldness - me.Baldness + 1), ranking[myIndex - 1].Name);
             AddText(ui, window, footer, 14, TextAnchor.MiddleLeft, "0.03 0.1", "0.97 0.17", ColorText);
             DrawPager(ui, window, page, pages, MenuTab.Ranking, userId);
         }
@@ -4472,7 +5865,7 @@ namespace Oxide.Plugins
             var lines = new List<string>();
             if (result.Skipped)
             {
-                lines.Add(Lang("AdminHallCloseRecent", userId, FormatDate(result.LastClose),
+                lines.Add(Lang("AdminHallCloseRecent", userId, FormatDate(result.LastClose, userId),
                     result.LastClose.ToString("HH:mm", CultureInfo.InvariantCulture), MapCloseRepeatHours));
                 return lines;
             }
@@ -4525,11 +5918,9 @@ namespace Oxide.Plugins
                 }
 
                 dataDirty = true;
-                Reply(player, "HallWipeWinner", entry.Podium[0].Name, FormatBaldness(entry.Podium[0].Value));
+                Reply(player, "HallWipeWinner", entry.Podium[0].Name, Num(entry.Podium[0].Value));
             });
         }
-
-        private static string FormatDate(DateTime date) => date.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
 
         // A PvP kill pays the victim's whole bounty to the killer, unless they are teammates or (by config) the victim was
         // asleep or offline. If Server Rewards does not pay, the bounty stays for the next one.
@@ -4540,22 +5931,22 @@ namespace Oxide.Plugins
                 return;
             }
 
-            string whyNot = null;
+            Txt whyNot = null;
             if (killer.currentTeam != 0UL && killer.currentTeam == victim.currentTeam)
             {
-                whyNot = Lang("NoBountyTeam");
+                whyNot = T("NoBountyTeam");
             }
             else if (config.Bounties.NotOnSleepers && (victim.IsSleeping() || !victim.IsConnected))
             {
-                whyNot = Lang("NoBountySleeper");
+                whyNot = T("NoBountySleeper");
             }
             else if (!RpAvailable)
             {
-                whyNot = Lang("NoRpPlugin");
+                whyNot = T("NoRpPlugin");
             }
             else if (!AddRp(killerData.Id, total))
             {
-                whyNot = Lang("NoRpRefused");
+                whyNot = T("NoRpRefused");
             }
 
             if (whyNot != null)
@@ -4567,7 +5958,7 @@ namespace Oxide.Plugins
             storedData.Bounties.Remove(victimData.Id);
             storedData.BountyInfo.Remove(victimData.Id);
             dataDirty = true;
-            Broadcast("BountyClaimed", killerData.Name, victimData.Name, UnitText(true, total, null));
+            Broadcast("BountyClaimed", killerData.Name, victimData.Name, UnitTxt(true, total));
             Interface.CallHook("OnIslaBountyClaimed", killerData.Id, killerData.Name ?? string.Empty, victimData.Id, victimData.Name ?? string.Empty, total);
             Puts($"Bounty: {killerData.Name} ({killerData.Id}) claimed {total} Puntos de Chola for {victimData.Name} ({victimData.Id}).");
         }
@@ -4712,8 +6103,8 @@ namespace Oxide.Plugins
                 return null;
             }
 
-            Broadcast("CalvoDelDiaChatV3", record.Name, FormatBaldness(record.Gained));
-            ShowBanner(Lang("CalvoDelDiaBannerV2", null, record.Name), config.Ui.TitleUpBannerSeconds);
+            Broadcast("CalvoDelDiaChatV3", record.Name, Num(record.Gained));
+            ShowBanner(T("CalvoDelDiaBannerV2", record.Name), config.Ui.TitleUpBannerSeconds);
             PayCalvoDelDiaPrize(best);
             Interface.CallHook("OnIslaCalvoDelDia", record.Id, record.Name, record.Gained);
             Puts($"Calvo del Día: {record.Name} ({record.Id}), +{record.Gained} alopecia.");
@@ -4769,11 +6160,11 @@ namespace Oxide.Plugins
             }
 
             BasePlayer player = BasePlayer.FindByID(data.Id);
-            var parts = new List<string>();
+            var parts = new List<Txt>();
             var given = new List<string>();
             var spawned = new List<string>();
             int spawnFailed = GivePrize(data, player, prize, parts, given, spawned);
-            SendDebug("DebugTierPrize", data.Name, Lang("CalvoDelDiaName"), PrizeDebugText(parts, given, spawned));
+            SendDebug("DebugTierPrize", data.Name, T("CalvoDelDiaName"), PrizeDebugText(parts, given, spawned));
             if (player == null || !player.IsConnected)
             {
                 return;
@@ -4781,7 +6172,7 @@ namespace Oxide.Plugins
 
             if (parts.Count > 0)
             {
-                Reply(player, "CalvoDelDiaPrize", string.Join(", ", parts.ToArray()));
+                Reply(player, "CalvoDelDiaPrize", JoinTxt(", ", parts));
             }
             else if (given.Count > 0)
             {
@@ -4789,10 +6180,336 @@ namespace Oxide.Plugins
             }
 
             ReplySpawnedPrize(player, spawned, spawnFailed);
-            if (!string.IsNullOrEmpty(prize.Message))
+            SendPrizeMessage(player, prize);
+        }
+
+        #endregion
+
+        #region Barber's jobs, hair insurance and languages (1.13.0)
+
+        private bool JobsActive => config.Jobs.Enabled && config.Jobs.PerDay > 0;
+
+        // A job day starts at the reset time (UTC): it is the UTC date of the last reset that has passed.
+        private string JobDayKey() => DateTime.UtcNow.AddMinutes(-jobResetMinutes).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+        private TimeSpan TimeToJobReset()
+        {
+            DateTime now = DateTime.UtcNow;
+            DateTime reset = now.Date.AddMinutes(jobResetMinutes);
+            return (reset > now ? reset : reset.AddDays(1)) - now;
+        }
+
+        // "5 h 12 min", each language its way.
+        private Txt DurationTxt(TimeSpan time) => T("DurationHoursMinutes", (int)time.TotalHours, time.Minutes);
+
+        // Monuments of this map by their English name. Run at startup (OnServerInitialized also runs after a hot reload).
+        private void LoadMonuments()
+        {
+            monumentsByName.Clear();
+            var monuments = TerrainMeta.Path?.Monuments;
+            if (monuments != null)
             {
-                SendChat(player, prize.Message);
+                foreach (MonumentInfo monument in monuments)
+                {
+                    string name = monument?.displayPhrase?.english?.Trim();
+                    if (string.IsNullOrEmpty(name))
+                    {
+                        continue;
+                    }
+
+                    if (!monumentsByName.TryGetValue(name, out List<MonumentInfo> list))
+                    {
+                        list = new List<MonumentInfo>();
+                        monumentsByName[name] = list;
+                    }
+
+                    list.Add(monument);
+                }
             }
+
+            foreach (JobDefinition job in jobsById.Values.Where(j => j.ParsedType == JobType.KillScientists && !string.IsNullOrEmpty(j.Monument)))
+            {
+                if (!monumentsByName.ContainsKey(job.Monument.Trim()))
+                {
+                    PrintWarning($"Barber's jobs: job '{job.Id}' is not handed out: there is no '{job.Monument}' on this map. Monuments: {string.Join(", ", monumentsByName.Keys.OrderBy(k => k).ToArray())}.");
+                }
+            }
+        }
+
+        private bool IsInMonument(Vector3 position, string name) =>
+            monumentsByName.TryGetValue(name.Trim(), out List<MonumentInfo> list) && list.Any(m => m != null && m.IsInBounds(position));
+
+        // Jobs that can be done here and now: the monument is on the map, and raids need Raidable Bases loaded.
+        private bool JobAvailable(JobDefinition job)
+        {
+            switch (job.ParsedType)
+            {
+                case JobType.KillScientists:
+                    return string.IsNullOrEmpty(job.Monument) || monumentsByName.ContainsKey(job.Monument.Trim());
+                case JobType.RaidBase:
+                    return RaidableBases != null && RaidableBases.IsLoaded;
+                default:
+                    return true;
+            }
+        }
+
+        // When the job day changes: "Jobs per day" different jobs at random among those that can be done. What was not
+        // claimed the day before is lost.
+        private void EnsureJobs(PlayerData data)
+        {
+            string day = JobDayKey();
+            if (!JobsActive || data.Jobs.Day == day)
+            {
+                return;
+            }
+
+            List<JobDefinition> pool = jobsById.Values.Where(JobAvailable).ToList();
+            data.Jobs.Day = day;
+            data.Jobs.List = new List<JobProgress>();
+            while (pool.Count > 0 && data.Jobs.List.Count < config.Jobs.PerDay)
+            {
+                JobDefinition pick = pool[random.Next(pool.Count)];
+                pool.Remove(pick);
+                data.Jobs.List.Add(new JobProgress { Id = pick.Id });
+            }
+
+            dataDirty = true;
+        }
+
+        // Adds to every job of that type the player has today (matches narrows it: a monument, a resource...). absolute: the
+        // amount is the current value (the Survive streak), not something to add. Completing one is said quietly in chat.
+        private void AddJobProgress(BasePlayer player, JobType type, long amount, Func<JobDefinition, bool> matches = null, bool absolute = false)
+        {
+            if (!JobsActive || amount <= 0 || !IsRealPlayer(player))
+            {
+                return;
+            }
+
+            PlayerData data = GetOrCreateData(player);
+            EnsureJobs(data);
+            foreach (JobProgress progress in data.Jobs.List)
+            {
+                if (progress.Done || !jobsById.TryGetValue(progress.Id, out JobDefinition job) || job.ParsedType != type || (matches != null && !matches(job)))
+                {
+                    continue;
+                }
+
+                long value = Math.Min(job.Amount, absolute ? Math.Max(progress.Progress, amount) : SaturatingAdd(progress.Progress, amount));
+                if (value == progress.Progress)
+                {
+                    continue;
+                }
+
+                progress.Progress = value;
+                dataDirty = true;
+                if (value >= job.Amount)
+                {
+                    progress.Done = true;
+                    if (player.IsConnected)
+                    {
+                        Reply(player, "JobDone", JobTaskTxt(job), UnitTxt(true, job.Reward));
+                    }
+
+                    SendDebug("DebugJobDone", data.Name, job.Id);
+                }
+            }
+        }
+
+        // What the job asks for, from the lang of each player ("Rompe 20 barriles"). The "One" keys are for an amount of 1.
+        private Txt JobTaskTxt(JobDefinition job)
+        {
+            string one = job.Amount == 1 ? "One" : string.Empty;
+            switch (job.ParsedType)
+            {
+                case JobType.KillScientists:
+                    return string.IsNullOrEmpty(job.Monument)
+                        ? T("JobKillScientists" + one, Num(job.Amount))
+                        : T("JobKillScientistsAt" + one, Num(job.Amount), job.Monument.Trim());
+                case JobType.BreakBarrels:
+                    return T("JobBreakBarrels" + one, Num(job.Amount));
+                case JobType.KillAnimals:
+                    return T("JobKillAnimals" + one, Num(job.Amount));
+                case JobType.RaidBase:
+                    int level = Math.Min(4, job.MinDifficulty ?? 0);
+                    return level > 0
+                        ? T("JobRaidBaseLevel" + one, Num(job.Amount), T("RaidDifficulty" + level))
+                        : T("JobRaidBase" + one, Num(job.Amount));
+                case JobType.Gather:
+                    return T("JobGather", Num(job.Amount), ResourceTxt(job.Resource));
+                default:
+                    return T("JobSurvive" + one, Num(job.Amount));
+            }
+        }
+
+        // Lang "Resource_<shortname>" (madera, piedra...), or the shortname if the lang has none.
+        private Txt ResourceTxt(string shortname)
+        {
+            string key = "Resource_" + shortname;
+            return new Txt(id =>
+            {
+                string text = Message(key, id);
+                return string.IsNullOrEmpty(text) || text == key ? shortname : text;
+            });
+        }
+
+        // The barber's remark of the job, in the player's language (config "Text" and "Text in other languages").
+        private Txt JobNoteTxt(JobDefinition job) => new Txt(id => ConfigText(job.Text, job.Texts, id));
+
+        // After every other plugin's OnDispenserGather (where the gather rates multiply): the item already has what the player gets.
+        private void OnDispenserGathered(ResourceDispenser dispenser, BasePlayer player, global::Item item) => CountGather(player, item);
+
+        private void OnDispenserBonusReceived(ResourceDispenser dispenser, BasePlayer player, global::Item item) => CountGather(player, item);
+
+        private void CountGather(BasePlayer player, global::Item item)
+        {
+            if (!JobsActive || item?.info == null || item.amount <= 0)
+            {
+                return;
+            }
+
+            string shortname = item.info.shortname;
+            AddJobProgress(player, JobType.Gather, item.amount, job => string.Equals(job.Resource, shortname, StringComparison.OrdinalIgnoreCase));
+        }
+
+        // Raidable Bases (Casas de Padre Jano). Its 3.1.2 code calls this hook with 17 arguments in this order, and Oxide drops
+        // the ones a hook method does not declare. "mode" is the difficulty (0-4) on versions that have them; 3.x has none and
+        // always sends 512, and then a base counts for every RaidBase job, whatever its minimum difficulty.
+        private void OnRaidableBaseCompleted(Vector3 raidPos, int mode, bool allowPVP, string id, float spawnTime, float despawnTime, float loadTime, ulong ownerId, BasePlayer owner, List<BasePlayer> raiders)
+        {
+            if (!JobsActive)
+            {
+                return;
+            }
+
+            var players = new HashSet<BasePlayer>();
+            if (raiders != null)
+            {
+                foreach (BasePlayer raider in raiders)
+                {
+                    if (IsRealPlayer(raider)) players.Add(raider);
+                }
+            }
+
+            if (IsRealPlayer(owner)) players.Add(owner);
+            bool knownDifficulty = mode >= 0 && mode <= 4;
+            foreach (BasePlayer player in players)
+            {
+                AddJobProgress(player, JobType.RaidBase, 1, job => !knownDifficulty || (job.MinDifficulty ?? 0) <= mode);
+            }
+        }
+
+        [ConsoleCommand("calvos.jobs")]
+        private void CcmdJobs(ConsoleSystem.Arg arg)
+        {
+            BasePlayer player = arg.Player();
+            string[] parts = MenuArgs(arg);
+            if (!IsRealPlayer(player) || !JobsActive || !RequireCalvarioNpc(player))
+            {
+                return;
+            }
+
+            OpenBarber(player, BarberPage.Jobs, parts.Length > 1 && parts[0] == "claim" ? ClaimJob(player, parts[1]) : null);
+        }
+
+        // Pays a finished job. Returns the barber's line (null if there is nothing to pay).
+        private string ClaimJob(BasePlayer player, string jobId)
+        {
+            PlayerData data = GetOrCreateData(player);
+            string userId = player.UserIDString;
+            EnsureJobs(data);
+            JobProgress progress = data.Jobs.List.FirstOrDefault(j => string.Equals(j.Id, jobId, StringComparison.OrdinalIgnoreCase));
+            if (progress == null || !progress.Done || progress.Claimed || !jobsById.TryGetValue(progress.Id, out JobDefinition job))
+            {
+                return null;
+            }
+
+            if (job.Reward > 0 && !AddRp(data.Id, job.Reward))
+            {
+                return Lang("BarberExFailed", userId);
+            }
+
+            progress.Claimed = true;
+            dataDirty = true;
+            SendDebug("DebugJobPaid", data.Name, job.Id, UnitTxt(true, job.Reward));
+            return Lang("BarberJobPaid", userId, UnitTxt(true, job.Reward));
+        }
+
+        // Price of the hair insurance for the player's alopecia now: max(minimum, alopecia / 1000 x surcharge), rounded up.
+        private long InsurancePrice(PlayerData data)
+        {
+            InsuranceConfig insurance = config.Insurance;
+            double price = Math.Ceiling(data.Baldness / 1000.0 * insurance.Surcharge);
+            long whole = price >= long.MaxValue ? long.MaxValue : (long)price;
+            return Math.Max(insurance.MinPrice, whole);
+        }
+
+        [ConsoleCommand("calvos.insurance")]
+        private void CcmdInsurance(ConsoleSystem.Arg arg)
+        {
+            BasePlayer player = arg.Player();
+            if (!IsRealPlayer(player) || !config.Insurance.Enabled || !RequireCalvarioNpc(player))
+            {
+                return;
+            }
+
+            OpenBarber(player, BarberPage.Insurance, BuyInsurance(player));
+        }
+
+        // Charges the price the player saw (or less, if their alopecia went down); if it went up, the new price is shown
+        // instead. Returns the barber's line.
+        private string BuyInsurance(BasePlayer player)
+        {
+            PlayerData data = GetOrCreateData(player);
+            string userId = player.UserIDString;
+            if (data.HasDeathShield)
+            {
+                return Lang("ItemShieldAlready", userId);
+            }
+
+            if (!insuranceQuotes.TryGetValue(data.Id, out long quoted))
+            {
+                return null;
+            }
+
+            long price = InsurancePrice(data);
+            if (price > quoted)
+            {
+                return Lang("BarberInsuranceRepriced", userId);
+            }
+
+            if (!RpAvailable || CheckRp(data.Id) < price)
+            {
+                return Lang("BarberExNotEnough", userId);
+            }
+
+            if (!TakeRp(data.Id, price))
+            {
+                return Lang("BarberExFailed", userId);
+            }
+
+            insuranceQuotes.Remove(data.Id);
+            data.HasDeathShield = true;
+            dataDirty = true;
+            SendDebug("DebugInsurance", data.Name, UnitTxt(true, price));
+            return Lang("BarberInsuranceDone", userId, UnitTxt(true, price));
+        }
+
+        // The language flags of Padre Jano's /info menu call lang.SetLanguage and then this hook; Oxide.Rust's own
+        // OnPlayerLanguageChanged comes when the game client switches language. The counter and the wallet are redrawn in the
+        // new language right away; an open window (barber, /calvos) changes on its next click.
+        private void OnIslaLanguageChanged(BasePlayer player, string code) => RedrawInNewLanguage(player);
+
+        private void OnPlayerLanguageChanged(BasePlayer player, string code) => RedrawInNewLanguage(player);
+
+        private void RedrawInNewLanguage(BasePlayer player)
+        {
+            if (!IsRealPlayer(player) || !player.IsConnected || player.IsSleeping())
+            {
+                return;
+            }
+
+            walletTexts.Remove((ulong)player.userID);
+            DrawCounter(player);
         }
 
         #endregion
@@ -4846,7 +6563,7 @@ namespace Oxide.Plugins
             return initiator is BaseNpc || npcTiers.ContainsKey(initiator.ShortPrefabName);
         }
 
-        private bool TryGetNpcReward(string prefab, out int tier, out long reward, out string whyNot)
+        private bool TryGetNpcReward(string prefab, out int tier, out long reward, out Txt whyNot)
         {
             tier = 0;
             reward = 0;
@@ -4859,19 +6576,19 @@ namespace Oxide.Plugins
                     Puts($"Unlisted NPC killed: '{prefab}'. Add it to NpcTiers in the config to give baldness for it.");
                 }
 
-                whyNot = Lang("NoRewardNpcUnlisted", null, prefab);
+                whyNot = T("NoRewardNpcUnlisted", prefab);
                 return false;
             }
 
             if (disabledNpcs.Contains(prefab))
             {
-                whyNot = Lang("NoRewardNpcDisabled", null, prefab);
+                whyNot = T("NoRewardNpcDisabled", prefab);
                 return false;
             }
 
             if (!tierRewards.TryGetValue(tier, out reward))
             {
-                whyNot = Lang("NoRewardTierMissing", null, prefab, tier);
+                whyNot = T("NoRewardTierMissing", prefab, tier);
                 return false;
             }
 
@@ -4883,7 +6600,7 @@ namespace Oxide.Plugins
             // Killing sleepers or disconnected players is not glorious.
             if (victim.IsSleeping() || !victim.IsConnected)
             {
-                DebugNoReward(killerData, Lang("NoRewardSleeperV2", null, victimName));
+                DebugNoReward(killerData, T("NoRewardSleeperV2", victimName));
                 return false;
             }
 
@@ -4897,7 +6614,7 @@ namespace Oxide.Plugins
             DateTime now = DateTime.UtcNow;
             if (victims.TryGetValue(victimId, out DateTime lastKill) && (now - lastKill).TotalMinutes < config.KillCooldownMinutes)
             {
-                DebugNoReward(killerData, Lang("NoRewardCooldown", null, victimName));
+                DebugNoReward(killerData, T("NoRewardCooldown", victimName));
                 return false;
             }
 
@@ -4916,7 +6633,7 @@ namespace Oxide.Plugins
                 }
 
                 PlayerData data = GetOrCreateData(player);
-                TrackMovement(player, data);
+                bool movedNow = TrackMovement(player, data);
                 data.SurvivalSeconds += SurvivalTickSeconds;
                 dataDirty = true;
 
@@ -4927,29 +6644,40 @@ namespace Oxide.Plugins
                     data.SurvivalMoved = false;
                     if (config.SurvivalRequireMovement && !moved)
                     {
-                        DebugNoReward(data, Lang("NoRpAfk"));
+                        DebugNoReward(data, T("NoRpAfk"));
                     }
                     else
                     {
-                        GainBaldness(data, config.SurvivalReward, Lang("ReasonSurvival"));
+                        GainBaldness(data, config.SurvivalReward, T("ReasonSurvival"));
                     }
                 }
 
                 RewardPointsTick(player, data);
+
+                // Survive jobs: a minute alive and moving adds to the streak; a still minute adds nothing and cuts nothing.
+                if (movedNow && JobsActive)
+                {
+                    int streak = (surviveStreaks.TryGetValue(data.Id, out int minutes) ? minutes : 0) + 1;
+                    surviveStreaks[data.Id] = streak;
+                    AddJobProgress(player, JobType.Survive, streak, null, true);
+                }
             }
         }
 
-        // One position check per tick feeds both the survival reward and the RP payout (anti-AFK).
-        private void TrackMovement(BasePlayer player, PlayerData data)
+        // One position check per tick feeds the survival reward, the RP payout (anti-AFK) and the Survive jobs. True if the
+        // player moved since the previous tick.
+        private bool TrackMovement(BasePlayer player, PlayerData data)
         {
             Vector3 position = player.transform.position;
-            if (lastPositions.TryGetValue(data.Id, out Vector3 last) && Vector3.Distance(last, position) >= config.ServerRewards.MinMoveMeters)
+            bool moved = lastPositions.TryGetValue(data.Id, out Vector3 last) && Vector3.Distance(last, position) >= config.ServerRewards.MinMoveMeters;
+            if (moved)
             {
                 data.SurvivalMoved = true;
                 data.RpMoved = true;
             }
 
             lastPositions[data.Id] = position;
+            return moved;
         }
 
         private void RewardPointsTick(BasePlayer player, PlayerData data)
@@ -4978,7 +6706,7 @@ namespace Oxide.Plugins
 
             if (rp.RequireMovement && !moved)
             {
-                SendDebug("DebugNoRpV2", data.Name, Lang("NoRpAfk"));
+                SendDebug("DebugNoRpV2", data.Name, T("NoRpAfk"));
                 return;
             }
 
@@ -4990,7 +6718,7 @@ namespace Oxide.Plugins
                     PrintWarning("Server Rewards is not loaded; no Puntos de Chola are being paid.");
                 }
 
-                SendDebug("DebugNoRpV2", data.Name, Lang("NoRpPlugin"));
+                SendDebug("DebugNoRpV2", data.Name, T("NoRpPlugin"));
                 return;
             }
 
@@ -5006,21 +6734,21 @@ namespace Oxide.Plugins
                 amount = room;
                 if (amount <= 0)
                 {
-                    SendDebug("DebugNoRpV2", data.Name, Lang("NoRpCapV2"));
+                    SendDebug("DebugNoRpV2", data.Name, T("NoRpCapV2"));
                     return;
                 }
             }
 
             if (!AddRp(data.Id, amount))
             {
-                SendDebug("DebugNoRpV2", data.Name, Lang("NoRpRefused"));
+                SendDebug("DebugNoRpV2", data.Name, T("NoRpRefused"));
                 return;
             }
 
-            SendDebug("DebugRpV2", data.Name, FormatBaldness(amount), GetTitle(data.Baldness));
+            SendDebug("DebugRpV2", data.Name, Num(amount), TitleTxt(GetTierIndex(data.Baldness)));
             if (rp.NotifyPlayer)
             {
-                Reply(player, "RpEarnedV5", FormatBaldness(amount), GetTitle(data.Baldness));
+                Reply(player, "RpEarnedV5", Num(amount), TitleTxt(GetTierIndex(data.Baldness)));
             }
         }
 
@@ -5044,13 +6772,13 @@ namespace Oxide.Plugins
             return amount;
         }
 
-        private void ChangeBaldness(PlayerData data, long delta, bool announce, string reason)
+        private void ChangeBaldness(PlayerData data, long delta, bool announce, Txt reason)
         {
             long oldValue = data.Baldness;
             long newValue = Math.Max(MinBaldness, SaturatingAdd(oldValue, delta));
 
-            SendDebug("DebugChange", data.Name, FormatBaldness(oldValue), FormatBaldness(newValue),
-                delta >= 0 ? "+" : string.Empty, FormatBaldness(delta), reason);
+            SendDebug("DebugChange", data.Name, Num(oldValue), Num(newValue),
+                delta >= 0 ? "+" : string.Empty, Num(delta), reason);
 
             if (newValue == oldValue)
             {
@@ -5086,24 +6814,24 @@ namespace Oxide.Plugins
                 }
                 else if (config.AnnounceTitleUp)
                 {
-                    Broadcast("TitleUpV3", data.Name, GetTitle(newValue));
+                    Broadcast("TitleUpV3", data.Name, TitleTxt(newTier));
                 }
 
                 if (config.Ui.ShowTitleUpBanner)
                 {
-                    ShowBanner(Lang("TitleUpBanner", null, data.Name, GetTitle(newValue).ToUpperInvariant()), config.Ui.TitleUpBannerSeconds);
+                    ShowBanner(T("TitleUpBanner", data.Name, TitleUpperTxt(newTier)), config.Ui.TitleUpBannerSeconds);
                 }
             }
             else if (newTier < oldTier)
             {
                 if (config.AnnounceTitleDrop)
                 {
-                    Broadcast("TitleDropV2", data.Name, GetTitle(newValue));
+                    Broadcast("TitleDropV2", data.Name, TitleTxt(newTier));
                 }
 
                 if (config.Ui.ShowTitleDropBanner)
                 {
-                    ShowBanner(Lang("TitleDropBanner", null, data.Name, GetTitle(newValue).ToUpperInvariant()), config.Ui.TitleUpBannerSeconds);
+                    ShowBanner(T("TitleDropBanner", data.Name, TitleUpperTxt(newTier)), config.Ui.TitleUpBannerSeconds);
                 }
             }
 
@@ -5147,11 +6875,11 @@ namespace Oxide.Plugins
                     continue;
                 }
 
-                var parts = new List<string>();
+                var parts = new List<Txt>();
                 var given = new List<string>();
                 var spawned = new List<string>();
                 int spawnFailed = GivePrize(data, player, prize, parts, given, spawned);
-                SendDebug("DebugTierPrize", data.Name, config.Titles[tier].Name, PrizeDebugText(parts, given, spawned));
+                SendDebug("DebugTierPrize", data.Name, TitleTxt(tier), PrizeDebugText(parts, given, spawned));
                 if (player == null || !player.IsConnected)
                 {
                     continue;
@@ -5159,28 +6887,25 @@ namespace Oxide.Plugins
 
                 if (parts.Count > 0)
                 {
-                    Reply(player, "TierPrizeV2", config.Titles[tier].Name, string.Join(", ", parts.ToArray()));
+                    Reply(player, "TierPrizeV2", TitleTxt(tier), JoinTxt(", ", parts));
                 }
                 else if (given.Count > 0)
                 {
-                    Reply(player, "TierPrizeItems", config.Titles[tier].Name);
+                    Reply(player, "TierPrizeItems", TitleTxt(tier));
                 }
 
                 ReplySpawnedPrize(player, spawned, spawnFailed);
-                if (!string.IsNullOrEmpty(prize.Message))
-                {
-                    SendChat(player, prize.Message);
-                }
+                SendPrizeMessage(player, prize);
             }
         }
 
         // Puntos de Chola and pelones go by id (online or not); items and spawned prefabs only to an online player. Fills in
         // what was actually given (parts: Puntos de Chola and pelones; given: items; spawned: prefabs), for the messages, and
         // returns how many prefabs could not be spawned.
-        private int GivePrize(PlayerData data, BasePlayer player, TierPrize prize, List<string> parts, List<string> given, List<string> spawned)
+        private int GivePrize(PlayerData data, BasePlayer player, TierPrize prize, List<Txt> parts, List<string> given, List<string> spawned)
         {
-            if (prize.Rp > 0 && AddRp(data.Id, prize.Rp)) parts.Add(UnitText(true, prize.Rp, null));
-            if (prize.Coins > 0 && DepositCoins(data.Id, prize.Coins)) parts.Add(UnitText(false, prize.Coins, null));
+            if (prize.Rp > 0 && AddRp(data.Id, prize.Rp)) parts.Add(UnitTxt(true, prize.Rp));
+            if (prize.Coins > 0 && DepositCoins(data.Id, prize.Coins)) parts.Add(UnitTxt(false, prize.Coins));
             if (prize.Items != null && player != null && player.IsConnected)
             {
                 // Silent: Rust shows its own pickup notice for each item.
@@ -5218,10 +6943,20 @@ namespace Oxide.Plugins
             return failed;
         }
 
-        private static string PrizeDebugText(List<string> parts, List<string> given, List<string> spawned)
+        private static Txt PrizeDebugText(List<Txt> parts, List<string> given, List<string> spawned)
         {
-            string[] all = parts.Concat(given).Concat(spawned).ToArray();
-            return all.Length > 0 ? string.Join(", ", all) : "-";
+            List<Txt> all = parts.Concat(given.Concat(spawned).Select(Plain)).ToList();
+            return all.Count > 0 ? JoinTxt(", ", all) : Plain("-");
+        }
+
+        // The prize's own "Message", in the player's language when the config has it ("Message in other languages").
+        private void SendPrizeMessage(BasePlayer player, TierPrize prize)
+        {
+            string message = ConfigText(prize.Message, prize.Messages, player.UserIDString);
+            if (!string.IsNullOrEmpty(message))
+            {
+                SendChat(player, message);
+            }
         }
 
         private void ReplySpawnedPrize(BasePlayer player, List<string> spawned, int failed)
@@ -5383,7 +7118,7 @@ namespace Oxide.Plugins
         private long CoinBalance(ulong id) =>
             CoinsAvailable && Economics.Call("Balance", id.ToString()) is double balance ? (long)Math.Floor(balance) : 0;
 
-        private void DebugNoReward(PlayerData data, string reason) => SendDebug("DebugNoRewardV2", data.Name, reason);
+        private void DebugNoReward(PlayerData data, Txt reason) => SendDebug("DebugNoRewardV2", data.Name, reason);
 
         private void SendDebug(string key, params object[] args)
         {
@@ -5416,11 +7151,31 @@ namespace Oxide.Plugins
             return index;
         }
 
-        private string GetTitle(long baldness) => config.Titles[GetTierIndex(baldness)].Name;
+        // The title a player reads (1.13.0): lang key "Title_<minimum alopecia>" in their language. The config name only
+        // when the lang has no key for that title (a title added or moved in the config).
+        private string TitleText(int index, string userId)
+        {
+            if (index < 0 || index >= config.Titles.Count)
+            {
+                return string.Empty;
+            }
+
+            string key = "Title_" + config.Titles[index].MinBaldness.ToString(CultureInfo.InvariantCulture);
+            string text = Message(key, userId);
+            return string.IsNullOrEmpty(text) || text == key ? config.Titles[index].Name : text;
+        }
+
+        private Txt TitleTxt(int index) => new Txt(id => TitleText(index, id));
+
+        // Same title in capitals, for the banners.
+        private Txt TitleUpperTxt(int index) => new Txt(id => TitleText(index, id).ToUpperInvariant());
+
+        private string GetTitle(long baldness, string userId) => TitleText(GetTierIndex(baldness), userId);
 
         // Unlike GetTierIndex, -1 below the first title: at 0 baldness a player holds no title.
         private int GetTitleIndex(long baldness) => baldness >= config.Titles[0].MinBaldness ? GetTierIndex(baldness) : -1;
 
+        // The config name, for other plugins and the website (isla.ranking, isla.salon, OnIslaTitleChanged): always Spanish.
         private string TitleName(int index) => index >= 0 && index < config.Titles.Count ? config.Titles[index].Name : string.Empty;
 
         private void EnsureGroup(string group)

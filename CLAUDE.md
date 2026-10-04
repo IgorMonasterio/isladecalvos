@@ -200,6 +200,21 @@ alcance cerrado:
   **Sin SteamIDs**; horas en ISO 8601 UTC. Para las cabezas se apunta desde ahora quién
   puso y desde cuándo (`BountyInfo`); el juego no cambia. Formato en el README y
   ARCHITECTURE §4o.
+- **Plugin 1.13.0** — encargo de Igor (issue #44), ideas de Padre Jano; ARCHITECTURE §4p:
+  - **Venganza capilar**: si A mata a B y B mata a A en 30 min, la kill de B paga ×2 y se
+    anuncia. Una venganza por agravio; si la kill no paga, la venganza tampoco.
+  - **Encargos del Barbero**: 3 al día por jugador (04:00 UTC), al azar de un catálogo de
+    17 en la config (científicos, en un monumento o no; barriles; animales; Casas de Padre
+    Jano; recolección; supervivencia). Fácil 250, medio 750, difícil 2.000 PdC. Se ven en
+    `/calvos` (pestaña ENCARGOS) y se cobran en el Barbero.
+  - **Seguro capilar**: el Barbero vende la cinta americana por `max(100, alopecia/1000 ×
+    1,5)` PdC.
+  - **Kit de consuelo**: 3 muertes en 15 min (sin suicidios) → vendas, revólver y balas al
+    reaparecer, en silencio, como mucho uno por hora.
+  - **Tres idiomas**: `es` y `es-ES` (español), `en` (inglés de verdad) y `ru` (ruso). Lo que
+    va a todos sale jugador por jugador en su idioma; números, fechas y plurales por idioma;
+    títulos desde el lang. Hook `OnIslaLanguageChanged` para las banderitas de `/info`.
+    Glosario en TONO.md ("Otros idiomas"). Config 1130, que solo añade.
 
 Decisiones de diseño de la v1.0 que no venían en la especificación inicial:
 - Toda muerte resta alopecia (PvP, NPC, entorno, suicidio), también la de un
@@ -253,7 +268,8 @@ Cambio de escala (de % a puntos enteros sin límite):
   su hook `OnUseNPC`. NTeleportation, Backpacks y Better Chat tampoco: el plugin
   solo mete a cada jugador en el grupo de su título (1.7.0) y al Calvo del Día en
   el suyo (1.8.0). Las recompensas por cabeza (1.8.0) necesitan Server Rewards:
-  sin él, `/cabeza` está cerrado.
+  sin él, `/cabeza` está cerrado. Raidable Bases tampoco es dependencia: solo se escucha su hook
+  `OnRaidableBaseCompleted` para los encargos (1.13.0); sin él no salen encargos de bases.
 
 ## Estructura
 
@@ -270,7 +286,8 @@ Lee `docs/ARCHITECTURE.md` antes de tocar código.
 
 - **Textos para jugadores**: antes de escribir, cambiar o traducir cualquier
   texto que vea un jugador (lang, mensajes, carteles, NPCs, README de cara al
-  jugador), lee `docs/TONO.md` y cúmplelo. Si Igor cambia algo del tono o del
+  jugador), lee `docs/TONO.md` y cúmplelo (en inglés y ruso, su sección "Otros
+  idiomas"). Si Igor cambia algo del tono o del
   vocabulario, se actualiza en ese fichero, no en otro sitio.
 - **No inventes features.** Solo se implementa lo que Igor pida
   explícitamente. Ante la duda, pregunta.
@@ -336,8 +353,11 @@ Lee `docs/ARCHITECTURE.md` antes de tocar código.
   SteamID que se pasa a `chat.add` (verificado en Oxide.Rust `Server.Broadcast`
   / `Player.Message`).
 - **Idioma**: documentación y conversación en español; código, identificadores
-  y comentarios en inglés. Los textos para jugadores van por `lang`, en español
-  por defecto (registrado en `es` y `en`, ver ARCHITECTURE).
+  y comentarios en inglés. Los textos para jugadores van por `lang` en tres
+  idiomas desde la 1.13.0: español (`es` y `es-ES`), inglés (`en`) y ruso (`ru`),
+  con las mismas claves en los tres (ver ARCHITECTURE §5). Un texto nuevo se
+  escribe en los tres, con el glosario de TONO.md. Lo que va a todos, por
+  `Broadcast`/`ShowBanner` con `Txt`, para que cada uno lo lea en su idioma.
 - **Honestidad sobre la compilación**: en el entorno cloud no hay DLL de Rust
   ni de Oxide, así que no se puede afirmar que el plugin compila de verdad.
   Distingue siempre lo comprobado (stubs) de lo supuesto. La prueba real es
