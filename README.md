@@ -27,6 +27,7 @@ Todos los valores se pueden cambiar en la config. Estos son los de por defecto:
 | Matas a otro jugador (headshot o no) | **+10.000** |
 | Matas a un NPC | según su tier, de **+10** (T1) a **+10.000** (T20) |
 | Cada 30 min vivo, conectado y moviéndote (no AFK) | **+100** |
+| Matas a quien te mató en los últimos 30 min (**Venganza capilar**, 1.13.0) | **el doble** de lo que toque (+20.000) |
 | Mueres, sea como sea (PvP, headshot, NPC, caída, suicidio…) | **−10 % de tu alopecia** (redondeado hacia arriba) |
 
 Siempre son números enteros.
@@ -383,7 +384,7 @@ lo avisa en la consola al arrancar.
 
 ### El cambio de alopecia (plugin 1.6.0)
 
-Opción **3. Vengo a vender (o comprar) alopecia** en la conversación con el barbero.
+Opción **Vengo a vender (o comprar) alopecia** en la conversación con el barbero.
 Alopecia, Puntos de Chola y pelones se cambian entre sí:
 
 | Operación | Por defecto |
@@ -418,7 +419,7 @@ Tres casitas, cada una con un NPC de **HumanNPC**:
 
 | Casa | NPC | Plugin que la atiende |
 |---|---|---|
-| **El Calvario** | El Barbero | Este plugin: reliquias y Carné de Calvo |
+| **El Calvario** | El Barbero | Este plugin: reliquias, Carné de Calvo, cambio de alopecia y, desde la 1.13.0, encargos y seguro capilar |
 | **El Mercalvona®** | Tendero del Mercalvona | GUIShop (pelones) |
 | **Cambio de divisas** (antes Premios Calvos) | Traficante | Server Rewards (Puntos de Chola) |
 
@@ -723,11 +724,110 @@ intenta el siguiente evento al azar; no siempre sale uno, porque no los hay si
 no hay nadie conectado. Con los eventos apagados, o justo después de cargar el
 plugin, sale solo `{"active":null}`.
 
+## Venganza, encargos, seguro y kit (plugin 1.13.0)
+
+Encargo de Igor (issue #44), con las ideas de Padre Jano. Todo se puede apagar y
+ajustar en la config; estos son los valores por defecto.
+
+### Venganza capilar
+
+Si A mata a B y **B mata a A en los 30 minutos siguientes**, la kill de B paga
+**el doble** de alopecia (normal o headshot, lo que toque) y sale en el chat de
+todos, cada uno en su idioma: *"VENGANZA CAPILAR: B le ha devuelto la visita a
+A. Alopecia x2, y con intereses."*
+
+- Solo cuenta la última muerte de B a manos de A, y la venganza se gasta al
+  cobrarla: una por agravio. La de A contra B (que acaba de morir) empieza ahí.
+- Siguen las reglas de siempre: si la kill no paga (víctima dormida o
+  desconectada, cooldown por víctima), tampoco hay venganza, y el agravio sigue
+  pendiente mientras no pasen los 30 minutos.
+- La Hora de la calvicie y la pila multiplican encima, como cualquier ganancia.
+- Vive en memoria: una recarga del plugin olvida los agravios.
+
+### Encargos del Barbero
+
+Cada jugador tiene **3 encargos al día**, sacados al azar de un catálogo de la
+config. Se renuevan a las **04:00 UTC** (las 06:00 en España en verano, las 05:00
+en invierno); lo que no se haya cobrado antes, se pierde. Se ven en la pestaña
+**ENCARGOS** de `/calvos` y hablando con el Barbero (**"¿Tienes algún encargo?"**),
+que es quien paga. Al completar uno sale un aviso en el chat.
+
+| Tipo | Qué cuenta |
+|---|---|
+| `KillScientists` | Matar científicos (NPC con `scientist` en el prefab). Con `Monument`, solo los que mueren dentro de ese monumento (su nombre inglés en el mapa, p. ej. `Train Yard`). |
+| `BreakBarrels` | Romper barriles (los mismos que sueltan reliquias). |
+| `KillAnimals` | Matar animales de la lista `Animal prefabs`. |
+| `RaidBase` | Completar una Casa de Padre Jano (Raidable Bases) de dificultad `Minimum difficulty` o más (0 fácil … 4 pesadilla). |
+| `Gather` | Recolectar `Amount` de `Resource` (`wood`, `stones`, `metal.ore`, `sulfur.ore`…), ya con el x5. Recoger del suelo no cuenta. |
+| `Survive` | `Amount` minutos vivo y moviéndote sin morir ni desconectarte (los minutos quieto no suman, pero no cortan la racha). |
+
+Catálogo por defecto (17 encargos, pensado para un server x5): fácil **250**,
+medio **750** y difícil **2.000** Puntos de Chola.
+
+| Encargo | Recompensa |
+|---|---|
+| Rompe 20 barriles · Mata 5 animales · Mata 5 científicos · Recolecta 10.000 de madera · Recolecta 10.000 de piedra · Sobrevive 60 minutos | 250 |
+| Rompe 60 barriles · Mata 15 animales · Mata 15 científicos · Mata 5 científicos en el Train Yard · Recolecta 10.000 de mineral de metal · Sobrevive 180 minutos · Revienta una Casa de Padre Jano | 750 |
+| Mata 10 científicos en el Military Tunnel · Mata 10 científicos en el Launch Site · Recolecta 10.000 de mineral de azufre · Revienta una Casa de Padre Jano de dificultad difícil o más | 2.000 |
+
+- Los de monumento solo se reparten si el monumento está en el mapa (la consola
+  avisa al cargar de los que no, con la lista de los que hay); los de bases, solo
+  con Raidable Bases cargado.
+- **Raidable Bases 3.x ya no tiene dificultades**: si es la versión del server,
+  cualquier Casa vale para cualquier encargo de bases, también el "difícil o más".
+- El texto del encargo ("Rompe 20 barriles") sale del lang de cada jugador; la
+  coletilla del Barbero ("No preguntes para qué los quiero.") es el `Text` del
+  encargo, con `Text in other languages` para el inglés y el ruso.
+- Cobrar necesita Server Rewards cargado.
+
+### Seguro capilar
+
+Opción nueva del Barbero: **la cinta americana** (tu próxima muerte no resta)
+**pagada con Puntos de Chola**. Precio: `max(100, alopecia / 1.000 × 1,5)`,
+redondeado hacia arriba; con 2.000.000 de alopecia, 3.000 Puntos de Chola. Es un
+50 % más de lo que te quitaría morir, contando 100 de alopecia = 1 Punto de Chola:
+un sumidero para los ricos.
+
+- Primero sale el precio y un **TRATO HECHO**. Si entre medias has ganado
+  alopecia, no se cobra: sale el precio nuevo.
+- Con la cinta ya puesta no te deja comprar otra.
+
+### Kit de consuelo
+
+Si un jugador muere **3 veces en 15 minutos** (los suicidios y `/kill` no
+cuentan), al reaparecer recibe **5 vendas, 1 revólver y 24 balas de pistola**,
+directamente en el inventario (sin el aviso "SERVER gave you…") y con el mensaje
+de la Seguridad Social Capilar. Como mucho **uno por hora**.
+
+## Idiomas (plugin 1.13.0)
+
+El mod está en **español, inglés y ruso**. Cada jugador lo lee en el idioma de su
+cliente de Rust (o en el que elija con las banderitas del menú `/info`): los
+clientes en español, en español; los rusos, en ruso, y todos los demás, en inglés.
+
+- Lo que se manda a todos (subidas de título, eventos, Calvo del Día, venganza,
+  cabezas…) va jugador por jugador, cada uno en su idioma, igual que los carteles
+  y la interfaz (contador, cartera, barbero, `/calvos`).
+- Números y fechas también: 1.000.000 en español, 1,000,000 en inglés y
+  1 000 000 en ruso.
+- Los nombres de la isla siguen el glosario de [docs/TONO.md](docs/TONO.md)
+  ("Otros idiomas"): Noggin Points y baldies, Очки Черепушки y лысики, etc.
+- Los títulos salen del lang, en los tres idiomas. El nombre de la config solo
+  se usa si el lang no tiene ese título (uno nuevo, o con el tramo cambiado), y en
+  los JSON y los hooks, que siguen en español.
+- El mensaje de cada premio (`Message`) tiene al lado `Message in other
+  languages` (`"en"`, `"ru"`); si no hay del idioma del jugador, sale el español.
+- **Hook para IslaInfo**: después de `lang.SetLanguage(código, id)`, llamar a
+  `Interface.CallHook("OnIslaLanguageChanged", BasePlayer player, string código)`
+  redibuja al momento el contador y la cartera. Si el jugador cambia el idioma de
+  su cliente, Oxide lanza `OnPlayerLanguageChanged` y pasa lo mismo.
+- Oxide vuelve a poner el idioma del cliente cada vez que el jugador se conecta.
+
 ## Comandos
 
 | Comando | Quién | Qué hace |
 |---|---|---|
-| `/calvos` | Todos | Abre la ventana de la isla: **ranking** de todo el servidor (de 10 en 10, con tu posición), **Salón de la fama** por mapa y **cabezas** con precio. Se cierra con la **X**. Las reliquias se usan hablando con el barbero de la peluquería. |
+| `/calvos` | Todos | Abre la ventana de la isla: **ranking** de todo el servidor (de 10 en 10, con tu posición), **Salón de la fama** por mapa, **cabezas** con precio y, desde la 1.13.0, los **encargos** del día. Se cierra con la **X**. Las reliquias, el cobro de los encargos y el seguro capilar van hablando con el barbero de la peluquería. |
 | `/cabeza <jugador> <cantidad>` | Todos | Pone Puntos de Chola por la cabeza de un jugador (se cobran al momento y no se devuelven). |
 | `/cabezas` | Todos | Abre `/calvos` en la pestaña de cabezas. |
 | `/calvoadmin set <jugador> <valor>` | Admin | Fija la alopecia de un jugador (entero, 0 o más). |
@@ -861,7 +961,9 @@ los premios son la alopecia mínima de cada título:
   "1": { "RP (Server Rewards)": 0, "Coins (Economics)": 2500,
          "Items": [ { "Item shortname": "knife.bone", "Amount": 1 } ],
          "Spawn prefabs": [],
-         "Message": "Toma este trozo de hueso afilado. Empieza a raparte solito." },
+         "Message": "Toma este trozo de hueso afilado. Empieza a raparte solito.",
+         "Message in other languages": { "en": "Have this sharpened bit of bone. Start shaving yourself like a big boy.",
+                                         "ru": "Держи заточенную косточку. Начинай бриться сам, ты уже большой." } },
   "1000": { "RP (Server Rewards)": 100, "Coins (Economics)": 10000, "Items": [], "Spawn prefabs": [], "Message": "" },
   ...
   "1000000": { "RP (Server Rewards)": 15000, "Coins (Economics)": 0, "Items": [],
@@ -896,8 +998,9 @@ En `"On-screen UI"` están
 La config lleva además un `Config version (do not edit)`. Sirve para que una
 actualización pueda corregir valores ya guardados (la 1.3.1 mueve el contador
 a la esquina superior derecha una sola vez; la 1.9.1 añade la cartera; la 1.11.0
-pasa el cambio a las claves nuevas y cambia el `minicopter` por el helicóptero). No lo
-toques.
+pasa el cambio a las claves nuevas y cambia el `minicopter` por el helicóptero; la 1.13.0
+solo añade las secciones nuevas y las traducciones del mensaje de Greñas Sucias, sin tocar
+nada de lo que ya había). No lo toques.
 
 Bloque de eventos globales (valores por defecto):
 
@@ -942,10 +1045,57 @@ Bloques de la 1.8.0 (valores por defecto):
 `"Oxide group": ""` = sin grupo. Una hora mal escrita vuelve a la de por defecto
 (`19:00`) con un aviso en la consola.
 
-Los textos de los mensajes se editan en `oxide/lang/es/IslaDeCalvos.json` y
-`oxide/lang/en/IslaDeCalvos.json`. Los dos están en español por defecto: la
-mayoría de jugadores tienen el cliente en inglés, y Oxide les mostraría el
-fichero `en`.
+Bloques de la 1.13.0 (valores por defecto; el catálogo, resumido):
+
+```json
+"Hair revenge (kill your killer back)": {
+  "Enabled": true,
+  "Window (minutes)": 30,
+  "Alopecia multiplier": 2
+},
+"Barber's jobs (daily quests)": {
+  "Enabled": true,
+  "Jobs per day": 3,
+  "New jobs every day at (UTC, HH:mm)": "04:00",
+  "Animal prefabs": [ "chicken", "snake.entity", "boar", "stag", "wolf", "wolf2", "panther", "tiger", "bear", "polarbear", "crocodile", "simpleshark" ],
+  "Catalog": [
+    { "Id": "barrels20", "Type": "BreakBarrels", "Amount": 20, "Reward (Puntos de Chola)": 250,
+      "Text": "No preguntes para qué los quiero.",
+      "Text in other languages": { "en": "Don't ask what I want them for.", "ru": "Не спрашивай, зачем они мне." } },
+    { "Id": "trainyard5", "Type": "KillScientists", "Amount": 5, "Reward (Puntos de Chola)": 750, "Monument": "Train Yard", "Text": "…", "Text in other languages": { … } },
+    { "Id": "sulfur10k", "Type": "Gather", "Amount": 10000, "Reward (Puntos de Chola)": 2000, "Resource": "sulfur.ore", "Text": "…", "Text in other languages": { … } },
+    { "Id": "raidhard1", "Type": "RaidBase", "Amount": 1, "Reward (Puntos de Chola)": 2000, "Minimum difficulty": 2, "Text": "…", "Text in other languages": { … } },
+    …
+  ]
+},
+"Hair insurance (duct tape for Puntos de Chola at the barber)": {
+  "Enabled": true,
+  "Minimum price (Puntos de Chola)": 100,
+  "Surcharge (price = alopecia / 1000 x this)": 1.5
+},
+"Consolation kit (after dying several times in a row)": {
+  "Enabled": true,
+  "Deaths": 3,
+  "Within (minutes)": 15,
+  "At most one kit every (minutes)": 60,
+  "Items": [
+    { "Item shortname": "bandage", "Amount": 5 },
+    { "Item shortname": "pistol.revolver", "Amount": 1 },
+    { "Item shortname": "ammo.pistol", "Amount": 24 }
+  ]
+}
+```
+
+En el catálogo, `Id` tiene que ser único (con él se guarda el progreso de cada
+jugador) y `Type` uno de los de la tabla de **Encargos del Barbero**. `Monument`,
+`Resource` y `Minimum difficulty` solo hacen falta en su tipo. Un encargo mal escrito
+se ignora con un aviso en la consola. `"Jobs per day": 0` apaga los encargos, igual
+que `"Enabled": false`.
+
+Los textos de los mensajes se editan en `oxide/lang/<idioma>/IslaDeCalvos.json`:
+`es` y `es-ES` (español), `en` (inglés) y `ru` (ruso), desde la 1.13.0 cada uno en
+su idioma (ver **Idiomas**). Hasta la 1.12.0 el fichero `en` también estaba en
+español.
 
 Los datos de los jugadores se guardan en `oxide/data/IslaDeCalvos.json`, en
 cada guardado automático del servidor y al descargar el plugin o apagar el
@@ -958,7 +1108,7 @@ servidor. Desde la 1.8.0 van en el mismo fichero el Salón de la fama
 1. Ten un servidor dedicado de Rust con **Oxide (uMod)** instalado.
 2. Copia `src/IslaDeCalvos.cs` en la carpeta `oxide/plugins/` del servidor.
 3. Oxide lo compila y carga solo. En la consola deberías ver algo como
-   `Loaded plugin Isla de Calvos v1.11.0 by Igor Monasterio`.
+   `Loaded plugin Isla de Calvos v1.13.0 by Igor Monasterio`.
 4. Para recargarlo tras cambiar el fichero (normalmente se recarga solo):
    `oxide.reload IslaDeCalvos`
 

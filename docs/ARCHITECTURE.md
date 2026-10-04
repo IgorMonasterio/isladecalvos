@@ -68,6 +68,10 @@ Hooks que usa la v1.0 y de dónde sale cada uno:
 | `OnEntityKill(BaseNetworkable entity)` | Cualquier entidad destruida (también al despawnear). Solo lo usamos para limpiar memoria. | Código descompilado (`BaseNetworkable.Kill`) |
 | `OnPlayerSleepEnded(BasePlayer player)` | El jugador despierta (tras conectar y tras cada respawn). Es cuando se dibuja el contador en pantalla (y, tras un wipe, cuando sale el anuncio del ganador del mapa). | Código descompilado (`BasePlayer.EndSleeping`) |
 | `OnPlayerDisconnected(BasePlayer player, string reason)` | Jugador desconectado. Termina la cacería si se va el objetivo. | Código descompilado (`ServerMgr`) + `RustHooks.cs` |
+| `OnDispenserGathered` / `OnDispenserBonusReceived(ResourceDispenser, BasePlayer, Item)` | Recolección, después de los multiplicadores de otros plugins (1.13.0, encargos). | `Rust.opj` + código descompilado (`ResourceDispenser.GiveResourceFromItem` / `AssignFinishBonus`) |
+| `OnPlayerLanguageChanged(BasePlayer, string)` | El cliente cambia de idioma (1.13.0). | `RustHooks.cs` (`OnPlayerSetInfo`) |
+| `OnRaidableBaseCompleted(...)` | Casa de Padre Jano completada (1.13.0, encargos). Hook de Raidable Bases, no de Oxide. | Código de Raidable Bases 3.1.2 (copia pública) |
+| `OnIslaLanguageChanged(BasePlayer, string)` | Banderita de idioma del menú `/info` (1.13.0). Lo llama IslaInfo. | Encargo de Igor (issue #44) |
 
 ## 3. Configuración
 
@@ -551,6 +555,78 @@ Encargo de Jano.
   contesta. **No verificable**, igual que con `isla.ranking`: cómo devuelve el RCON de
   Facepunch el texto de `ReplyWith`.
 
+## 4p. Venganza, encargos, seguro, kit y tres idiomas (plugin 1.13.0)
+
+Issue #44. Todo lo nuevo, en la config (versión 1130) con los valores del issue.
+
+- **Venganza capilar**: `grudges` (en memoria) guarda, por víctima, quién la mató y cuándo
+  (solo la última vez de cada pareja). En `OnPlayerDeath`, tras contar la kill y el bote,
+  `HasGrudge(asesino, víctima)` mira si la víctima mató al asesino hace menos de `Window`;
+  después se apunta el agravio nuevo (la víctima ahora debe una). Si la kill paga
+  (`IsKillRewardable`, el de siempre: durmientes, cooldown) y la recompensa es > 0, se
+  multiplica, se gasta el agravio y sale `RevengeChat` a todos. Si no paga, el agravio no se
+  gasta. Pasa por `GainBaldness`, así que la Hora de la calvicie y la pila también multiplican.
+- **Kit de consuelo**: `CountDeathForKit` en cada muerte que no sea suicidio (asesino = la
+  propia víctima, la regla de siempre; que `/kill` llegue así no se ha podido verificar).
+  Con `Deaths` muertes en `Within` minutos (y fuera del enfriamiento,
+  `PlayerData.LastConsolationKit`), el jugador entra en `pendingKits`; en el siguiente
+  `OnPlayerSleepEnded` vivo, `GiveConsolationKit` le da los objetos con `GiveItem` sin marca
+  (`PlayerInventory.GiveItem`: no sale el "SERVER gave you" de `inventory.giveto`) y el
+  mensaje `ConsolationKit`. Las muertes que lo ganaron empiezan de cero.
+- **Seguro capilar**: página `Insurance` del barbero y comando `calvos.insurance`. El precio
+  (`InsurancePrice`: `max(mínimo, ceil(alopecia / 1000 × recargo))`) que ve el jugador queda
+  en `insuranceQuotes`; al confirmar se recalcula: si ha subido, se le enseña el nuevo sin
+  cobrar (`BarberInsuranceRepriced`); si no, `TakeRp` y `HasDeathShield = true`. Con la cinta
+  ya puesta no deja comprar (`ItemShieldAlready`).
+- **Encargos del Barbero**: catálogo en la config (`JobDefinition`; `ValidateJobs` descarta
+  con aviso los que no sirven). `PlayerData.Jobs` guarda el día de encargos (fecha UTC del
+  último reinicio a `New jobs every day at`) y, por encargo, `Id`, `Progress`, `Done` y
+  `Claimed`. `EnsureJobs` reparte `Jobs per day` distintos al azar al cambiar de día, entre
+  los que se pueden hacer (`JobAvailable`: el monumento está en el mapa; Raidable Bases
+  cargado para los de bases). Lo no cobrado del día anterior se pierde. `AddJobProgress`
+  suma (o, con `absolute`, sube al valor actual) y avisa en el chat al completar.
+  - Barriles: el mismo `LootContainer` con `barrel` de los objetos del Calvario.
+  - Científicos: NPC `BasePlayer` con `scientist` en el prefab (las torretas `sentry.*` no
+    son jugadores). Con `Monument`, la posición del NPC al morir tiene que estar dentro de
+    un monumento con ese `displayPhrase.english` (`MonumentInfo.IsInBounds`). `LoadMonuments`
+    los agrupa por nombre desde `TerrainMeta.Path.Monuments` en `OnServerInitialized` y
+    avisa de los encargos cuyo monumento no está en el mapa (con la lista de los que hay).
+    **Verificado** en plugins públicos que compilan en el Rust actual (MonumentFinder,
+    MonumentPlayerSettings y Raidable Bases 3.1.2, que usa `displayPhrase.english`), no en
+    las fuentes oficiales: `MonumentInfo` no sale en `docs.json`.
+  - Animales: `Animal prefabs` de la config (por `ShortPrefabName`, como `NpcTiers`).
+  - Recolección: `OnDispenserGathered` y `OnDispenserBonusReceived` (`ResourceDispenser`,
+    `BasePlayer`, `Item`; `Rust.opj` y `docs.json`). Llegan **después** de
+    `OnDispenserGather`, que es donde los plugins de recolección (GatherManager…)
+    multiplican, así que el objeto ya trae lo que se lleva el jugador. Recoger del suelo
+    (`OnCollectiblePickup`) no cuenta.
+  - Supervivencia: en `SurvivalTick`, cada minuto vivo en el que el jugador se ha movido
+    (`TrackMovement`, la misma comprobación de la paga) suma 1 a `surviveStreaks`; un minuto
+    quieto no suma ni corta; morir o desconectarse lo pone a 0. En memoria.
+  - Casas de Padre Jano: hook `OnRaidableBaseCompleted` de Raidable Bases, visto en su
+    código 3.1.2 (copia pública): 17 argumentos, en este orden, y Oxide **descarta los que
+    el método no declara** (`CSPlugin`, Oxide.Core), así que se declaran los 10 primeros.
+    Cuentan los `raiders` y el `owner`. `mode` es la dificultad (0-4) en las versiones que
+    la tienen; la 3.x ya no tiene dificultades y manda siempre 512, y entonces cualquier
+    base vale para cualquier encargo de bases. La versión del server no se ha comprobado.
+  - Cobro: página `Jobs` del barbero (`calvos.jobs claim <id>`), `AddRp`. Se ven también en
+    la pestaña ENCARGOS de `/calvos` (`calvos.tab encargos`); con cuatro pestañas son más
+    estrechas y el Calvo del Día se corre a la derecha.
+- **Tres idiomas** (ver §5): textos en `es` y `es-ES` (español), `en` (inglés de verdad) y
+  `ru` (ruso). `OnIslaLanguageChanged(BasePlayer, string)` (lo llaman las banderitas de
+  IslaInfo después de `lang.SetLanguage`) y `OnPlayerLanguageChanged(BasePlayer, string)`
+  (Oxide.Rust, `RustHooks.OnPlayerSetInfo`, cuando el cliente cambia `global.language`)
+  redibujan contador y cartera al momento. Una ventana abierta cambia en su siguiente clic.
+  **Ojo**: Oxide.Rust vuelve a poner el idioma del cliente en cada conexión
+  (`IOnPlayerConnected`), así que lo elegido con una banderita dura hasta que el jugador
+  se reconecta (lo resuelve IslaInfo, no este plugin).
+- **Migración 1130**: solo añade. Las cuatro secciones nuevas salen solas (Newtonsoft deja
+  el valor por defecto en las claves que faltan) y el premio de Greñas Sucias gana su
+  `Message in other languages` si su `Message` sigue siendo el de por defecto y no tiene
+  traducciones. Probado en imitación con la config por defecto de la 1.12.0: todo lo que ya
+  estaba queda igual, el premio del Calvo del Día solo gana la clave nueva vacía y una
+  segunda carga no cambia nada.
+
 ## 5. Localización (lang)
 
 - Todos los textos del plugin pasan por `lang`: se registran en
@@ -558,11 +634,38 @@ Encargo de Jano.
   `lang.GetMessage(clave, this, userId)`.
 - Oxide genera `oxide/lang/<idioma>/IslaDeCalvos.json`, que el admin puede
   editar sin tocar código.
-- **El español es el idioma por defecto.** *Verificado en `Oxide.Rust` y
-  `Oxide.Core`*: Oxide asigna a cada jugador el idioma de su cliente de Rust
-  (casi siempre `en`) y, si falta un texto, recurre a `en`. Por eso los textos
-  en español se registran **en `es` y también en `en`**. Si algún día se quiere
-  traducir al inglés, basta con editar `oxide/lang/en/IslaDeCalvos.json`.
+- **Tres idiomas desde la 1.13.0.** *Verificado en `Oxide.Rust` y `Oxide.Core`*:
+  Oxide asigna a cada jugador el idioma de su cliente de Rust y, si no existe el
+  fichero de ese idioma, usa el del idioma del servidor (`en`), **no** `es`
+  (`Lang.GetMessageKey`). Los clientes españoles llegan como `es-ES`, así que el
+  español se registra en `es` y en `es-ES`; `en` es inglés y `ru`, ruso
+  (`SpanishMessages`, `EnglishMessages`, `RussianMessages`, con las mismas claves).
+  Cualquier otro idioma lee el inglés. Hasta la 1.12.0 el español se registraba
+  también como `en`; Oxide no pisa claves que ya existen, así que en un servidor que
+  venga de antes hay que borrar `oxide/lang/en/IslaDeCalvos.json` para que se
+  regenere en inglés.
+- **Texto por lector (`Txt`)**: lo que se manda a todos (anuncios, carteles de evento,
+  título, Calvo del Día, venganza…) va jugador por jugador (`Broadcast` hace un `Reply`
+  a cada conectado; `ShowBanner` recibe un `Txt`). Un `Txt` es un texto sin resolver:
+  `T(clave, args)`, `Num`, `Compact`, `UnitTxt`, `DateTxt`, `TitleTxt`… y `Lang`
+  resuelve cada argumento `Txt` con el id de quien lo lee. Los motivos del debug son
+  `Txt` también, así que cada admin los lee en su idioma. Sin lector (`userId` nulo:
+  consola, RCON, JSON de la web, hooks) sale en español (`GetMessageByLanguage`, en
+  Oxide.Core desde 2024).
+- **Números, fechas y plurales** siguen la clave `LanguageCode` del fichero que lee el
+  jugador (`es`, `en` o `ru`; `TextLanguage`), así que nunca discrepan del texto que los
+  rodea: 1.000.000 / 1,000,000 / 1 000 000, cifras cortas por idioma, fechas por idioma
+  y, en ruso, tres formas (`UnitRpOneV2`, `UnitRpFew`, `UnitRpV2`; igual con los pelones).
+- **Títulos** desde el lang (`Title_<alopecia mínima>`, `TitleText`), en todos los
+  idiomas, también el español. El nombre de la config solo sale si el lang no tiene la
+  clave (un título nuevo o con el tramo cambiado), y es el que usan `isla.ranking`,
+  `isla.salon` y `OnIslaTitleChanged`, que siguen en español. Para renombrar un título
+  ya desplegado: clave nueva, como cualquier texto.
+- **Textos que viven en la config**: el `Message` de un premio y el `Text` de un encargo
+  están en español y tienen al lado `Message in other languages` / `Text in other
+  languages` (`"en"`, `"ru"`…), que se eligen por `LanguageCode` (`ConfigText`); si no
+  hay del idioma, sale el español. No van al lang porque son de cada premio o encargo, y
+  Oxide borra del fichero de lang las claves que el plugin no registra.
 - **Cambiar un texto ya desplegado**: `Lang.MergeMessages` (Oxide.Core
   `Libraries/Lang.cs`) solo añade las claves que faltan en el fichero y borra
   las que ya no se registran. Nunca pisa un texto que ya existe. Para que un
@@ -594,12 +697,13 @@ Encargo de Jano.
 ## 7. Convenciones del proyecto
 
 - **Un solo plugin, un solo fichero**: `src/IslaDeCalvos.cs`, con `#region`.
-- **Idioma**: código, identificadores y comentarios en inglés; documentación y
-  textos para jugadores en español.
+- **Idioma**: código, identificadores y comentarios en inglés; documentación en
+  español; textos para jugadores en español, inglés y ruso (§5).
 - **Permisos**: siempre con el prefijo `isladecalvos.` (p. ej.
   `isladecalvos.admin`), declarados como constantes al principio de la clase.
-- **Textos para jugadores por `lang`**. Excepción decidida: los nombres de los
-  títulos van en la config, junto con sus tramos.
+- **Textos para jugadores por `lang`**, también los títulos desde la 1.13.0 (§5). Los
+  únicos en la config son el mensaje de cada premio y la coletilla de cada encargo,
+  con su versión por idioma al lado.
 - **Nada de magic numbers** ajustables por el admin: van a la config.
 - **Orden dentro de la clase** (con `#region`): campos/constantes → config →
   data → lang → hooks de ciclo de vida → hooks de juego → comandos → helpers.
